@@ -1,3 +1,7 @@
+-- Enum used in sequenceTerm and sequencePlan tables.
+
+CREATE TYPE entry_terms AS ENUM ('winter', 'fall', 'summer');
+
 -- public.building definition
 
 -- Drop table
