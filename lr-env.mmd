@@ -1,0 +1,47 @@
+graph LR
+    subgraph Dev["Dev Environment"]
+        DevLocal["Dev Machine<br/>(Docker)"]
+        DevAPI[Class Scheduler API<br/>Container]
+        DevDB[(Dev/Test DB)]
+    end
+
+    subgraph Staging["AITS - Staging"]
+        StgSrv[Staging VM]
+        StgAPI[API Container]
+        StgDB[(Staging DB)]
+    end
+
+    subgraph Prod["AITS - Production"]
+        ProdSrv[Prod VM]
+        ProdAPI[API Container]
+        ProdDB[(Prod DB)]
+    end
+
+    subgraph External["External Services"]
+        OpenData[Concordia Open Data APIs]
+    end
+
+    subgraph CI["CI/CD (GitHub / Azure DevOps)"]
+        Pipeline[Build/Test/Deploy Pipeline]
+        Registry[Container Registry]
+    end
+
+    User[Scheduler / Admin<br/>Web Browser] -->|HTTPS| ProdAPI
+
+    DevLocal --> DevAPI
+    DevAPI --> DevDB
+
+    StgAPI --> StgDB
+    ProdAPI --> ProdDB
+
+    DevAPI -->|HTTPS| OpenData
+    StgAPI -->|HTTPS| OpenData
+    ProdAPI -->|HTTPS| OpenData
+
+    Pipeline -->|Build & Push Image| Registry
+    Registry -->|Pull Image| DevLocal
+    Registry -->|Pull Image| StgSrv
+    Registry -->|Pull Image| ProdSrv
+
+    StgSrv --> StgAPI
+    ProdSrv --> ProdAPI

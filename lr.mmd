@@ -1,0 +1,26 @@
+graph LR
+    subgraph Users
+        U[Scheduler / Admin<br/>Web Browser]
+    end
+
+    subgraph AITS_Prod["AITS Network - Production"]
+        SrvProd["Prod VM / Server(Linux/Windows)"]
+        Container["Docker ContainerClass Scheduler API"]
+        DBProd["(AITS Production DB)"]
+    end
+
+    subgraph External["External Services"]
+        OpenData[Concordia Open Data APIs]
+    end
+
+    subgraph CI["CI/CD Server<br/>(GitHub Actions / Azure DevOps)"]
+        Pipeline[Build/Test/Deploy Pipeline]
+        Registry["Container Registry(e.g., GHCR / ACR)"]
+    end
+    
+    U -->|"HTTPS (REST)"| Container
+    Container -->|JDBC/ODBC<br/>SQL over TLS| DBProd
+    Container -->|HTTPS| OpenData
+    Pipeline -->|Build & Push Image| Registry
+    Registry -->|Pull Image| SrvProd
+    SrvProd -->|Run Image| Container

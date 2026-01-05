@@ -1,0 +1,31 @@
+
+graph TD
+
+    subgraph CI["Manual CI Pipeline"]
+        Build[Build]
+        Test[Test]
+        Package["Package<br/>(Release Artifact)"]
+        Deploy["Deploy<br/>(SSH to AITS)"]
+        Build --> Test --> Package --> Deploy
+    end
+
+    subgraph Server["AITS Server(encs email)"]
+        App[Backend Application]
+        Config["config.prod.json<br/>(DB + API settings)"]
+        Releases[Versioned Release Folders]
+        Releases --> App
+        Config --> App
+    end
+
+    Deploy --> Releases
+
+    subgraph DB["PostgreSQL Server"]
+        PG["(db-teach.encs.concordia.ca<br/>Database: uvo490_3)"]
+    end
+
+    subgraph External["Concordia Open Data"]
+        API[(Open Data APIs)]
+    end
+
+    App -->|DB connection| PG
+    App -->|HTTP requests| API
