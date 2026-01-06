@@ -89,26 +89,39 @@ jobs:
   frontend-lint:
     name: Frontend lint (HTML/CSS) - optional
     runs-on: ubuntu-latest
-    if: ${{ always() && hashFiles('**/*.html', '**/*.css') != '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect frontend files
+        id: detect
+        shell: bash
+        run: |
+          if ls **/*.html **/*.css 1> /dev/null 2>&1; then
+            echo "found=true" >> $GITHUB_OUTPUT
+          else
+            echo "found=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Set up Node
+        if: steps.detect.outputs.found == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
       - name: Install linters
+        if: steps.detect.outputs.found == 'true'
         run: |
           npm install -g htmlhint stylelint stylelint-config-standard
 
       - name: HTMLHint
-        run: |
-          # Only runs if html exists
-          if ls **/*.html 1> /dev/null 2>&1; then htmlhint "**/*.html"; fi
+        if: steps.detect.outputs.found == 'true'
+        run: htmlhint "**/*.html"
 
       - name: Stylelint
-        run: |
-          # Only runs if css exists
-          if ls **/*.css 1> /dev/null 2>&1; then stylelint "**/*.css"; fi
+        if: steps.detect.outputs.found == 'true'
+        run: stylelint "**/*.css"
+
+      - name: No frontend files found
+        if: steps.detect.outputs.found != 'true'
+        run: echo "No HTML/CSS files detected. Skipping frontend lint."
