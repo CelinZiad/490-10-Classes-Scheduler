@@ -54,16 +54,16 @@ jobs:
 
       - name: Unit tests
         run: |
-          pytest -q --disable-warnings --maxfail=1 --cov=. --cov-report=term-missing
+          PYTHONPATH=${{ github.workspace }} python -m pytest -q --disable-warnings --maxfail=1 --cov=. --cov-report=term-missing
         env:
           FLASK_ENV: testing
 
       - name: Integration tests (optional)
         run: |
-          pytest -q -m integration
+          PYTHONPATH=${{ github.workspace }} python -m pytest -q -m integration
         env:
           FLASK_ENV: testing
-
+  
   codeql:
     name: CodeQL (security)
     runs-on: ubuntu-latest
