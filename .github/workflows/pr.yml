@@ -1,0 +1,114 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python-quality-and-tests:
+    name: Python - quality + tests
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+          # Dev tools
+          pip install pytest pytest-cov ruff black mypy pip-audit
+
+      - name: Ruff (linting check)
+        run: ruff check . --format=github
+        continue-on-error: true
+
+      - name: Black (format check)
+        run: black --check .
+        continue-on-error: true
+
+      - name: Mypy (types)
+        run: mypy .
+        continue-on-error: true
+
+      - name: Dependency vulnerability check (pip-audit)
+        run: |
+          pip-audit || (echo "pip-audit found vulnerabilities" && exit 1)
+
+      - name: Unit tests
+        run: |
+          pytest -q --disable-warnings --maxfail=1 --cov=. --cov-report=term-missing
+        env:
+          FLASK_ENV: testing
+
+      - name: Integration tests (optional)
+        run: |
+          pytest -q -m integration
+        env:
+          FLASK_ENV: testing
+
+  codeql:
+    name: CodeQL (security)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Analyze
+        uses: github/codeql-action/analyze@v3
+
+  frontend-lint:
+    name: Frontend lint (HTML/CSS) - optional
+    runs-on: ubuntu-latest
+    if: ${{ hashFiles('**/*.html', '**/*.css') != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install linters
+        run: |
+          npm install -g htmlhint stylelint stylelint-config-standard
+
+      - name: HTMLHint
+        run: |
+          # Only runs if html exists
+          if ls **/*.html 1> /dev/null 2>&1; then htmlhint "**/*.html"; fi
+
+      - name: Stylelint
+        run: |
+          # Only runs if css exists
+          if ls **/*.css 1> /dev/null 2>&1; then stylelint "**/*.css"; fi
