@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Schedule Display</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
+</head>
+
+<body>
+<div class="app-layout">
+
+  <aside class="sidebar">
+    <a class="nav-item" href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a class="nav-item active" href="{{ url_for('schedule') }}">Schedules</a>
+    <a class="nav-item" href="{{ url_for('conflicts') }}">Conflicts</a>
+    <a class="nav-item" href="{{ url_for('solutions') }}">Solutions</a>
+  </aside>
+
+  <main class="main-content">
+    <h1>Generated Schedule</h1>
+
+    <div class="card">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Course</th>
+            <th>Instructor</th>
+            <th>Room</th>
+            <th>Time</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>COMP 490</td>
+            <td>Dr. Smith</td>
+            <td>EV 3.309</td>
+            <td>Mon 10:15–12:45</td>
+          </tr>
+          <tr>
+            <td>SOEN 357</td>
+            <td>Prof. Lee</td>
+            <td>EV 5.227</td>
+            <td>Wed 13:15–15:45</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </main>
+</div>
+</body>
+</html>
