@@ -41,14 +41,14 @@ CREATE TABLE public.sequenceplan (
 );
 
 CREATE TABLE public.sessions (
-	career varchar NULL,
+	career varchar NOT NULL,
 	termcode int4 NOT NULL,
 	termdescription varchar NULL,
 	sessioncode varchar NOT NULL,
 	sessiondescription varchar NULL,
 	sessionbegindate date NULL,
 	sessionenddate date NULL,
-	CONSTRAINT sessions_pk PRIMARY KEY (termcode, sessioncode)
+	CONSTRAINT sessions_pk PRIMARY KEY (termcode, sessioncode, career)
 );
 
 CREATE TABLE public."user" (
@@ -99,11 +99,12 @@ CREATE TABLE public.scheduleterm (
 	saturdays bool NULL,
 	sundays bool NULL,
 	facultydescription varchar NULL,
+	career varchar NULL,
 	CONSTRAINT scheduleterm_pk PRIMARY KEY (subject, catalog, section, termcode, classnumber),
 	CONSTRAINT scheduleterm_building_fk FOREIGN KEY (locationcode,buildingcode) REFERENCES public.building(campus,building) ON DELETE CASCADE ON UPDATE CASCADE,
 	CONSTRAINT scheduleterm_catalog_fk FOREIGN KEY ("catalog") REFERENCES public."catalog"(id) ON DELETE CASCADE ON UPDATE CASCADE,
 	CONSTRAINT scheduleterm_facultydept_fk FOREIGN KEY (facultycode,facultydescription) REFERENCES public.facultydept(facultycode,facultydescription) ON DELETE CASCADE ON UPDATE CASCADE,
-	CONSTRAINT scheduleterm_sessions_fk FOREIGN KEY (termcode,"session") REFERENCES public.sessions(termcode,sessioncode) ON DELETE CASCADE ON UPDATE CASCADE
+	CONSTRAINT scheduleterm_sessions_fk FOREIGN KEY (termcode,"session",career) REFERENCES public.sessions(termcode,sessioncode,career) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE public."section" (
