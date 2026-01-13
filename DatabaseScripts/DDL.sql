@@ -127,7 +127,7 @@ CREATE TABLE public."section" (
 	classwaitlistcapacity int4 NULL,
 	classwaitlisttotal int4 NULL,
 	"section" varchar NOT NULL,
-	CONSTRAINT section_pk PRIMARY KEY (term, subject, catalog, classnumber, section),
+	CONSTRAINT section_unique UNIQUE (classnumber, term),
 	CONSTRAINT section_catalog_fk FOREIGN KEY ("catalog") REFERENCES public."catalog"(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -177,7 +177,9 @@ CREATE TABLE public.studentscheduleclass (
 	classentryid int4 NOT NULL,
 	studentscheduleid int4 NOT NULL,
 	classnumber int4 NOT NULL,
+	term int4 NOT NULL,
 	CONSTRAINT studentscheduleclass_pk PRIMARY KEY (classentryid),
 	CONSTRAINT studentscheduleclass_unique UNIQUE (studentscheduleid, classnumber),
+	CONSTRAINT studentscheduleclass_section_fk FOREIGN KEY (classnumber,term) REFERENCES public."section"(classnumber,term) ON DELETE CASCADE ON UPDATE CASCADE,
 	CONSTRAINT studentscheduleclass_studentschedule_fk FOREIGN KEY (studentscheduleid) REFERENCES public.studentschedule(studentscheduleid) ON DELETE CASCADE ON UPDATE CASCADE
 );
