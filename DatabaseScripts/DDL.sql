@@ -23,9 +23,9 @@ CREATE TABLE public."catalog" (
 CREATE TABLE public.facultydept (
 	facultycode varchar NOT NULL,
 	facultydescription varchar NOT NULL,
-	departmentcode varchar NULL,
+	departmentcode varchar NOT NULL,
 	departmentdescription varchar NULL,
-	CONSTRAINT facultydept_pk PRIMARY KEY (facultycode, facultydescription)
+	CONSTRAINT facultydept_pk PRIMARY KEY (facultycode, departmentcode)
 );
 
 CREATE TABLE public.sequenceplan (
@@ -103,7 +103,7 @@ CREATE TABLE public.scheduleterm (
 	CONSTRAINT scheduleterm_pk PRIMARY KEY (subject, catalog, section, termcode, classnumber),
 	CONSTRAINT scheduleterm_building_fk FOREIGN KEY (locationcode,buildingcode) REFERENCES public.building(campus,building) ON DELETE CASCADE ON UPDATE CASCADE,
 	CONSTRAINT scheduleterm_catalog_fk FOREIGN KEY ("catalog") REFERENCES public."catalog"(id) ON DELETE CASCADE ON UPDATE CASCADE,
-	CONSTRAINT scheduleterm_facultydept_fk FOREIGN KEY (facultycode,facultydescription) REFERENCES public.facultydept(facultycode,facultydescription) ON DELETE CASCADE ON UPDATE CASCADE,
+	CONSTRAINT scheduleterm_facultydept_fk FOREIGN KEY (facultycode,departmentcode) REFERENCES public.facultydept(facultycode,departmentcode) ON DELETE CASCADE ON UPDATE CASCADE,
 	CONSTRAINT scheduleterm_sessions_fk FOREIGN KEY (termcode,"session",career) REFERENCES public.sessions(termcode,sessioncode,career) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
