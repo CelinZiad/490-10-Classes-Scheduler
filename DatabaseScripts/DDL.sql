@@ -28,16 +28,6 @@ CREATE TABLE public.facultydept (
 	CONSTRAINT facultydept_pk PRIMARY KEY (facultycode, facultydescription)
 );
 
-CREATE TABLE public.labrooms (
-	campus varchar NULL,
-	building varchar NULL,
-	room varchar NULL,
-	labroomid int4 NOT NULL,
-	resources varchar NULL,
-	CONSTRAINT labrooms_pk PRIMARY KEY (labroomid),
-	CONSTRAINT labrooms_unique UNIQUE (campus, building, room)
-);
-
 CREATE TABLE public.sequenceplan (
 	planid int4 NOT NULL,
 	planname varchar NOT NULL,
@@ -68,10 +58,15 @@ CREATE TABLE public."user" (
 	CONSTRAINT user_pk PRIMARY KEY (username)
 );
 
-CREATE TABLE public.courselabs (
-	courseid int4 NOT NULL,
-	labroomid int4 NULL,
-	CONSTRAINT courselabs_labrooms_fk FOREIGN KEY (labroomid) REFERENCES public.labrooms(labroomid) ON DELETE SET NULL ON UPDATE SET NULL
+CREATE TABLE public.labrooms (
+	campus varchar NULL,
+	building varchar NULL,
+	room varchar NULL,
+	labroomid int4 NOT NULL,
+	resources varchar NULL,
+	CONSTRAINT labrooms_pk PRIMARY KEY (labroomid),
+	CONSTRAINT labrooms_unique UNIQUE (campus, building, room),
+	CONSTRAINT labrooms_building_fk FOREIGN KEY (campus,building) REFERENCES public.building(campus,building) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 CREATE TABLE public.scheduleterm (
@@ -150,6 +145,13 @@ CREATE TABLE public.studentschedulestudy (
 	CONSTRAINT studentschedulestudy_pk PRIMARY KEY (studyid),
 	CONSTRAINT studentschedulestudy_unique UNIQUE (studyname, owner),
 	CONSTRAINT studentschedulestudy_user_fk FOREIGN KEY ("owner") REFERENCES public."user"(username) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE public.courselabs (
+	courseid varchar NOT NULL,
+	labroomid int4 NULL,
+	CONSTRAINT courselabs_catalog_fk FOREIGN KEY (courseid) REFERENCES public."catalog"(id) ON DELETE CASCADE ON UPDATE CASCADE,
+	CONSTRAINT courselabs_labrooms_fk FOREIGN KEY (labroomid) REFERENCES public.labrooms(labroomid) ON DELETE SET NULL ON UPDATE SET NULL
 );
 
 CREATE TABLE public.sequencecourse (
