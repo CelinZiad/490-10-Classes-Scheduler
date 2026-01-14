@@ -2,4 +2,3 @@ flask
 flask-sqlalchemy
 pytest
 pytest-cov
-stylelint
