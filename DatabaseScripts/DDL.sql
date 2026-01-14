@@ -9,15 +9,14 @@ CREATE TABLE public.building (
 );
 
 CREATE TABLE public."catalog" (
-	id varchar NOT NULL,
+	id int4 NOT NULL,
 	title varchar NULL,
-	subject varchar NULL,
+	subject varchar NOT NULL,
 	"catalog" varchar NULL,
 	career varchar NULL,
 	classunit float4 NULL,
 	prerequisites varchar NULL,
-	crosslisted varchar NULL,
-	CONSTRAINT catalog_pk PRIMARY KEY (id)
+	CONSTRAINT catalog_pk PRIMARY KEY (id, subject)
 );
 
 CREATE TABLE public.facultydept (
@@ -69,6 +68,54 @@ CREATE TABLE public.labrooms (
 	CONSTRAINT labrooms_building_fk FOREIGN KEY (campus,building) REFERENCES public.building(campus,building) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
+CREATE TABLE public."section" (
+	term int4 NOT NULL,
+	"session" varchar NULL,
+	overallenrollcapacity int4 NULL,
+	overallenrollments int4 NULL,
+	overallwaitlistcapacity int4 NULL,
+	overallwaitlisttotal int4 NULL,
+	subject varchar NOT NULL,
+	"catalog" varchar NOT NULL,
+	component varchar NULL,
+	classnumber int4 NOT NULL,
+	classenrollcapacity int4 NULL,
+	classenrollments int4 NULL,
+	classwaitlistcapacity int4 NULL,
+	classwaitlisttotal int4 NULL,
+	"section" varchar NOT NULL,
+	CONSTRAINT section_unique UNIQUE (term, classnumber, section),
+	CONSTRAINT section_catalog_fk FOREIGN KEY (classnumber,subject) REFERENCES public."catalog"(id,subject) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE public.sequenceterm (
+	sequencetermid int4 NOT NULL,
+	planid int4 NOT NULL,
+	yearnumber int4 NOT NULL,
+	season public."entry_terms" NOT NULL,
+	workterm bool DEFAULT false NOT NULL,
+	notes varchar NULL,
+	CONSTRAINT sequenceterm_pk PRIMARY KEY (sequencetermid),
+	CONSTRAINT sequenceterm_unique UNIQUE (planid, yearnumber, season, workterm),
+	CONSTRAINT sequenceterm_sequenceplan_fk FOREIGN KEY (planid) REFERENCES public.sequenceplan(planid) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE public.studentschedulestudy (
+	studyid int4 NOT NULL,
+	studyname varchar NULL,
+	"owner" varchar NOT NULL,
+	CONSTRAINT studentschedulestudy_pk PRIMARY KEY (studyid),
+	CONSTRAINT studentschedulestudy_unique UNIQUE (studyname, owner),
+	CONSTRAINT studentschedulestudy_user_fk FOREIGN KEY ("owner") REFERENCES public."user"(username) ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+CREATE TABLE public.courselabs (
+	courseid varchar NOT NULL,
+	labroomid int4 NULL,
+	CONSTRAINT courselabs_catalog_fk FOREIGN KEY (courseid) REFERENCES public."catalog"(id) ON DELETE CASCADE ON UPDATE CASCADE,
+	CONSTRAINT courselabs_labrooms_fk FOREIGN KEY (labroomid) REFERENCES public.labrooms(labroomid) ON DELETE SET NULL ON UPDATE SET NULL
+);
+
 CREATE TABLE public.scheduleterm (
 	subject varchar NOT NULL,
 	"catalog" varchar NOT NULL,
@@ -104,55 +151,8 @@ CREATE TABLE public.scheduleterm (
 	CONSTRAINT scheduleterm_building_fk FOREIGN KEY (locationcode,buildingcode) REFERENCES public.building(campus,building) ON DELETE CASCADE ON UPDATE CASCADE,
 	CONSTRAINT scheduleterm_catalog_fk FOREIGN KEY ("catalog") REFERENCES public."catalog"(id) ON DELETE CASCADE ON UPDATE CASCADE,
 	CONSTRAINT scheduleterm_facultydept_fk FOREIGN KEY (facultycode,departmentcode) REFERENCES public.facultydept(facultycode,departmentcode) ON DELETE CASCADE ON UPDATE CASCADE,
+	CONSTRAINT scheduleterm_section_fk FOREIGN KEY (termcode,classnumber,"section") REFERENCES public."section"(term,classnumber,"section") ON DELETE CASCADE ON UPDATE CASCADE,
 	CONSTRAINT scheduleterm_sessions_fk FOREIGN KEY (termcode,"session",career) REFERENCES public.sessions(termcode,sessioncode,career) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
-CREATE TABLE public."section" (
-	term int4 NOT NULL,
-	"session" varchar NULL,
-	overallenrollcapacity int4 NULL,
-	overallenrollments int4 NULL,
-	overallwaitlistcapacity int4 NULL,
-	overallwaitlisttotal int4 NULL,
-	subject varchar NOT NULL,
-	"catalog" varchar NOT NULL,
-	component varchar NULL,
-	classnumber int4 NOT NULL,
-	classenrollcapacity int4 NULL,
-	classenrollments int4 NULL,
-	classwaitlistcapacity int4 NULL,
-	classwaitlisttotal int4 NULL,
-	"section" varchar NOT NULL,
-	CONSTRAINT section_unique UNIQUE (classnumber, term),
-	CONSTRAINT section_catalog_fk FOREIGN KEY ("catalog") REFERENCES public."catalog"(id) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
-CREATE TABLE public.sequenceterm (
-	sequencetermid int4 NOT NULL,
-	planid int4 NOT NULL,
-	yearnumber int4 NOT NULL,
-	season public."entry_terms" NOT NULL,
-	workterm bool DEFAULT false NOT NULL,
-	notes varchar NULL,
-	CONSTRAINT sequenceterm_pk PRIMARY KEY (sequencetermid),
-	CONSTRAINT sequenceterm_unique UNIQUE (planid, yearnumber, season, workterm),
-	CONSTRAINT sequenceterm_sequenceplan_fk FOREIGN KEY (planid) REFERENCES public.sequenceplan(planid) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
-CREATE TABLE public.studentschedulestudy (
-	studyid int4 NOT NULL,
-	studyname varchar NULL,
-	"owner" varchar NOT NULL,
-	CONSTRAINT studentschedulestudy_pk PRIMARY KEY (studyid),
-	CONSTRAINT studentschedulestudy_unique UNIQUE (studyname, owner),
-	CONSTRAINT studentschedulestudy_user_fk FOREIGN KEY ("owner") REFERENCES public."user"(username) ON DELETE CASCADE ON UPDATE CASCADE
-);
-
-CREATE TABLE public.courselabs (
-	courseid varchar NOT NULL,
-	labroomid int4 NULL,
-	CONSTRAINT courselabs_catalog_fk FOREIGN KEY (courseid) REFERENCES public."catalog"(id) ON DELETE CASCADE ON UPDATE CASCADE,
-	CONSTRAINT courselabs_labrooms_fk FOREIGN KEY (labroomid) REFERENCES public.labrooms(labroomid) ON DELETE SET NULL ON UPDATE SET NULL
 );
 
 CREATE TABLE public.sequencecourse (
@@ -181,8 +181,9 @@ CREATE TABLE public.studentscheduleclass (
 	studentscheduleid int4 NOT NULL,
 	classnumber int4 NOT NULL,
 	term int4 NOT NULL,
+	"section" varchar NULL,
 	CONSTRAINT studentscheduleclass_pk PRIMARY KEY (classentryid),
 	CONSTRAINT studentscheduleclass_unique UNIQUE (studentscheduleid, classnumber),
-	CONSTRAINT studentscheduleclass_section_fk FOREIGN KEY (classnumber,term) REFERENCES public."section"(classnumber,term) ON DELETE CASCADE ON UPDATE CASCADE,
+	CONSTRAINT studentscheduleclass_section_fk FOREIGN KEY (term,classnumber,"section") REFERENCES public."section"(term,classnumber,"section") ON DELETE CASCADE ON UPDATE CASCADE,
 	CONSTRAINT studentscheduleclass_studentschedule_fk FOREIGN KEY (studentscheduleid) REFERENCES public.studentschedule(studentscheduleid) ON DELETE CASCADE ON UPDATE CASCADE
 );
