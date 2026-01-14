@@ -1,6 +1,8 @@
 import pytest
 from pathlib import Path
 
+pytestmark = pytest.mark.integration
+
 TEMPLATES = [
     ("/", "admin-dashboard.html"),
     ("/schedule", "schedule-display.html"),

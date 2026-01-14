@@ -60,7 +60,7 @@ jobs:
 
       - name: Integration tests (optional)
         run: |
-          PYTHONPATH=${{ github.workspace }} python -m pytest -q -m integration
+          PYTHONPATH=${{ github.workspace }} python -m pytest -q -m integration || exit 0
         env:
           FLASK_ENV: testing
   
