@@ -1,6 +1,6 @@
 import requests
 import psycopg2
-from sshtunnel import SSHTunnelForwarder
+import json
 import pandas as pd
 
 # -------------------------------
@@ -28,8 +28,14 @@ def building_api_to_db(data):
 def section_filter(subject="*", catalog="*", career="*", term="*"):
     return f"/course/section/filter/{subject}/{catalog}/{career}/{term}"
 
+# Catalog Table
+CATALOG_TABLE = "catalog"
+CATALOG_SCHEMA = "id, title, subject, \"catalog\", career, classunit, prerequisites"
 def catalog_filter(subject="*", catalog="*", career="*"):
     return f"/course/catalog/filter/{subject}/{catalog}/{career}"
+def catalog_api_to_db(data):
+    return f"'{data['ID']}','{data['title']}','{data['subject']}','{data['catalog']}','{data['career']}',{data['classUnit']},'{data['prerequisites']}'"
+
 
 # FacultyDept Table
 FACULTYDEPT_TABLE = "facultydept"
@@ -56,7 +62,9 @@ def fetch_data(filter):
     url = f"{API_URL}{filter}"
     response = requests.get(url, auth=("926","997264599ee22d81379687f476270e7f"))
     response.raise_for_status()
-    return response.json()
+    # Replace empty fields (null) with empty strings for easier SQL insertion
+    data = json.dumps(response.json()).replace("null",'""')
+    return json.loads(data)
 
 def insert_into(conn, table, schema, data, api_to_db_func: callable):
     sql = f"INSERT INTO public.{table} ({schema}) VALUES "
@@ -88,7 +96,8 @@ def main():
 
     tuples = [[building_filter(), BUILDING_TABLE, BUILDING_SCHEMA, building_api_to_db],
               [session_filter(), SESSIONS_TABLE, SESSIONS_SCHEMA, session_api_to_db],
-              [facultydept_filter(), FACULTYDEPT_TABLE, FACULTYDEPT_SCHEMA, facultydept_api_to_db]]
+              [facultydept_filter(), FACULTYDEPT_TABLE, FACULTYDEPT_SCHEMA, facultydept_api_to_db],
+              [catalog_filter(), CATALOG_TABLE, CATALOG_SCHEMA, catalog_api_to_db]]
     
     for t in tuples:
         print(f"Fetching data for table {t[1]}...")
