@@ -39,7 +39,7 @@ body {
 }
 
 .nav-item:hover {
-  background: rgb(255,255,255,8%);
+  background: rgb(255 255 255 / 8%);
 }
 
 .nav-item.active {
@@ -49,7 +49,7 @@ body {
 
 .nav-separator {
   height: 1px;
-  background: rgb(255,255,255,15%);
+  background: rgb(255 255 255 / 15%);
   margin: 0.75rem 0;
 }
 
@@ -67,7 +67,7 @@ body {
   background: var(--card-bg);
   padding: 1.5rem;
   border-radius: 10px;
-  box-shadow: 0 6px 18px rgb(0,0,0,6%);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 6%);
   margin-bottom: 1.5rem;
 }
 

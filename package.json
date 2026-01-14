@@ -1,0 +1,28 @@
+{
+  "name": "490-10-classes-scheduler",
+  "version": "1.0.0",
+  "description": "Capstone Project Repo, Team 10",
+  "main": "index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+  "lint:css": "stylelint \"static/**/*.css\"",
+  "lint:css:fix": "stylelint \"static/**/*.css\" --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CelinZiad/490-10-Classes-Scheduler.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/CelinZiad/490-10-Classes-Scheduler/issues"
+  },
+  "homepage": "https://github.com/CelinZiad/490-10-Classes-Scheduler#readme",
+  "devDependencies": {
+    "stylelint": "^16.26.1",
+    "stylelint-config-standard": "^39.0.1"
+  }
+}
