@@ -18,5 +18,4 @@ def conflicts():
 def solutions():
     return render_template("proposed-solutions.html")
 
-if __name__ == "__main__":
-    app.run(debug=True)
+app.run()
