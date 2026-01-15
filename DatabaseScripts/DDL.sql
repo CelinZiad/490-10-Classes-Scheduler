@@ -1,3 +1,9 @@
+CREATE TYPE public.entry_terms AS ENUM (
+    'fall',
+    'winter',
+    'summer'
+);
+
 CREATE TABLE public.building (
 	campus varchar NOT NULL,
 	building varchar NOT NULL,
