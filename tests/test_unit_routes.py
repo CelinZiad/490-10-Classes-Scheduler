@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 def test_routes_are_registered(app):
     rules = {r.rule for r in app.url_map.iter_rules()}
 

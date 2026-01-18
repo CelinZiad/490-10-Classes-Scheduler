@@ -37,7 +37,7 @@ jobs:
           pip install pytest pytest-cov ruff black mypy pip-audit
 
       - name: Ruff (linting check)
-        run: ruff check . --format=github
+        run: ruff check .
         continue-on-error: true
 
       - name: Black (format check)

@@ -10,9 +10,11 @@ TEMPLATES = [
     ("/solutions", "proposed-solutions.html"),
 ]
 
+
 def _template_exists(template_name: str) -> bool:
     templates_dir = Path(__file__).resolve().parents[1] / "templates"
     return (templates_dir / template_name).exists()
+
 
 @pytest.mark.parametrize("path,template_name", TEMPLATES)
 def test_pages_return_200_if_template_exists(client, path, template_name):
