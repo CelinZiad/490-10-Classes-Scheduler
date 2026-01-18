@@ -56,7 +56,7 @@ jobs:
         run: |
           pip-audit || (echo "pip-audit found vulnerabilities" && exit 1)
 
-      - name: Unit tests + coverage (no quality gate yet)
+      - name: Unit tests + coverage (no quality gate)
         run: |
           PYTHONPATH=${{ github.workspace }} python -m pytest -q --disable-warnings --maxfail=1 --cov=app --cov-report=term-missing
         env:
@@ -69,13 +69,11 @@ jobs:
           FLASK_ENV: testing
 
       - name: Build coverage annotations JSON (changed files only)
-        id: covjson
         run: |
           python tools/coverage_annotations.py > coverage_annotations.json
-          echo "json_path=coverage_annotations.json" >> $GITHUB_OUTPUT
         env:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
 
       - name: Debug coverage annotations (temporary)
         run: |
@@ -87,14 +85,17 @@ jobs:
         with:
           script: |
             const fs = require("fs");
-            const payload = JSON.parse(fs.readFileSync("${{ steps.covjson.outputs.json_path }}", "utf8"));
+            const payload = JSON.parse(fs.readFileSync("coverage_annotations.json", "utf8"));
             const annotations = payload.annotations || [];
+
+            // Important: attach the check to the PR's HEAD commit
+            const headSha = context.payload.pull_request.head.sha;
 
             await github.rest.checks.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               name: "Coverage (informational)",
-              head_sha: context.sha,
+              head_sha: headSha,
               status: "completed",
               conclusion: "neutral",
               output: {
