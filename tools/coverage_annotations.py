@@ -72,7 +72,11 @@ def main() -> None:
     max_annotations = 50
     annotations = annotations[:max_annotations]
 
-    print(json.dumps({"annotations": annotations, "changed_files": [str(p) for p in changed]}))
+    print(
+        json.dumps(
+            {"annotations": annotations, "changed_files": [str(p) for p in changed]}
+        )
+    )
 
 
 if __name__ == "__main__":
