@@ -13,13 +13,19 @@ def sh(cmd: List[str]) -> str:
 
 
 def get_changed_py_files(base_ref: str, head_ref: str) -> List[Path]:
-    # IMPORTANT: triple dots means "changes introduced by PR"
     out = sh(["git", "diff", "--name-only", f"{base_ref}...{head_ref}"])
     files: List[Path] = []
 
     for line in out.splitlines():
         p = Path(line)
-        if p.suffix == ".py" and p.exists():
+        if p.suffix != ".py":
+            continue
+
+        # Ignore tests and tooling scripts
+        if str(p).startswith("tests/") or str(p).startswith("tools/"):
+            continue
+
+        if p.exists():
             files.append(p)
 
     return files
