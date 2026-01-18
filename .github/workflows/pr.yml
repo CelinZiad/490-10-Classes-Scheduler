@@ -75,11 +75,6 @@ jobs:
           GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
 
-      - name: Debug coverage annotations (temporary)
-        run: |
-          echo "==== coverage_annotations.json ===="
-          cat coverage_annotations.json
-
       - name: Annotate PR with coverage (informational)
         uses: actions/github-script@v7
         with:
