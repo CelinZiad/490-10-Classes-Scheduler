@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: read
+  checks: write
+  pull-requests: read
 
 jobs:
   python-quality-and-tests:
@@ -20,6 +22,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -34,7 +38,7 @@ jobs:
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
           # Dev tools
-          pip install pytest pytest-cov ruff black mypy pip-audit
+          pip install pytest pytest-cov coverage ruff black mypy pip-audit
 
       - name: Ruff (linting check)
         run: ruff check .
@@ -52,7 +56,7 @@ jobs:
         run: |
           pip-audit || (echo "pip-audit found vulnerabilities" && exit 1)
 
-      - name: Unit tests
+      - name: Unit tests + coverage (no quality gate yet)
         run: |
           PYTHONPATH=${{ github.workspace }} python -m pytest -q --disable-warnings --maxfail=1 --cov=app --cov-report=term-missing
         env:
@@ -63,7 +67,38 @@ jobs:
           PYTHONPATH=${{ github.workspace }} python -m pytest -q -m integration || exit 0
         env:
           FLASK_ENV: testing
-  
+
+      - name: Build coverage annotations JSON (changed files only)
+        id: covjson
+        run: |
+          python tools/coverage_annotations.py > coverage_annotations.json
+          echo "json_path=coverage_annotations.json" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_SHA: ${{ github.sha }}
+
+      - name: Annotate PR with coverage (informational)
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            const payload = JSON.parse(fs.readFileSync("${{ steps.covjson.outputs.json_path }}", "utf8"));
+            const annotations = payload.annotations || [];
+
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: "Coverage (informational)",
+              head_sha: context.sha,
+              status: "completed",
+              conclusion: "neutral",
+              output: {
+                title: "Coverage annotations (no quality gate)",
+                summary: `Uncovered lines are shown as notices. Changed Python files: ${(payload.changed_files || []).length}. Annotations shown: ${annotations.length}.`,
+                annotations
+              }
+            });
+
   codeql:
     name: CodeQL (security)
     runs-on: ubuntu-latest
