@@ -21,3 +21,7 @@ def conflicts():
 @app.get("/solutions")
 def solutions():
     return render_template("proposed-solutions.html")
+
+
+def debug_only():
+    return 123
