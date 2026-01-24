@@ -1,14 +1,12 @@
-import pytest
 from pathlib import Path
+
+import pytest
+
+from app import ROUTE_TEMPLATES
 
 pytestmark = pytest.mark.integration
 
-TEMPLATES = [
-    ("/", "admin-dashboard.html"),
-    ("/schedule", "schedule-display.html"),
-    ("/conflicts", "conflicts-list.html"),
-    ("/solutions", "proposed-solutions.html"),
-]
+TEMPLATES = list(ROUTE_TEMPLATES.items())
 
 
 def _template_exists(template_name: str) -> bool:

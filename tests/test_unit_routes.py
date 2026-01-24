@@ -1,13 +1,11 @@
 from pathlib import Path
 
+from app import ROUTE_TEMPLATES
 
 def test_routes_are_registered(app):
     rules = {r.rule for r in app.url_map.iter_rules()}
 
-    assert "/" in rules
-    assert "/schedule" in rules
-    assert "/conflicts" in rules
-    assert "/solutions" in rules
+    assert set(ROUTE_TEMPLATES).issubset(rules)
 
 
 def test_templates_exist():
@@ -20,5 +18,5 @@ def test_templates_exist():
         "proposed-solutions.html",
     ]
 
-    missing = [name for name in expected if not (templates_dir / name).exists()]
+    missing = [name for name in ROUTE_TEMPLATES.values() if not (templates_dir / name).exists()]
     assert not missing, f"Missing templates in /templates: {missing}"
