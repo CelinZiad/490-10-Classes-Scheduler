@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
+</head>
+
+<body>
+<div class="app-layout">
+
+  <aside class="sidebar">
+    <a class="nav-item active" href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a class="nav-item" href="{{ url_for('schedule') }}">Schedules</a>
+    <a class="nav-item" href="{{ url_for('conflicts') }}">Conflicts</a>
+    <a class="nav-item" href="{{ url_for('solutions') }}">Solutions</a>
+
+    <div class="nav-separator"></div>
+
+    <div class="nav-item sub-item">Courses</div>
+    <div class="nav-item sub-item">Rooms</div>
+    <div class="nav-item sub-item">Instructors</div>
+    <div class="nav-item sub-item">Constraints</div>
+  </aside>
+
+  <main class="main-content">
+    <h1>System Overview</h1>
+
+    <div class="card">
+      <h2>Scheduler Status</h2>
+      <p>All systems operational.</p>
+    </div>
+
+    <div class="card">
+      <h2>Recent Activity</h2>
+      <ul>
+        <li>Schedule generated for Fall 2025</li>
+        <li>2 conflicts detected</li>
+        <li>Proposed solutions available</li>
+      </ul>
+    </div>
+  </main>
+
+</div>
+</body>
+</html>

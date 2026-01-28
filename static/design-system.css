@@ -1,0 +1,99 @@
+:root {
+  --app-bg: #f6f7fb;
+  --sidebar-bg: #111827;
+  --sidebar-text: #d1d5db;
+  --sidebar-active: #2563eb;
+  --card-bg: #fff;
+  --text-primary: #111827;
+  --border-color: #e5e7eb;
+  --space-sm: 0.75rem;
+  --space-md: 1.25rem;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--app-bg);
+}
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 240px;
+  background: var(--sidebar-bg);
+  padding: 1rem;
+}
+
+.nav-item {
+  display: block;
+  color: var(--sidebar-text);
+  padding: 0.6rem 0.8rem;
+  text-decoration: none;
+  border-radius: 6px;
+  margin-bottom: 4px;
+}
+
+.nav-item:hover {
+  background: rgb(255 255 255 / 8%);
+}
+
+.nav-item.active {
+  background: var(--sidebar-active);
+  color: white;
+}
+
+.nav-separator {
+  height: 1px;
+  background: rgb(255 255 255 / 15%);
+  margin: 0.75rem 0;
+}
+
+.sub-item {
+  padding-left: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.main-content {
+  flex: 1;
+  padding: 2rem;
+}
+
+.card {
+  background: var(--card-bg);
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 6%);
+  margin-bottom: 1.5rem;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.btn {
+  padding: 0.5rem 0.9rem;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.btn-primary {
+  background: var(--sidebar-active);
+  color: white;
+}
+
+.btn-ghost {
+  color: var(--sidebar-active);
+}
