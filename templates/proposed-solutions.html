@@ -1,39 +1,20 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Proposed Solutions</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
-</head>
+{% extends "base.html" %}
 
-<body>
-<div class="app-layout">
+{% block title %}Proposed Solutions{% endblock %}
 
-  <aside class="sidebar">
-    <a class="nav-item active" href="{{ url_for('dashboard') }}">Dashboard</a>
-    <a class="nav-item" href="{{ url_for('schedule') }}">Schedules</a>
-    <a class="nav-item" href="{{ url_for('catalog') }}">Catalog</a>
-    <a class="nav-item" href="{{ url_for('conflicts') }}">Conflicts</a>
-    <a class="nav-item" href="{{ url_for('solutions') }}">Solutions</a>
-  </aside>
+{% block content %}
+<h1>Proposed Conflict Resolutions</h1>
 
-  <main class="main-content">
-    <h1>Proposed Conflict Resolutions</h1>
+<div class="card">
+  <h2>Conflict: EV 3.309 double-booked</h2>
+  <ul>
+    <li>Move COMP 490 to EV 5.227</li>
+    <li>Swap SOEN 357 timeslot</li>
+    <li>Assign alternative instructor</li>
+  </ul>
 
-    <div class="card">
-      <h2>Conflict: EV 3.309 double-booked</h2>
-      <ul>
-        <li>Move COMP 490 to EV 5.227</li>
-        <li>Swap SOEN 357 timeslot</li>
-        <li>Assign alternative instructor</li>
-      </ul>
-
-      <a class="btn btn-ghost" href="{{ url_for('conflicts') }}">
-        ← Back to Conflicts
-      </a>
-    </div>
-
-  </main>
+  <a class="btn btn-ghost" href="{{ url_for('conflicts') }}">
+    ← Back to Conflicts
+  </a>
 </div>
-</body>
-</html>
+{% endblock %}

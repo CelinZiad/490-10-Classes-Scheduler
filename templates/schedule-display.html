@@ -1,82 +1,63 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Schedule Display</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
-</head>
+{% extends "base.html" %}
 
-<body>
-<div class="app-layout">
+{% block title %}Schedule Display{% endblock %}
 
-  <aside class="sidebar">
-    <a class="nav-item active" href="{{ url_for('dashboard') }}">Dashboard</a>
-    <a class="nav-item" href="{{ url_for('schedule') }}">Schedules</a>
-    <a class="nav-item" href="{{ url_for('catalog') }}">Catalog</a>
-    <a class="nav-item" href="{{ url_for('conflicts') }}">Conflicts</a>
-    <a class="nav-item" href="{{ url_for('solutions') }}">Solutions</a>
-  </aside>
+{% block content %}
+<h1>Generated Schedule</h1>
 
-  <main class="main-content">
-    <h1>Generated Schedule</h1>
-
-    <div class="card">
-      <form method="GET" action="{{ url_for('schedule') }}" style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
-        <div>
-          <label for="planid">Sequence type</label><br>
-          <select id="planid" name="planid" onchange="this.form.submit()">
-            {% for p in plans %}
-              <option value="{{ p.planid }}" {% if p.planid == selected_planid %}selected{% endif %}>
-                {{ p.planname }}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <div>
-          <label for="termid">Semester</label><br>
-          <select id="termid" name="termid" onchange="this.form.submit()">
-            {% for t in terms %}
-              <option value="{{ t.sequencetermid }}" {% if t.sequencetermid == selected_termid %}selected{% endif %}>
-                Year {{ t.yearnumber }} {{ t.season|title }}
-                {% if t.workterm %}(Work term){% endif %}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-
-        <noscript>
-          <button type="submit">Load</button>
-        </noscript>
-      </form>
+<div class="card">
+  <form method="GET" action="{{ url_for('schedule') }}" style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
+    <div>
+      <label for="planid">Sequence type</label><br>
+      <select id="planid" name="planid" onchange="this.form.submit()">
+        {% for p in plans %}
+          <option value="{{ p.planid }}" {% if p.planid == selected_planid %}selected{% endif %}>
+            {{ p.planname }}
+          </option>
+        {% endfor %}
+      </select>
     </div>
 
-    <div class="card">
-      {% if courses and courses|length > 0 %}
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Course</th>
-              <th>Label</th>
-              <th>Elective</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for c in courses %}
-              <tr>
-                <td>{{ c.subject }} {{ c.catalog }}</td>
-                <td>{{ c.label }}</td>
-                <td>{{ 'Yes' if c.iselective else 'No' }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      {% else %}
-        <p>No courses found for this selection.</p>
-      {% endif %}
+    <div>
+      <label for="termid">Semester</label><br>
+      <select id="termid" name="termid" onchange="this.form.submit()">
+        {% for t in terms %}
+          <option value="{{ t.sequencetermid }}" {% if t.sequencetermid == selected_termid %}selected{% endif %}>
+            Year {{ t.yearnumber }} {{ t.season|title }}
+            {% if t.workterm %}(Work term){% endif %}
+          </option>
+        {% endfor %}
+      </select>
     </div>
 
-  </main>
+    <noscript>
+      <button type="submit">Load</button>
+    </noscript>
+  </form>
 </div>
-</body>
-</html>
+
+<div class="card">
+  {% if courses and courses|length > 0 %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Course</th>
+          <th>Label</th>
+          <th>Elective</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in courses %}
+          <tr>
+            <td>{{ c.subject }} {{ c.catalog }}</td>
+            <td>{{ c.label }}</td>
+            <td>{{ 'Yes' if c.iselective else 'No' }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No courses found for this selection.</p>
+  {% endif %}
+</div>
+{% endblock %}

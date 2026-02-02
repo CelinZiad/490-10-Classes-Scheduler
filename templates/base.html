@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Classes Scheduler{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+<div class="app-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="logo">ECE Scheduler</span>
+    </div>
+
+    <nav class="nav-main">
+      <a class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}"
+         href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a class="nav-item {% if request.endpoint == 'timetable' %}active{% endif %}"
+         href="{{ url_for('timetable') }}">Timetable</a>
+      <a class="nav-item {% if request.endpoint == 'schedule' %}active{% endif %}"
+         href="{{ url_for('schedule') }}">Sequences</a>
+      <a class="nav-item {% if request.endpoint == 'catalog' %}active{% endif %}"
+         href="{{ url_for('catalog') }}">Catalog</a>
+      <a class="nav-item {% if request.endpoint == 'conflicts' %}active{% endif %}"
+         href="{{ url_for('conflicts') }}">Conflicts</a>
+      <a class="nav-item {% if request.endpoint == 'solutions' %}active{% endif %}"
+         href="{{ url_for('solutions') }}">Solutions</a>
+    </nav>
+
+    <div class="nav-separator"></div>
+
+    <nav class="nav-sub">
+      <div class="nav-item sub-item">Courses</div>
+      <div class="nav-item sub-item">Rooms</div>
+      <div class="nav-item sub-item">Instructors</div>
+      <div class="nav-item sub-item">Constraints</div>
+    </nav>
+  </aside>
+
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

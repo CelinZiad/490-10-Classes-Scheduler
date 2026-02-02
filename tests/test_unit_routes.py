@@ -16,7 +16,28 @@ def test_templates_exist():
         "schedule-display.html",
         "conflicts-list.html",
         "proposed-solutions.html",
+        "catalog.html",
+        "timetable.html",
+        "base.html",
     ]
 
     missing = [name for name in ROUTE_TEMPLATES.values() if not (templates_dir / name).exists()]
     assert not missing, f"Missing templates in /templates: {missing}"
+
+
+def test_timetable_route_exists(app):
+    """Test that /timetable route is registered"""
+    rules = {r.rule for r in app.url_map.iter_rules()}
+    assert "/timetable" in rules
+
+
+def test_api_events_route_exists(app):
+    """Test that /api/events route is registered"""
+    rules = {r.rule for r in app.url_map.iter_rules()}
+    assert "/api/events" in rules
+
+
+def test_api_filters_route_exists(app):
+    """Test that /api/filters route is registered"""
+    rules = {r.rule for r in app.url_map.iter_rules()}
+    assert "/api/filters" in rules

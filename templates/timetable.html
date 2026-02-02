@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}Timetable{% endblock %}
+
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/timetable.css') }}">
+{% endblock %}
+
+{% block content %}
+<h1>Timetable View</h1>
+
+<!-- Filter Bar -->
+<div class="card filter-card">
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label for="term-filter">Term</label>
+      <select id="term-filter">
+        <option value="">Loading...</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="subject-filter">Subject</label>
+      <select id="subject-filter">
+        <option value="">All Subjects</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="component-filter">Type</label>
+      <select id="component-filter">
+        <option value="">All Types</option>
+      </select>
+    </div>
+
+    <div class="filter-group">
+      <label for="building-filter">Building</label>
+      <select id="building-filter">
+        <option value="">All Buildings</option>
+      </select>
+    </div>
+
+    <div class="filter-actions">
+      <button id="apply-filters" class="btn btn-primary">Apply</button>
+      <button id="clear-filters" class="btn btn-ghost">Clear</button>
+    </div>
+  </div>
+
+  <!-- Quick Filter Tabs -->
+  <div class="quick-tabs">
+    <button class="tab-btn active" data-filter="ECE">ECE Only</button>
+    <button class="tab-btn" data-filter="COEN">COEN</button>
+    <button class="tab-btn" data-filter="ELEC">ELEC</button>
+    <button class="tab-btn" data-filter="COMP">COMP</button>
+    <button class="tab-btn" data-filter="SOEN">SOEN</button>
+    <button class="tab-btn" data-filter="all">All Subjects</button>
+  </div>
+</div>
+
+<!-- Stats Bar -->
+<div class="stats-bar">
+  <span id="event-count">Loading events...</span>
+  <span id="filter-info"></span>
+</div>
+
+<!-- Calendar Container -->
+<div class="card calendar-card">
+  <div id="calendar"></div>
+</div>
+
+<!-- Event Detail Modal -->
+<div id="event-modal" class="modal">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <button class="modal-close">&times;</button>
+    <div id="modal-body">
+      <!-- Content populated by JS -->
+    </div>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loading-overlay" class="loading-overlay">
+  <div class="spinner"></div>
+  <p>Loading schedule...</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script src="{{ url_for('static', filename='js/timetable.js') }}"></script>
+{% endblock %}
