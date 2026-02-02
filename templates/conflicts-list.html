@@ -10,9 +10,10 @@
 <div class="app-layout">
 
   <aside class="sidebar">
-    <a class="nav-item" href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a class="nav-item active" href="{{ url_for('dashboard') }}">Dashboard</a>
     <a class="nav-item" href="{{ url_for('schedule') }}">Schedules</a>
-    <a class="nav-item active" href="{{ url_for('conflicts') }}">Conflicts</a>
+    <a class="nav-item" href="{{ url_for('catalog') }}">Catalog</a>
+    <a class="nav-item" href="{{ url_for('conflicts') }}">Conflicts</a>
     <a class="nav-item" href="{{ url_for('solutions') }}">Solutions</a>
   </aside>
 

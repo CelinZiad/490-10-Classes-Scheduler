@@ -1,0 +1,51 @@
+flowchart TD
+
+    A([Start]) --> B[Open Classes Scheduler]
+    B --> C[Load Dashboard]
+
+    %% Dashboard Overview
+    C --> D[Display System Overview]
+    D --> D1[Scheduler Status]
+    D --> D2[Recent Activity]
+
+    %% Navigation Tabs
+    C --> E{Select Tab}
+
+    %% Dashboard Sub-Tabs
+    E -->|Courses / Rooms / Instructors / Constraints| F[View Available Data]
+    F --> C
+
+    %% Schedule Tab
+    E -->|Schedules| G[View Existing Schedule]
+    G --> G1[Filter by Semester]
+    G --> G2{User Action}
+
+    G2 -->|Generate New Schedule| H[Run Scheduler Algorithm]
+    G2 -->|Upload Schedule Excel| I[Import Schedule Changes]
+    G2 -->|Upload Student Schedules| J[Analyze Student Conflicts]
+
+    J --> J1[Find Compatible Timeslot]
+    J1 --> J2[Assign Room & Open New Section]
+    J2 --> G
+
+    %% Conflict Detection
+    H --> K{Conflicts Detected?}
+
+    K -->|No| L[Save Schedule]
+    L --> C
+
+    K -->|Yes| M[Go to Conflicts Page]
+
+    %% Conflicts Page
+    M --> M1[View Conflict List]
+    M1 --> M2{Resolution Method}
+
+    M2 -->|Manual Adjustment| N[Modify Schedule Not Saved]
+    N --> C
+
+    M2 -->|View Solutions| O[Go to Solutions Page]
+
+    %% Solutions Page
+    O --> O1[Proposed Conflict Resolutions]
+    O1 --> O2[Apply Selected Solution]
+    O2 --> L

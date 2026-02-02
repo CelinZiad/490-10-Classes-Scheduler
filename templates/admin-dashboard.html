@@ -12,6 +12,7 @@
   <aside class="sidebar">
     <a class="nav-item active" href="{{ url_for('dashboard') }}">Dashboard</a>
     <a class="nav-item" href="{{ url_for('schedule') }}">Schedules</a>
+    <a class="nav-item" href="{{ url_for('catalog') }}">Catalog</a>
     <a class="nav-item" href="{{ url_for('conflicts') }}">Conflicts</a>
     <a class="nav-item" href="{{ url_for('solutions') }}">Solutions</a>
 
@@ -28,16 +29,45 @@
 
     <div class="card">
       <h2>Scheduler Status</h2>
-      <p>All systems operational.</p>
+
+      {% if scheduler_status.state == "NOT_IMPLEMENTED" %}
+        <p class="status status-warning">⚠️ Scheduler not available</p>
+        <p>{{ scheduler_status.message }}</p>
+
+      {% elif scheduler_status.state == "READY" %}
+        <p class="status status-info">⏳ Scheduler ready</p>
+        <p>{{ scheduler_status.message }}</p>
+
+      {% elif scheduler_status.state == "RUNNING" %}
+        <p class="status status-running">🔄 Scheduler running</p>
+        <p>{{ scheduler_status.message }}</p>
+
+      {% elif scheduler_status.state == "COMPLETED" %}
+        <p class="status status-success">✅ Schedule generated</p>
+        <p>{{ scheduler_status.message }}</p>
+
+      {% elif scheduler_status.state == "FAILED" %}
+        <p class="status status-error">❌ Scheduler failed</p>
+        <p>{{ scheduler_status.message }}</p>
+
+      {% else %}
+        <p class="status status-info">ℹ️ Unknown status</p>
+        <p>Status is not available.</p>
+      {% endif %}
     </div>
 
     <div class="card">
       <h2>Recent Activity</h2>
-      <ul>
-        <li>Schedule generated for Fall 2025</li>
-        <li>2 conflicts detected</li>
-        <li>Proposed solutions available</li>
-      </ul>
+
+      {% if recent_activity and recent_activity|length > 0 %}
+        <ul>
+          {% for item in recent_activity %}
+            <li>{{ item }}</li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No recent activity.</p>
+      {% endif %}
     </div>
   </main>
 
