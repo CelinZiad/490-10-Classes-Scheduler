@@ -1,5 +1,7 @@
 import os
-from flask import Flask, render_template, jsonify, request
+import json
+from datetime import date
+from flask import Flask, render_template, jsonify, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 
@@ -10,9 +12,10 @@ app = Flask(__name__)
 ROUTE_TEMPLATES = {
     "/": "admin-dashboard.html",
     "/schedule": "schedule-display.html",
-    "/catalog": "catalog.html",  # ✅ NEW
+    "/catalog": "catalog.html",
     "/conflicts": "conflicts-list.html",
     "/solutions": "proposed-solutions.html",
+    "/activity": "activity.html",
 }
 
 DB_HOST = os.getenv("DB_HOST")
@@ -28,41 +31,158 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
+# flip to True when your real algorithm exists
+algorithmimplemented = False
+
+
+def logactivity(eventtype: str, title: str, actorname: str | None = None, metadata: dict | None = None):
+    if metadata is None:
+        metadata = {}
+
+    db.session.execute(
+        db.text("""
+            insert into activitylog (actorname, eventtype, title, metadata)
+            values (:actorname, :eventtype, :title, cast(:metadata as jsonb));
+        """),
+        {
+            "actorname": actorname,
+            "eventtype": eventtype,
+            "title": title,
+            "metadata": json.dumps(metadata),
+        },
+    )
+    db.session.commit()
+
 
 @app.get("/health/db")
 def health_db():
-    ok = db.session.execute(db.text("SELECT 1")).scalar() == 1
+    ok = db.session.execute(db.text("select 1")).scalar() == 1
     return jsonify(ok=ok)
 
 
 @app.get("/")
 def dashboard():
-    # ✅ Provide scheduler status to the template
-    scheduler_status = {
-        "state": "NOT_IMPLEMENTED",
-        "message": "No scheduling algorithm is currently implemented.",
-    }
+    # scheduler status
+    if not algorithmimplemented:
+        scheduler_status = {
+            "state": "NOT_IMPLEMENTED",
+            "message": "No scheduling algorithm is currently implemented.",
+        }
+    else:
+        scheduler_status = {
+            "state": "READY",
+            "message": "Scheduling algorithm is available.",
+        }
 
-    # ✅ Honest activity (until you generate schedules for real)
-    recent_activity = [
-        "Sequence plans available (COEN/ELEC, COOP/C-EDGE)",
-        "Term structure loaded (Fall/Winter/Summer + work terms)",
-        "Catalog data available (course titles + prerequisites)",
-    ]
+    # ✅ only show 3 recent items on dashboard
+    recentactivity = db.session.execute(
+        db.text("""
+            select createdat, actorname, title
+            from activitylog
+            order by createdat desc
+            limit 3;
+        """)
+    ).mappings().all()
 
     return render_template(
         ROUTE_TEMPLATES["/"],
         scheduler_status=scheduler_status,
-        recent_activity=recent_activity,
+        recentactivity=recentactivity,
+    )
+
+
+# ✅ Generate Schedule trigger (button on dashboard)
+@app.post("/schedulerrun")
+def postschedulerrun():
+    schedulename = request.form.get("schedulename", "schedule-draft")
+
+    # always log that someone pressed the button
+    logactivity(
+        eventtype="schedulerrunrequested",
+        title=f'Schedule run requested: "{schedulename}"',
+        actorname="admin",
+        metadata={"schedulename": schedulename},
+    )
+
+    # no algo -> log blocked, do not create schedulerun row
+    if not algorithmimplemented:
+        logactivity(
+            eventtype="schedulerrunblocked",
+            title="Scheduler run blocked: no algorithm implemented.",
+            actorname="system",
+            metadata={},
+        )
+        return redirect(url_for("dashboard"))
+
+    # algo exists -> create a schedulerun row
+    db.session.execute(
+        db.text("""
+            insert into schedulerun (name, status)
+            values (:name, 'generated');
+        """),
+        {"name": schedulename},
+    )
+    db.session.commit()
+
+    logactivity(
+        eventtype="schedulegenerated",
+        title=f'Schedule "{schedulename}" generated',
+        actorname="system",
+        metadata={"schedulename": schedulename},
+    )
+
+    return redirect(url_for("dashboard"))
+
+
+# ✅ NEW: view all activity + filter by date
+@app.get("/activity")
+def activity():
+    startdate = request.args.get("startdate")  # YYYY-MM-DD
+    enddate = request.args.get("enddate")      # YYYY-MM-DD
+
+    where = []
+    params = {}
+
+    if startdate:
+        where.append("createdat >= :startdate::date")
+        params["startdate"] = startdate
+
+    if enddate:
+        where.append("createdat < (:enddate::date + interval '1 day')")
+        params["enddate"] = enddate
+
+    wheresql = ""
+    if where:
+        wheresql = "where " + " and ".join(where)
+
+    logs = db.session.execute(
+        db.text(f"""
+            select activityid, createdat, actorname, eventtype, title
+            from activitylog
+            {wheresql}
+            order by createdat desc
+            limit 300;
+        """),
+        params,
+    ).mappings().all()
+
+    today = date.today().isoformat()
+
+    return render_template(
+        ROUTE_TEMPLATES["/activity"],
+        logs=logs,
+        startdate=startdate or "",
+        enddate=enddate or "",
+        today=today,
     )
 
 
 @app.get("/schedule")
 def schedule():
     plans = db.session.execute(db.text("""
-        SELECT planid, planname, program, entryterm, option, durationyears, publishedon
-        FROM sequenceplan
-        ORDER BY publishedon DESC, planid ASC;
+        select planid, planname, program, entryterm, option, durationyears, publishedon
+        from sequenceplan
+        order by publishedon desc, planid asc;
     """)).mappings().all()
 
     selected_planid = request.args.get("planid", type=int)
@@ -72,16 +192,16 @@ def schedule():
     terms = []
     if selected_planid is not None:
         terms = db.session.execute(db.text("""
-            SELECT sequencetermid, yearnumber, season, workterm, notes
-            FROM sequenceterm
-            WHERE planid = :planid
-            ORDER BY yearnumber ASC,
-                     CASE season
-                        WHEN 'fall' THEN 1
-                        WHEN 'winter' THEN 2
-                        WHEN 'summer' THEN 3
-                        ELSE 4
-                     END ASC;
+            select sequencetermid, yearnumber, season, workterm, notes
+            from sequenceterm
+            where planid = :planid
+            order by yearnumber asc,
+                     case season
+                        when 'fall' then 1
+                        when 'winter' then 2
+                        when 'summer' then 3
+                        else 4
+                     end asc;
         """), {"planid": selected_planid}).mappings().all()
 
     selected_termid = request.args.get("termid", type=int)
@@ -91,10 +211,10 @@ def schedule():
     courses = []
     if selected_termid is not None:
         courses = db.session.execute(db.text("""
-            SELECT subject, catalog, label, iselective
-            FROM sequencecourse
-            WHERE sequencetermid = :termid
-            ORDER BY subject ASC, catalog ASC;
+            select subject, catalog, label, iselective
+            from sequencecourse
+            where sequencetermid = :termid
+            order by subject asc, catalog asc;
         """), {"termid": selected_termid}).mappings().all()
 
     return render_template(
@@ -107,13 +227,12 @@ def schedule():
     )
 
 
-# ✅ NEW ENDPOINT: combines sequencecourse + catalog
 @app.get("/catalog")
 def catalog():
     plans = db.session.execute(db.text("""
-        SELECT planid, planname, program, entryterm, option, durationyears, publishedon
-        FROM sequenceplan
-        ORDER BY publishedon DESC, planid ASC;
+        select planid, planname, program, entryterm, option, durationyears, publishedon
+        from sequenceplan
+        order by publishedon desc, planid asc;
     """)).mappings().all()
 
     selected_planid = request.args.get("planid", type=int)
@@ -123,16 +242,16 @@ def catalog():
     terms = []
     if selected_planid is not None:
         terms = db.session.execute(db.text("""
-            SELECT sequencetermid, yearnumber, season, workterm, notes
-            FROM sequenceterm
-            WHERE planid = :planid
-            ORDER BY yearnumber ASC,
-                     CASE season
-                        WHEN 'fall' THEN 1
-                        WHEN 'winter' THEN 2
-                        WHEN 'summer' THEN 3
-                        ELSE 4
-                     END ASC;
+            select sequencetermid, yearnumber, season, workterm, notes
+            from sequenceterm
+            where planid = :planid
+            order by yearnumber asc,
+                     case season
+                        when 'fall' then 1
+                        when 'winter' then 2
+                        when 'summer' then 3
+                        else 4
+                     end asc;
         """), {"planid": selected_planid}).mappings().all()
 
     selected_termid = request.args.get("termid", type=int)
@@ -142,7 +261,7 @@ def catalog():
     rows = []
     if selected_termid is not None:
         rows = db.session.execute(db.text("""
-            SELECT
+            select
                 sc.subject,
                 sc.catalog,
                 sc.label,
@@ -150,13 +269,13 @@ def catalog():
                 c.title,
                 c.classunit,
                 c.prerequisites
-            FROM sequencecourse sc
-            LEFT JOIN catalog c
-              ON c.subject = sc.subject
-             AND c.catalog = sc.catalog
-             AND c.career = 'UGRD'
-            WHERE sc.sequencetermid = :termid
-            ORDER BY sc.subject ASC, sc.catalog ASC;
+            from sequencecourse sc
+            left join catalog c
+              on c.subject = sc.subject
+             and c.catalog = sc.catalog
+             and c.career = 'UGRD'
+            where sc.sequencetermid = :termid
+            order by sc.subject asc, sc.catalog asc;
         """), {"termid": selected_termid}).mappings().all()
 
     return render_template(
