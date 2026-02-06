@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timetable</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/timetable.css') }}">
+</head>
+
+<body>
+<div class="app-layout">
+
+  <aside class="sidebar">
+    <a class="nav-item" href="{{ url_for('dashboard') }}">Dashboard</a>
+    <a class="nav-item active" href="{{ url_for('timetable') }}">Timetable</a>
+    <a class="nav-item" href="{{ url_for('schedule') }}">Schedules</a>
+    <a class="nav-item" href="{{ url_for('catalog') }}">Catalog</a>
+    <a class="nav-item" href="{{ url_for('conflicts') }}">Conflicts</a>
+    <a class="nav-item" href="{{ url_for('solutions') }}">Solutions</a>
+
+    <div class="nav-separator"></div>
+
+    <div class="nav-item sub-item">Courses</div>
+    <div class="nav-item sub-item">Rooms</div>
+    <div class="nav-item sub-item">Instructors</div>
+    <div class="nav-item sub-item">Constraints</div>
+  </aside>
+
+  <main class="main-content">
+    <h1>Timetable View</h1>
+
+    <!-- Sequence Plan / Term Filters -->
+    <div class="card filter-card">
+      <div class="filter-bar">
+        <div class="filter-group">
+          <label for="plan-filter">Sequence Plan</label>
+          <select id="plan-filter">
+            <option value="">All Programs</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="semester-filter">Semester</label>
+          <select id="semester-filter" disabled>
+            <option value="">Select plan first</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="term-filter">Term</label>
+          <select id="term-filter">
+            <option value="">Loading...</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="subject-filter">Subject</label>
+          <select id="subject-filter">
+            <option value="">All Subjects</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="component-filter">Type</label>
+          <select id="component-filter">
+            <option value="">All Types</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label for="building-filter">Building</label>
+          <select id="building-filter">
+            <option value="">All Buildings</option>
+          </select>
+        </div>
+
+        <div class="filter-actions">
+          <button id="apply-filters" class="btn btn-primary">Apply</button>
+          <button id="clear-filters" class="btn btn-ghost">Clear</button>
+        </div>
+      </div>
+
+      <!-- Quick Filter Tabs -->
+      <div class="quick-tabs">
+        <button class="tab-btn active" data-filter="ECE">ECE Only</button>
+        <button class="tab-btn" data-filter="COEN">COEN</button>
+        <button class="tab-btn" data-filter="ELEC">ELEC</button>
+        <button class="tab-btn" data-filter="COMP">COMP</button>
+        <button class="tab-btn" data-filter="SOEN">SOEN</button>
+        <button class="tab-btn" data-filter="all">All Subjects</button>
+      </div>
+
+      <!-- Color Legend -->
+      <div class="color-legend">
+        <span class="legend-item"><span class="legend-color lec"></span> Lecture</span>
+        <span class="legend-item"><span class="legend-color tut"></span> Tutorial</span>
+        <span class="legend-item"><span class="legend-color lab"></span> Lab</span>
+        <span class="legend-item"><span class="legend-color sem"></span> Seminar</span>
+        <span class="legend-item"><span class="legend-color onl"></span> Online</span>
+      </div>
+    </div>
+
+    <!-- Stats Bar -->
+    <div class="stats-bar">
+      <span id="event-count">Loading events...</span>
+      <span id="filter-info"></span>
+    </div>
+
+    <!-- Calendar Container -->
+    <div class="card calendar-card">
+      <div id="calendar"></div>
+    </div>
+
+    <!-- Event Detail Modal -->
+    <div id="event-modal" class="modal">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <button class="modal-close">&times;</button>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+      <div class="spinner"></div>
+      <p>Loading schedule...</p>
+    </div>
+
+  </main>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+<script src="{{ url_for('static', filename='js/timetable.js') }}"></script>
+</body>
+</html>

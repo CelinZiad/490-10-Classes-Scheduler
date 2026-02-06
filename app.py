@@ -16,6 +16,7 @@ ROUTE_TEMPLATES = {
     "/conflicts": "conflicts-list.html",
     "/solutions": "proposed-solutions.html",
     "/activity": "activity.html",
+    "/timetable": "timetable.html",
 }
 
 DB_HOST = os.getenv("DB_HOST")
@@ -296,6 +297,244 @@ def conflicts():
 @app.get("/solutions")
 def solutions():
     return render_template(ROUTE_TEMPLATES["/solutions"])
+
+
+# ---------------------------------------------------------------------------
+# Timetable page + API (TASK-8.1: Add Schedule Page)
+# ---------------------------------------------------------------------------
+
+COMPONENT_COLORS = {
+    "LEC": "#3B82F6",   # Blue
+    "TUT": "#10B981",   # Green
+    "LAB": "#F59E0B",   # Orange
+    "SEM": "#8B5CF6",   # Purple
+    "ONL": "#06B6D4",   # Cyan
+}
+DEFAULT_COLOR = "#6B7280"  # Gray
+
+
+@app.get("/timetable")
+def timetable():
+    return render_template(ROUTE_TEMPLATES["/timetable"])
+
+
+@app.get("/api/events")
+def api_events():
+    """Return schedule events in FullCalendar format.
+
+    Supports filtering by sequence plan/term (sequenceplan -> sequenceterm
+    -> sequencecourse) as well as direct filters on scheduleterm columns.
+    """
+    planid = request.args.get("planid", type=int)
+    termid = request.args.get("termid", type=int)
+    term = request.args.get("term", type=int)
+    subject = request.args.get("subject")
+    component = request.args.get("component")
+    building = request.args.get("building")
+
+    query = """
+        SELECT DISTINCT ON (st.subject, st.catalog, st.section,
+                            st.componentcode, st.classnumber)
+            st.subject, st.catalog, st.section, st.componentcode,
+            st.classnumber, st.buildingcode, st.room,
+            st.classstarttime, st.classendtime,
+            st.mondays, st.tuesdays, st.wednesdays, st.thursdays,
+            st.fridays, st.saturdays, st.sundays,
+            st.termcode, st.currentenrollment, st.enrollmentcapacity,
+            st.currentwaitlisttotal, st.waitlistcapacity,
+            c.title AS coursetitle
+        FROM scheduleterm st
+        LEFT JOIN catalog c
+          ON c.subject = st.subject
+         AND c.catalog = st.catalog
+         AND c.career  = 'UGRD'
+        WHERE st.classstarttime IS NOT NULL
+          AND st.classendtime   IS NOT NULL
+          AND st.classstarttime != '00:00:00'
+    """
+    params = {}
+
+    # Sequence filter: restrict to courses listed in a sequence term
+    if termid:
+        query += """
+          AND EXISTS (
+              SELECT 1 FROM sequencecourse sc
+              WHERE sc.sequencetermid = :termid
+                AND sc.subject  = st.subject
+                AND sc.catalog  = st.catalog
+          )
+        """
+        params["termid"] = termid
+
+    if term:
+        query += " AND st.termcode = :term"
+        params["term"] = term
+
+    if subject:
+        subjects = [s.strip() for s in subject.split(",")]
+        if len(subjects) == 1:
+            query += " AND st.subject = :subject"
+            params["subject"] = subjects[0]
+        else:
+            placeholders = ", ".join(f":subj_{i}" for i in range(len(subjects)))
+            query += f" AND st.subject IN ({placeholders})"
+            for i, s in enumerate(subjects):
+                params[f"subj_{i}"] = s
+
+    if component:
+        query += " AND st.componentcode = :component"
+        params["component"] = component
+
+    if building:
+        query += " AND st.buildingcode = :building"
+        params["building"] = building
+
+    query += " ORDER BY st.subject, st.catalog, st.section, st.componentcode, st.classnumber LIMIT 500"
+
+    rows = db.session.execute(db.text(query), params).mappings().all()
+
+    events = []
+    for row in rows:
+        days_of_week = []
+        if row["sundays"]:
+            days_of_week.append(0)
+        if row["mondays"]:
+            days_of_week.append(1)
+        if row["tuesdays"]:
+            days_of_week.append(2)
+        if row["wednesdays"]:
+            days_of_week.append(3)
+        if row["thursdays"]:
+            days_of_week.append(4)
+        if row["fridays"]:
+            days_of_week.append(5)
+        if row["saturdays"]:
+            days_of_week.append(6)
+
+        if not days_of_week:
+            continue
+
+        start_time = str(row["classstarttime"])
+        end_time = str(row["classendtime"])
+        color = COMPONENT_COLORS.get(row["componentcode"], DEFAULT_COLOR)
+        title = row["coursetitle"] or ""
+
+        events.append({
+            "id": (
+                f"{row['subject']}-{row['catalog']}-{row['section']}"
+                f"-{row['componentcode']}-{row['classnumber']}"
+            ),
+            "title": f"{row['subject']} {row['catalog']}",
+            "daysOfWeek": days_of_week,
+            "startTime": start_time,
+            "endTime": end_time,
+            "allDay": False,
+            "color": color,
+            "extendedProps": {
+                "subject": row["subject"],
+                "catalog": row["catalog"],
+                "section": row["section"],
+                "component": row["componentcode"],
+                "coursetitle": title,
+                "building": row["buildingcode"] or "TBA",
+                "room": row["room"] or "TBA",
+                "enrollment": row["currentenrollment"] or 0,
+                "capacity": row["enrollmentcapacity"] or 0,
+                "waitlist": row["currentwaitlisttotal"] or 0,
+                "waitlistCapacity": row["waitlistcapacity"] or 0,
+                "termcode": row["termcode"],
+            },
+        })
+
+    return jsonify(events)
+
+
+@app.get("/api/filters")
+def api_filters():
+    """Return available filter options, scoped to the selected term."""
+    term = request.args.get("term", type=int)
+
+    terms = db.session.execute(db.text("""
+        SELECT DISTINCT termcode
+        FROM scheduleterm
+        WHERE termcode IS NOT NULL
+          AND subject IN ('COEN','ELEC','COMP','SOEN')
+        ORDER BY termcode DESC
+    """)).scalars().all()
+
+    term_options = []
+    for code in terms:
+        prefix = code // 10
+        base_year = 2000 + (prefix - 200)
+        last_digit = code % 10
+        semester_map = {
+            1: ("Fall", -1),
+            2: ("Winter", 0),
+            3: ("Winter/Spring", 0),
+            4: ("Summer", 0),
+            5: ("Summer", 0),
+            6: ("Fall", 0),
+        }
+        name, year_offset = semester_map.get(last_digit, (f"Term {last_digit}", 0))
+        year = base_year + year_offset
+        term_options.append({"code": code, "name": f"{name} {year}"})
+
+    # Scope to ECE subjects + selected term
+    ece_filter = " AND subject IN ('COEN','ELEC','COMP','SOEN','ENCS','ENGR')"
+    term_where = ""
+    term_params = {}
+    if term:
+        term_where = " AND termcode = :term"
+        term_params["term"] = term
+
+    subjects = db.session.execute(db.text(f"""
+        SELECT DISTINCT subject FROM scheduleterm
+        WHERE subject IS NOT NULL{ece_filter}{term_where} ORDER BY subject
+    """), term_params).scalars().all()
+
+    components = db.session.execute(db.text(f"""
+        SELECT DISTINCT componentcode FROM scheduleterm
+        WHERE componentcode IS NOT NULL{ece_filter}{term_where} ORDER BY componentcode
+    """), term_params).scalars().all()
+
+    buildings = db.session.execute(db.text(f"""
+        SELECT DISTINCT buildingcode FROM scheduleterm
+        WHERE buildingcode IS NOT NULL AND buildingcode != ''{ece_filter}{term_where}
+        ORDER BY buildingcode
+    """), term_params).scalars().all()
+
+    plans = db.session.execute(db.text("""
+        SELECT planid, planname, program, entryterm, option
+        FROM sequenceplan
+        ORDER BY planname
+    """)).mappings().all()
+
+    return jsonify({
+        "terms": term_options,
+        "subjects": subjects,
+        "components": components,
+        "buildings": buildings,
+        "plans": [dict(p) for p in plans],
+    })
+
+
+@app.get("/api/plans/<int:planid>/terms")
+def api_plan_terms(planid):
+    """Return the sequence terms for a given plan."""
+    rows = db.session.execute(db.text("""
+        SELECT sequencetermid, yearnumber, season, workterm, notes
+        FROM sequenceterm
+        WHERE planid = :planid
+        ORDER BY yearnumber ASC,
+                 CASE season
+                    WHEN 'fall'   THEN 1
+                    WHEN 'winter' THEN 2
+                    WHEN 'summer' THEN 3
+                    ELSE 4
+                 END ASC
+    """), {"planid": planid}).mappings().all()
+
+    return jsonify([dict(r) for r in rows])
 
 
 if __name__ == "__main__":
