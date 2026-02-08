@@ -1,34 +1,12 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Admin Dashboard</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
-</head>
+{% extends "base.html" %}
 
-<body>
-<div class="app-layout">
+{% block title %}Admin Dashboard{% endblock %}
 
-  <aside class="sidebar">
-    <a class="nav-item active" href="{{ url_for('dashboard') }}">Dashboard</a>
-    <a class="nav-item" href="{{ url_for('schedule') }}">Schedules</a>
-    <a class="nav-item" href="{{ url_for('catalog') }}">Catalog</a>
-    <a class="nav-item" href="{{ url_for('conflicts') }}">Conflicts</a>
-    <a class="nav-item" href="{{ url_for('solutions') }}">Solutions</a>
+{% block content %}
+<h1>System Overview</h1>
 
-    <div class="nav-separator"></div>
-
-    <div class="nav-item sub-item">Courses</div>
-    <div class="nav-item sub-item">Rooms</div>
-    <div class="nav-item sub-item">Instructors</div>
-    <div class="nav-item sub-item">Constraints</div>
-  </aside>
-
-  <main class="main-content">
-    <h1>System Overview</h1>
-
-    <div class="card">
-      <h2>Scheduler Status</h2>
+<div class="card">
+  <h2>Scheduler Status</h2>
 
       {% if scheduler_status.state == "NOT_IMPLEMENTED" %}
         <p class="status status-warning">⚠️ Scheduler not available</p>
@@ -53,8 +31,8 @@
       </form>
     </div>
 
-    <div class="card">
-      <h2>Recent Activity</h2>
+<div class="card">
+  <h2>Recent Activity</h2>
 
       {% if recentactivity and recentactivity|length > 0 %}
         <ul>
