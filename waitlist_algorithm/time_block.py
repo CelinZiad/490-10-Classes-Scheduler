@@ -22,7 +22,7 @@ def overlaps_any(block,blocks):
             return True
     return False
 
-def minutes(hh,mm):
+def m(hh,mm):
 
     return hh*60 + mm
 

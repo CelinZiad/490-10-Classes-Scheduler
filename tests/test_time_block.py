@@ -1,10 +1,10 @@
-from waitlist_algorithm.time_block import TimeBlock, minutes, overlaps, overlaps_any, slot_block
+from waitlist_algorithm.time_block import TimeBlock, m, overlaps, overlaps_any, slot_block
 
 
 def test_minutes():
-    assert minutes(8, 45) == 8 * 60 + 45
-    assert minutes(0, 0) == 0
-    assert minutes(23, 59) == 23 * 60 + 59
+    assert m(8, 45) == 8 * 60 + 45
+    assert m(0, 0) == 0
+    assert m(23, 59) == 23 * 60 + 59
 
 
 def test_overlaps_same_day_true():
