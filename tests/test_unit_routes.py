@@ -26,18 +26,24 @@ def test_templates_exist():
 
 
 def test_timetable_route_exists(app):
-    """Test that /timetable route is registered"""
+    """The /timetable route must be registered."""
     rules = {r.rule for r in app.url_map.iter_rules()}
     assert "/timetable" in rules
 
 
 def test_api_events_route_exists(app):
-    """Test that /api/events route is registered"""
+    """The /api/events route must be registered."""
     rules = {r.rule for r in app.url_map.iter_rules()}
     assert "/api/events" in rules
 
 
 def test_api_filters_route_exists(app):
-    """Test that /api/filters route is registered"""
+    """The /api/filters route must be registered."""
     rules = {r.rule for r in app.url_map.iter_rules()}
     assert "/api/filters" in rules
+
+
+def test_api_plan_terms_route_exists(app):
+    """The /api/plans/<id>/terms route must be registered."""
+    rules = {r.rule for r in app.url_map.iter_rules()}
+    assert "/api/plans/<int:planid>/terms" in rules

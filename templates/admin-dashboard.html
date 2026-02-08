@@ -8,43 +8,51 @@
 <div class="card">
   <h2>Scheduler Status</h2>
 
-  {% if scheduler_status.state == "NOT_IMPLEMENTED" %}
-    <p class="status status-warning">⚠️ Scheduler not available</p>
-    <p>{{ scheduler_status.message }}</p>
+      {% if scheduler_status.state == "NOT_IMPLEMENTED" %}
+        <p class="status status-warning">⚠️ Scheduler not available</p>
+        <p>{{ scheduler_status.message }}</p>
+      {% elif scheduler_status.state == "READY" %}
+        <p class="status status-info">⏳ Scheduler ready</p>
+        <p>{{ scheduler_status.message }}</p>
+      {% else %}
+        <p class="status status-info">ℹ️ Unknown status</p>
+        <p>Status is not available.</p>
+      {% endif %}
 
-  {% elif scheduler_status.state == "READY" %}
-    <p class="status status-info">⏳ Scheduler ready</p>
-    <p>{{ scheduler_status.message }}</p>
-
-  {% elif scheduler_status.state == "RUNNING" %}
-    <p class="status status-running">🔄 Scheduler running</p>
-    <p>{{ scheduler_status.message }}</p>
-
-  {% elif scheduler_status.state == "COMPLETED" %}
-    <p class="status status-success">✅ Schedule generated</p>
-    <p>{{ scheduler_status.message }}</p>
-
-  {% elif scheduler_status.state == "FAILED" %}
-    <p class="status status-error">❌ Scheduler failed</p>
-    <p>{{ scheduler_status.message }}</p>
-
-  {% else %}
-    <p class="status status-info">ℹ️ Unknown status</p>
-    <p>Status is not available.</p>
-  {% endif %}
-</div>
+      <form method="POST" action="{{ url_for('postschedulerrun') }}"
+            style="margin-top: 12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <input
+          type="text"
+          name="schedulename"
+          placeholder="e.g., fall-2026-draft-3"
+          style="padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px;"
+        >
+        <button class="btn btn-primary" type="submit">Generate Schedule</button>
+      </form>
+    </div>
 
 <div class="card">
   <h2>Recent Activity</h2>
 
-  {% if recent_activity and recent_activity|length > 0 %}
-    <ul>
-      {% for item in recent_activity %}
-        <li>{{ item }}</li>
-      {% endfor %}
-    </ul>
-  {% else %}
-    <p>No recent activity.</p>
-  {% endif %}
+      {% if recentactivity and recentactivity|length > 0 %}
+        <ul>
+          {% for a in recentactivity %}
+            <li>
+              {{ a.title }}
+              • {{ a.createdat.strftime("%b %d, %I:%M %p") }}
+              {% if a.actorname %} • By {{ a.actorname }}{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No recent activity.</p>
+      {% endif %}
+
+      <a class="btn btn-ghost" href="{{ url_for('activity') }}">View all activity</a>
+    </div>
+
+  </main>
+
 </div>
-{% endblock %}
+</body>
+</html>

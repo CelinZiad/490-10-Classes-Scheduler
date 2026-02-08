@@ -1,235 +1,313 @@
 /**
- * Timetable JavaScript - FullCalendar Integration
+ * Timetable - FullCalendar integration with sequence plan/term filtering.
  */
 
-// Global state
 let calendar = null;
 let filterOptions = null;
+let activeSubjectFilter = "";
 
-// ECE subjects for quick filter
-const ECE_SUBJECTS = ['COEN', 'ELEC', 'COMP', 'SOEN'];
+const ECE_SUBJECTS = ["COEN", "ELEC", "COMP", "SOEN"];
 
-// DOM elements
-const termFilter = document.getElementById('term-filter');
-const subjectFilter = document.getElementById('subject-filter');
-const componentFilter = document.getElementById('component-filter');
-const buildingFilter = document.getElementById('building-filter');
-const applyBtn = document.getElementById('apply-filters');
-const clearBtn = document.getElementById('clear-filters');
-const eventCount = document.getElementById('event-count');
-const filterInfo = document.getElementById('filter-info');
-const modal = document.getElementById('event-modal');
-const modalBody = document.getElementById('modal-body');
-const loadingOverlay = document.getElementById('loading-overlay');
+const planFilter = document.getElementById("plan-filter");
+const semesterFilter = document.getElementById("semester-filter");
+const termFilter = document.getElementById("term-filter");
+const subjectFilter = document.getElementById("subject-filter");
+const componentFilter = document.getElementById("component-filter");
+const buildingFilter = document.getElementById("building-filter");
+const applyBtn = document.getElementById("apply-filters");
+const clearBtn = document.getElementById("clear-filters");
+const eventCount = document.getElementById("event-count");
+const filterInfo = document.getElementById("filter-info");
+const modal = document.getElementById("event-modal");
+const modalBody = document.getElementById("modal-body");
+const loadingOverlay = document.getElementById("loading-overlay");
 
-// Initialize on DOM ready
-document.addEventListener('DOMContentLoaded', async () => {
+/* ------------------------------------------------------------------ */
+/*  Initialisation                                                     */
+/* ------------------------------------------------------------------ */
+
+document.addEventListener("DOMContentLoaded", async () => {
   showLoading(true);
-
   try {
-    // Load filter options first
-    await loadFilters();
-
-    // Initialize FullCalendar
+    await loadFilters();                           // initial load (all terms)
+    await loadFilters(termFilter.value);           // scope dropdowns to default term
     initCalendar();
-
-    // Set up event listeners
     setupEventListeners();
-
-    // Apply default ECE filter
-    applyQuickFilter('ECE');
-  } catch (error) {
-    console.error('Failed to initialize timetable:', error);
-    eventCount.textContent = 'Error loading timetable';
+    applyQuickFilter("ECE");
+  } catch (err) {
+    console.error("Failed to initialise timetable:", err);
+    eventCount.textContent = "Error loading timetable";
   } finally {
     showLoading(false);
   }
 });
 
-/**
- * Load filter options from API
- */
-async function loadFilters() {
-  const response = await fetch('/api/filters');
-  filterOptions = await response.json();
+/* ------------------------------------------------------------------ */
+/*  Load dropdown options from /api/filters                            */
+/* ------------------------------------------------------------------ */
 
-  // Populate term dropdown
-  termFilter.innerHTML = filterOptions.terms.map((t, i) =>
-    `<option value="${t.code}" ${i === 0 ? 'selected' : ''}>${t.name}</option>`
-  ).join('');
+async function loadFilters(termCode) {
+  const url = termCode
+    ? `/api/filters?term=${termCode}`
+    : "/api/filters";
+  const res = await fetch(url);
+  filterOptions = await res.json();
 
-  // Populate subject dropdown
-  subjectFilter.innerHTML = '<option value="">All Subjects</option>' +
-    filterOptions.subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+  // Term dropdown (only rebuild on first load)
+  if (!termCode) {
+    termFilter.innerHTML = filterOptions.terms
+      .map(
+        (t, i) =>
+          `<option value="${t.code}" ${i === 0 ? "selected" : ""}>${t.name}</option>`
+      )
+      .join("");
+  }
 
-  // Populate component dropdown
-  componentFilter.innerHTML = '<option value="">All Types</option>' +
-    filterOptions.components.map(c => `<option value="${c}">${c}</option>`).join('');
+  // Subject - preserve current selection if still valid
+  const prevSubject = subjectFilter.value;
+  subjectFilter.innerHTML =
+    '<option value="">All Subjects</option>' +
+    filterOptions.subjects
+      .map((s) => `<option value="${s}">${s}</option>`)
+      .join("");
+  if (prevSubject && filterOptions.subjects.includes(prevSubject)) {
+    subjectFilter.value = prevSubject;
+  }
 
-  // Populate building dropdown
-  buildingFilter.innerHTML = '<option value="">All Buildings</option>' +
-    filterOptions.buildings.map(b => `<option value="${b}">${b}</option>`).join('');
+  // Component - preserve current selection
+  const prevComponent = componentFilter.value;
+  componentFilter.innerHTML =
+    '<option value="">All Types</option>' +
+    filterOptions.components
+      .map((c) => `<option value="${c}">${c}</option>`)
+      .join("");
+  if (prevComponent && filterOptions.components.includes(prevComponent)) {
+    componentFilter.value = prevComponent;
+  }
+
+  // Building - preserve current selection
+  const prevBuilding = buildingFilter.value;
+  buildingFilter.innerHTML =
+    '<option value="">All Buildings</option>' +
+    filterOptions.buildings
+      .map((b) => `<option value="${b}">${b}</option>`)
+      .join("");
+  if (prevBuilding && filterOptions.buildings.includes(prevBuilding)) {
+    buildingFilter.value = prevBuilding;
+  }
+
+  // Sequence plans
+  const prevPlan = planFilter.value;
+  planFilter.innerHTML =
+    '<option value="">All Programs</option>' +
+    filterOptions.plans
+      .map((p) => `<option value="${p.planid}">${p.planname}</option>`)
+      .join("");
+  if (prevPlan) {
+    planFilter.value = prevPlan;
+  }
 }
 
-/**
- * Initialize FullCalendar
- */
+/* ------------------------------------------------------------------ */
+/*  Load terms for a selected sequence plan                            */
+/* ------------------------------------------------------------------ */
+
+async function loadPlanTerms(planid) {
+  if (!planid) {
+    semesterFilter.innerHTML = '<option value="">Select plan first</option>';
+    semesterFilter.disabled = true;
+    return;
+  }
+
+  const res = await fetch(`/api/plans/${planid}/terms`);
+  const terms = await res.json();
+
+  semesterFilter.innerHTML =
+    '<option value="">All Semesters</option>' +
+    terms
+      .map((t) => {
+        const label =
+          `Year ${t.yearnumber} ${capitalise(t.season)}` +
+          (t.workterm ? " (Work)" : "");
+        return `<option value="${t.sequencetermid}">${label}</option>`;
+      })
+      .join("");
+
+  semesterFilter.disabled = false;
+}
+
+function capitalise(s) {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : "";
+}
+
+/* ------------------------------------------------------------------ */
+/*  FullCalendar setup                                                 */
+/* ------------------------------------------------------------------ */
+
 function initCalendar() {
-  const calendarEl = document.getElementById('calendar');
+  const el = document.getElementById("calendar");
 
-  calendar = new FullCalendar.Calendar(calendarEl, {
-    initialView: 'timeGridWeek',
-
-    // Time range: 8:00 AM to 9:00 PM (university hours)
-    slotMinTime: '08:00:00',
-    slotMaxTime: '21:00:00',
-    slotDuration: '00:15:00',
-
-    // Week settings
-    weekends: false,  // Mon-Fri only
-    firstDay: 1,      // Start on Monday
-
-    // Header toolbar
+  calendar = new FullCalendar.Calendar(el, {
+    initialView: "timeGridWeek",
+    slotMinTime: "08:00:00",
+    slotMaxTime: "22:15:00",
+    slotDuration: "00:15:00",
+    weekends: false,
+    firstDay: 1,
     headerToolbar: {
-      left: 'prev,next today',
-      center: 'title',
-      right: 'timeGridWeek,timeGridDay,listWeek'
+      left: "prev,next today",
+      center: "title",
+      right: "timeGridWeek,timeGridDay,listWeek",
     },
-
-    // Events from API
-    events: {
-      url: '/api/events',
-      method: 'GET',
-      extraParams: getFilterParams,
-      failure: () => {
-        eventCount.textContent = 'Error loading events';
-      }
+    events: function (fetchInfo, successCallback, failureCallback) {
+      const params = new URLSearchParams(getFilterParams());
+      fetch(`/api/events?${params}`)
+        .then((res) => res.json())
+        .then((data) => successCallback(data))
+        .catch(() => {
+          eventCount.textContent = "Error loading events";
+          failureCallback(new Error("Failed to load events"));
+        });
     },
-
-    // Event rendering
     eventDidMount: (info) => {
-      // Add tooltip
-      info.el.title = `${info.event.title}\n${info.event.extendedProps.building}-${info.event.extendedProps.room}`;
+      const p = info.event.extendedProps;
+      const name = p.coursetitle ? ` - ${p.coursetitle}` : "";
+      info.el.title = `${info.event.title}${name}\n${p.component} | ${p.building}-${p.room}`;
     },
-
-    // Event click handler
-    eventClick: (info) => {
-      showEventModal(info.event);
+    eventContent: (arg) => {
+      const p = arg.event.extendedProps;
+      const lines = [];
+      lines.push(`<b>${arg.event.title}</b>`);
+      if (p.coursetitle) {
+        lines.push(`<span class="fc-event-desc">${p.coursetitle}</span>`);
+      }
+      lines.push(`<span class="fc-event-meta">${p.component} | ${p.building}-${p.room}</span>`);
+      return { html: lines.join("") };
     },
-
-    // Update stats when events load
-    eventsSet: (events) => {
-      updateStats(events);
-    },
-
-    // Visual options
+    eventClick: (info) => showEventModal(info.event),
+    eventsSet: (events) => updateStats(events),
     nowIndicator: true,
     allDaySlot: false,
     expandRows: true,
     stickyHeaderDates: true,
-    dayHeaderFormat: { weekday: 'short' },
+    dayHeaderFormat: { weekday: "short" },
     slotLabelFormat: {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    }
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    },
   });
 
   calendar.render();
 }
 
-/**
- * Set up event listeners
- */
+/* ------------------------------------------------------------------ */
+/*  Event listeners                                                    */
+/* ------------------------------------------------------------------ */
+
 function setupEventListeners() {
-  // Apply filters button
-  applyBtn.addEventListener('click', applyFilters);
+  applyBtn.addEventListener("click", applyFilters);
+  clearBtn.addEventListener("click", clearFilters);
 
-  // Clear filters button
-  clearBtn.addEventListener('click', clearFilters);
-
-  // Quick filter tabs
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const filter = e.target.dataset.filter;
-      applyQuickFilter(filter);
-    });
+  // When term changes, refresh subject/component/building dropdowns
+  termFilter.addEventListener("change", async () => {
+    await loadFilters(termFilter.value);
+    applyFilters();
   });
 
-  // Modal close
-  document.querySelector('.modal-close').addEventListener('click', closeModal);
-  document.querySelector('.modal-backdrop').addEventListener('click', closeModal);
+  planFilter.addEventListener("change", () => {
+    loadPlanTerms(planFilter.value);
+  });
 
-  // Keyboard shortcuts
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
+  semesterFilter.addEventListener("change", applyFilters);
+
+  subjectFilter.addEventListener("change", () => {
+    activeSubjectFilter = subjectFilter.value;
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+    if (!subjectFilter.value) {
+      document.querySelector('[data-filter="all"]').classList.add("active");
+      filterInfo.textContent = "";
+    } else {
+      const btn = document.querySelector(`[data-filter="${subjectFilter.value}"]`);
+      if (btn) btn.classList.add("active");
+      filterInfo.textContent = `Showing ${subjectFilter.value} courses`;
+    }
+    applyFilters();
+  });
+
+  document.querySelectorAll(".tab-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) =>
+      applyQuickFilter(e.target.dataset.filter)
+    );
+  });
+
+  document.querySelector(".modal-close").addEventListener("click", closeModal);
+  document.querySelector(".modal-backdrop").addEventListener("click", closeModal);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeModal();
   });
 }
 
-/**
- * Get current filter parameters
- */
+/* ------------------------------------------------------------------ */
+/*  Filter helpers                                                     */
+/* ------------------------------------------------------------------ */
+
 function getFilterParams() {
-  const params = {
-    term: termFilter.value
-  };
+  const params = { term: termFilter.value };
 
-  if (subjectFilter.value) {
-    params.subject = subjectFilter.value;
-  }
+  if (planFilter.value) params.planid = planFilter.value;
+  if (semesterFilter.value) params.termid = semesterFilter.value;
 
-  if (componentFilter.value) {
-    params.component = componentFilter.value;
-  }
+  const subj = activeSubjectFilter || subjectFilter.value;
+  if (subj) params.subject = subj;
 
-  if (buildingFilter.value) {
-    params.building = buildingFilter.value;
-  }
+  if (componentFilter.value) params.component = componentFilter.value;
+  if (buildingFilter.value) params.building = buildingFilter.value;
 
   return params;
 }
 
-/**
- * Apply filters
- */
 function applyFilters() {
   showLoading(true);
   calendar.refetchEvents();
   setTimeout(() => showLoading(false), 500);
 }
 
-/**
- * Clear all filters
- */
-function clearFilters() {
-  subjectFilter.value = '';
-  componentFilter.value = '';
-  buildingFilter.value = '';
+async function clearFilters() {
+  planFilter.value = "";
+  semesterFilter.innerHTML = '<option value="">Select plan first</option>';
+  semesterFilter.disabled = true;
+  subjectFilter.value = "";
+  componentFilter.value = "";
+  buildingFilter.value = "";
+  activeSubjectFilter = "";
+  await loadFilters(termFilter.value);
 
-  // Reset quick tabs
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelector('[data-filter="all"]').classList.add('active');
+  document
+    .querySelectorAll(".tab-btn")
+    .forEach((b) => b.classList.remove("active"));
+  document.querySelector('[data-filter="all"]').classList.add("active");
+  filterInfo.textContent = "";
 
   applyFilters();
 }
 
-/**
- * Apply quick filter
- */
 function applyQuickFilter(filter) {
-  // Update active tab
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
+  document
+    .querySelectorAll(".tab-btn")
+    .forEach((b) => b.classList.remove("active"));
+  document.querySelector(`[data-filter="${filter}"]`).classList.add("active");
 
-  // Set subject filter
-  if (filter === 'all') {
-    subjectFilter.value = '';
-    filterInfo.textContent = '';
-  } else if (filter === 'ECE') {
-    // ECE includes COEN, ELEC, COMP, SOEN
-    subjectFilter.value = ECE_SUBJECTS.join(',');
-    filterInfo.textContent = 'Showing ECE subjects (COEN, ELEC, COMP, SOEN)';
+  if (filter === "all") {
+    activeSubjectFilter = "";
+    subjectFilter.value = "";
+    filterInfo.textContent = "";
+  } else if (filter === "ECE") {
+    activeSubjectFilter = ECE_SUBJECTS.join(",");
+    subjectFilter.value = "";
+    filterInfo.textContent = "Showing ECE subjects (COEN, ELEC, COMP, SOEN)";
   } else {
+    activeSubjectFilter = filter;
     subjectFilter.value = filter;
     filterInfo.textContent = `Showing ${filter} courses`;
   }
@@ -237,121 +315,115 @@ function applyQuickFilter(filter) {
   applyFilters();
 }
 
-/**
- * Update stats display
- */
+/* ------------------------------------------------------------------ */
+/*  Stats                                                              */
+/* ------------------------------------------------------------------ */
+
 function updateStats(events) {
-  const count = events.length;
-  eventCount.textContent = `${count} class${count !== 1 ? 'es' : ''} displayed`;
+  const n = events.length;
+  eventCount.textContent = `${n} class${n !== 1 ? "es" : ""} displayed`;
 }
 
-/**
- * Show event modal
- */
+/* ------------------------------------------------------------------ */
+/*  Event detail modal                                                 */
+/* ------------------------------------------------------------------ */
+
 function showEventModal(event) {
-  const props = event.extendedProps;
+  const p = event.extendedProps;
 
   modalBody.innerHTML = `
     <h2>${event.title}</h2>
+    ${p.coursetitle ? `<p class="modal-subtitle">${p.coursetitle}</p>` : ""}
     <div class="modal-info">
-      <p><strong>Course:</strong> ${props.subject} ${props.catalog}</p>
-      <p><strong>Section:</strong> ${props.section}</p>
-      <p><strong>Type:</strong> ${props.component}</p>
+      <p><strong>Section:</strong> ${p.section}</p>
+      <p><strong>Type:</strong> ${p.component}</p>
       <p><strong>Time:</strong> ${formatTimeRange(event)}</p>
-      <p><strong>Days:</strong> ${formatDays(event.daysOfWeek || event._def?.recurringDef?.typeData?.daysOfWeek || [])}</p>
-      <p><strong>Location:</strong> ${props.building}-${props.room}</p>
-      <p><strong>Enrollment:</strong> ${props.enrollment}/${props.capacity}</p>
-      ${props.waitlistCapacity > 0 ? `<p><strong>Waitlist:</strong> ${props.waitlist}/${props.waitlistCapacity}</p>` : ''}
+      <p><strong>Days:</strong> ${formatDays(event)}</p>
+      <p><strong>Location:</strong> ${p.building}-${p.room}</p>
+      <p><strong>Enrollment:</strong> ${p.enrollment}/${p.capacity}</p>
+      ${p.waitlistCapacity > 0 ? `<p><strong>Waitlist:</strong> ${p.waitlist}/${p.waitlistCapacity}</p>` : ""}
     </div>
     <div class="modal-actions">
-      <button onclick="highlightSameCourse('${props.subject}', '${props.catalog}')" class="btn btn-primary">
+      <button onclick="highlightSameCourse('${p.subject}','${p.catalog}')" class="btn btn-primary">
         Show All Sections
       </button>
-      <button onclick="filterByCourse('${props.subject}')" class="btn btn-ghost">
-        Filter to ${props.subject}
+      <button onclick="filterByCourse('${p.subject}')" class="btn btn-ghost">
+        Filter to ${p.subject}
       </button>
     </div>
   `;
-
-  modal.classList.add('open');
+  modal.classList.add("open");
 }
 
-/**
- * Close modal
- */
 function closeModal() {
-  modal.classList.remove('open');
+  modal.classList.remove("open");
 }
 
-/**
- * Format time range
- */
+/* ------------------------------------------------------------------ */
+/*  Formatting helpers                                                 */
+/* ------------------------------------------------------------------ */
+
 function formatTimeRange(event) {
-  const startTime = event.startStr || event._def?.recurringDef?.typeData?.startTime || 'N/A';
-  const endTime = event.endStr || event._def?.recurringDef?.typeData?.endTime || 'N/A';
+  const rd = event._def?.recurringDef?.typeData;
+  const st = rd?.startTime;
+  const et = rd?.endTime;
+  if (!st || !et) return "N/A";
 
-  // Format HH:MM:SS to readable time
-  const formatTime = (time) => {
-    if (!time || time === 'N/A') return 'N/A';
-    const [hours, minutes] = time.split(':');
-    const h = parseInt(hours);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    const hour12 = h % 12 || 12;
-    return `${hour12}:${minutes} ${ampm}`;
-  };
+  function ms2str(ms) {
+    const totalMin = Math.floor(ms / 60000);
+    let h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return `${h}:${String(m).padStart(2, "0")} ${ampm}`;
+  }
 
-  return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+  return `${ms2str(st.milliseconds)} - ${ms2str(et.milliseconds)}`;
 }
 
-/**
- * Format days array to readable string
- */
-function formatDays(daysArray) {
-  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  if (!daysArray || daysArray.length === 0) return 'N/A';
-  return daysArray.map(d => dayNames[d]).join(', ');
+function formatDays(event) {
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const arr =
+    event._def?.recurringDef?.typeData?.daysOfWeek || [];
+  if (!arr.length) return "N/A";
+  return arr.map((d) => dayNames[d]).join(", ");
 }
 
-/**
- * Highlight all sections of a course
- */
+/* ------------------------------------------------------------------ */
+/*  Cross-event actions                                                */
+/* ------------------------------------------------------------------ */
+
 function highlightSameCourse(subject, catalog) {
-  const events = calendar.getEvents();
-  events.forEach(event => {
-    const props = event.extendedProps;
-    if (props.subject === subject && props.catalog === catalog) {
-      event.setProp('classNames', ['conflict-highlight']);
-    } else {
-      event.setProp('classNames', []);
-    }
+  calendar.getEvents().forEach((ev) => {
+    const p = ev.extendedProps;
+    ev.setProp(
+      "classNames",
+      p.subject === subject && p.catalog === catalog
+        ? ["highlight-course"]
+        : []
+    );
   });
   closeModal();
 }
 
-/**
- * Filter to specific subject
- */
 function filterByCourse(subject) {
+  activeSubjectFilter = subject;
   subjectFilter.value = subject;
   filterInfo.textContent = `Showing ${subject} courses`;
 
-  // Update quick tabs
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.remove('active');
-    if (btn.dataset.filter === subject) btn.classList.add('active');
+  document.querySelectorAll(".tab-btn").forEach((b) => {
+    b.classList.remove("active");
+    if (b.dataset.filter === subject) b.classList.add("active");
   });
 
   applyFilters();
   closeModal();
 }
 
-/**
- * Show/hide loading overlay
- */
+/* ------------------------------------------------------------------ */
+/*  Loading overlay                                                    */
+/* ------------------------------------------------------------------ */
+
 function showLoading(show) {
-  if (show) {
-    loadingOverlay.classList.add('show');
-  } else {
-    loadingOverlay.classList.remove('show');
-  }
+  loadingOverlay.classList.toggle("show", show);
 }
