@@ -1,0 +1,60 @@
+Course #,Title,Room,Capacity,Cap_MAX,Responsible,Comments
+COEN 212,DIGITAL SYSTEMS DESIGN,H-807,16,18,Ted,"The course can be offered ONLINE. For ONLINE version, the lab cap is 8."
+COEN 243,Programming Methodology I,AITS,16,AITS,Bipin,Special schedule: 6x2h lab sessions during the semester. All sections must be scheduled for the same week. The labs should start in week 3.
+COEN 311,COMP ORGANIZATION + SOFTWARE,H-813,14,16,Ted,"Any AITS lab with the course s/w.
+Up to three lab sections can be scheduled concurrently in AITS rooms."
+COEN 311,COMP ORGANIZATION + SOFTWARE,AITS,14,AITS,Ted,"Any AITS lab with the course s/w.
+Up to three lab sections can be scheduled concurrently in AITS rooms."
+COEN 313,DIGITAL SYS. DESIGN II,H-859,14,16,Ted,
+COEN 314,Digital Electronics 1,H-861,14,16,Shiyu,
+COEN 316,COMPUTER ARCHITECT. + DESIGN,H-859,14,16,Ted,"H-913 can be used as well if a COEN 316 and  COEN 313 sections need to be scheduled concurrently, or there is a conflict between them."
+COEN 316,COMPUTER ARCHITECT. + DESIGN,H-913,14,16,Ted,"H-913 can be used as well if a COEN 316 and  COEN 313 sections need to be scheduled concurrently, or there is a conflict between them."
+COEN 317,MICROPROCESSOR SYSTEMS,H-913,14,16,Ted,
+COEN 346,OPERATING SYSTEMS,AITS,16,AITS,Bipin,
+COEN 366,COMMUNICA N NETW KS+PROTOCOL,AITS,16,AITS,Bipin,
+COEN 413,HARDWARE FUNCT L VERIF N,AITS,16,AITS,Ted,
+COEN 421,EMBEDDED SYSTEMS+SW DESIGN,H-867,12,14,Dan,weekly
+COEN 446,IoT,H-867,12,14,Dan,
+COEN 448,SW TESTING + VALIDATION,AITS,16,AITS,Bipin,
+COEN 451,VLSI DESIGN I,H-915,14,16,Ted,weekly
+ELEC 273,BASIC CIRCUIT ANALYSIS,H-822,16,20,Jorris,H822 and H832-6 can be used for  273/275.
+ELEC 273,BASIC CIRCUIT ANALYSIS,H-832-6,16,20,Jorris,H822 and H832-6 can be used for  273/275.
+ELEC 275,PRINCIPLES OF ELEC. ENGG.,H-832-6,16,16,Jorris,H822 and H832-6 can be used for  273/275.
+ELEC 275,PRINCIPLES OF ELEC. ENGG.,H-822,16,16,Jorris,H822 and H832-6 can be used for  273/275.
+ELEC 311,ELECTRONICS I,H-855,16,20,Shiyu,
+ELEC 312,ELECTRONICS II,H-855,16,20,Shiyu,
+ELEC 321,INTRO/SEMICONDUCT.MAT+DEVS,H-861,14,16,Shiyu,
+ELEC 331,FUND./ELEC POWER ENGR.,H-945,10,12,Chaffic,Not to schedule back-to-back with ELEC433 and ELEC440. To schedule in the afternoon to allow for equipment change.
+ELEC 342,DISCRETE-TIME SIGNALS AND SYSTEMS ,AITS,16,AITS,Dan,
+ELEC 351,ELECTROMAG WAVES/GUIDING STR,H-853,8,8,Jorris,
+ELEC 366,TELECOMMUNICATION NETWORKS,H-921,14,16,Bipin,
+ELEC 367,INTRODUCTION TO DIGITAL COMMUNICATIONS,H-801,10,12,Jorris,Space for two extra setups - have to buy.
+ELEC 372,FUNDAMENTALS/CONTROL SYSTEMS,H-863,14,16,Dan,
+ELEC 413,Mixed Signal VLSI for Communicatioon Systsems,H-915,14,16,Ted,"weekly
+H915 or any AITS dual-boot lab if concurrent labs to be scheduled or the room is needed for another course."
+ELEC 413,Mixed Signal VLSI for Communicatioon Systsems,AITS,14,AITS,Ted,"weekly
+H915 or any AITS dual-boot lab if concurrent labs to be scheduled or the room is needed for another course."
+ELEC 415,FLIGHT CONTROL SYSTEMS,AITS,16,AITS,Dan,
+ELEC 421,SOLID STATE DEVICES,H-007,5,6,Shiyu,Unscheduled labs. Do not schedule specific day/time.
+ELEC 422,DESI/INTEGR. CIRCUIT COMPON.,H-007,5,6,Shiyu,Unscheduled labs. Do not schedule specific day/time.
+ELEC 423,INTRODUCTION TO ANALOG VLSI,H-915,14,16,Ted,"weekly
+H915 or any AITS dual-boot lab if concurrent labs to be scheduled or the room is needed for another course."
+ELEC 423,INTRODUCTION TO ANALOG VLSI,AITS,14,AITS,Ted,"weekly
+H915 or any AITS dual-boot lab if concurrent labs to be scheduled or the room is needed for another course."
+ELEC 424,VLSI Process Technology,H-007,5,6,Shiyu,Unscheduled labs. Do not schedule specific day/time.
+ELEC 425,Optical Devices for hi-speed comm,H-855,5,5,Shiyu,The cap is limited by the number of s/w licenses. More licenses are very expensive.
+ELEC 433,POWER ELECTRONICS,H-945,6,6,Chaffic,Not to schedule back-to-back with ELEC331 and ELEC440. To schedule in the afternoon to allow for equipment change.
+ELEC 440,CONTROLLED ELEC DRIVES,H-945,6,6,Chaffic,Not to schedule back-to-back with ELEC331 and ELEC433. To schedule in the afternoon to allow for equipment change.
+ELEC 441,ANALOG FILTER DESIGN,H-855,16,20,Shiyu,
+ELEC 453,MICROWAVE ENGINEERING,H-853,8,8,Jorris,
+ELEC 456,ANTENNAS,H-853,8,8,Jorris,
+ELEC 465,Network Security and Management,H-919,14,16,Dan,
+ELEC 466,INTRO. TO OPT.COMMUN.SYSTEMS,H-915,14,16,Shiyu,
+ELEC 466,INTRO. TO OPT.COMMUN.SYSTEMS,AITS,14,AITS,Shiyu,
+ELEC 472,ADVANCED TELECOMMUN.NETWORKS,H-919,14,16,Dan,
+ELEC 481,LINEAR SYSTEMS,H-805-3,8,8,Dan,
+ELEC 482,SYSTEM OPTIMIZATION,AITS,16,AITS,Dan,
+ELEC 483,REALTIME COMP.CONTROL SYST.,H-832-2,8,8,Dan,
+ELEC 6181,Real-Time and Multimedia Communication over Internet,H-919,14,16,Dan,
+ELEC 6341,Antennas,H-853,8,8,Jorris,
+ELEC 6391,Microwave Engineering,H-853,8,8,Jorris,
