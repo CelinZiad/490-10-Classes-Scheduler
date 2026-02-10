@@ -1,5 +1,4 @@
-from typing import Dict,List, Tuple
-from .time_block import TimeBlock, overlaps_any, slot_block
+from waitlist_algorithm.time_block import TimeBlock, overlaps_any, slot_block
 
 def propose_waitlist_slots(
         waitlisted_students,
@@ -35,7 +34,4 @@ def propose_waitlist_slots(
                 results[day,start] = available_student
 
     return results
-
-
-
 

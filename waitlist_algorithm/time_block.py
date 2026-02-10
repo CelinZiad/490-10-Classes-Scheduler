@@ -1,5 +1,4 @@
 from dataclasses import dataclass
-from tokenize import endpats
 
 @dataclass(frozen=True, slots=True)
 
