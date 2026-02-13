@@ -112,18 +112,22 @@ def parse_day_pattern(row: Dict) -> str:
 def fetch_schedule_data(termcode: str, department_code: str = "ELECCOEN") -> List[Dict]:
     """
     Fetch schedule data from database for specified term and department.
+    Extracts all fields needed to preserve previous year's data.
     
     Args:
         termcode: Term code (e.g., "2252" for Fall 2025)
         department_code: Department code (default "ELECCOEN")
     
     Returns:
-        List of schedule records
+        List of schedule records with all relevant fields
     """
     sql = """
         SELECT subject, catalog, section, componentcode, termcode, classnumber,
-               buildingcode, room, classstarttime, classendtime,
+               session, buildingcode, room, instructionmodecode, locationcode,
+               classstarttime, classendtime, classstartdate, classenddate,
                mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays,
+               currentwaitlisttotal, waitlistcapacity, enrollmentcapacity, currentenrollment,
+               departmentcode, facultycode, facultydescription, career,
                meetingpatternnumber
         FROM scheduleterm
         WHERE termcode = %s 
@@ -307,10 +311,11 @@ def generate_data_csv(output_path: str = "Data.csv",
                      season_code: int = 2) -> int:
     """
     Generate Data.csv from database scheduleterm table.
+    Extracts from PREVIOUS year's data to use as template for current year.
     
     Args:
         output_path: Path to output CSV file
-        year: Academic year (e.g., 2025)
+        year: Academic year for NEW schedule (e.g., 2026)
         season_code: Season code from config (2=fall, 4=winter)
     
     Returns:
@@ -318,21 +323,23 @@ def generate_data_csv(output_path: str = "Data.csv",
     """
     print("\n" + "=" * 70)
     print("EXTRACTING COURSE SCHEDULE DATA FROM DATABASE")
-    season_name = {2: 'FALL', 4: 'WINTER', 6: 'SUMMER'}.get(season_code, 'UNKNOWN')
-    print(f"Academic Year: {year}, Term: {season_name} ({season_code})")
+    season_name = {2: 'FALL', 4: 'WINTER', 6: 'SUMMER', 1: 'SUMMER'}.get(season_code, 'UNKNOWN')
+    print(f"Target Academic Year: {year}, Term: {season_name} ({season_code})")
     print("=" * 70)
     
-    # Build termcode
-    termcode = build_termcode(year, season_code)
-    print(f"Termcode: {termcode}")
+    # Build termcode for PREVIOUS year (source data)
+    previous_year = year - 1
+    termcode = build_termcode(previous_year, season_code)
+    print(f"Extracting from previous year termcode: {termcode}")
+    print(f"(Fall {previous_year} data will be template for Fall {year})")
     
     # Fetch data
-    print("Fetching schedule data...")
+    print("\nFetching schedule data...")
     records = fetch_schedule_data(termcode, "ELECCOEN")
-    print(f"  Found {len(records)} schedule records")
+    print(f"  Found {len(records)} schedule records from {previous_year}")
     
     if not records:
-        print("  Warning: No schedule data found for this term")
+        print(f"  Warning: No schedule data found for termcode {termcode}")
         return 0
     
     # Group by lecture
