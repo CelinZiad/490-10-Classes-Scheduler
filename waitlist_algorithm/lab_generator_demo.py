@@ -1,6 +1,7 @@
-
-from waitlist import propose_waitlist_slots
+from lab_generator import propose_waitlist_slots
 from time_block import TimeBlock,format_time,m
+from waitlisted_students import get_waitlisted_students_from_user_and_db
+from db import get_conn
 
 
 
@@ -8,12 +9,10 @@ lab_start_times= [m(8,45),m(11,45),m(14,45),m(17,45)]
 
 def main():
 
-    waitlisted_students = [
-        12345678, 23456789, 34567890, 45678901, 56789012
-    ]
 
     # We'll only search ONE standard lab start time ( for predictable output)
-    lab_start_time = [m(14, 45)]
+    lab_start_time = [m(8,45),m(11,45),m(14,45),m(17,45)
+                      ]
 
     room_busy = [
         TimeBlock(day= 1,start=m(8,45),end= m(11,45)),
@@ -58,6 +57,9 @@ def main():
             TimeBlock(day=11, start=m(11, 45), end=m(14, 45)),
         ],
     }
+    cur = get_conn().cursor()
+
+    waitlisted_students= get_waitlisted_students_from_user_and_db(cur)
 
     results = propose_waitlist_slots(waitlisted_students= waitlisted_students, students_busy= students_busy,room_busy= room_busy,lab_start_times= lab_start_time)
 
