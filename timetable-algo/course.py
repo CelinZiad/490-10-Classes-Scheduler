@@ -71,7 +71,7 @@ class Course:
           TuTh -> [2, 9, 4, 11]
         """
         codes: List[int] = []
-        for d in self.days:
+        for d in self.lecture.day:  # FIXED: changed from self.days to self.lecture.day
             codes.extend(d.as_list())
         return codes
 
@@ -102,20 +102,24 @@ class Course:
         tut_duration = _int_or_zero(_get(row, "tut_duration"))
 
         # Build lab objects (placeholders until you have actual lab day/time columns)
-        laboratory = [ CourseElement(day=[], start=0, end=0, bldg="", room=0) 
-                    for _ in range(lab_count)]
+        laboratory = tuple(
+            CourseElement(day=[], start=0, end=0, bldg=None, room=None) 
+            for _ in range(lab_count)
+        )
 
         # Build tutorial objects (placeholders)
-        tutorial = [ CourseElement(day=[], start=0, end=0, bldg="", room=0) 
-                   for _ in range(tut_count)]
+        tutorials = tuple(
+            CourseElement(day=[], start=0, end=0, bldg=None, room=None) 
+            for _ in range(tut_count)
+        )
 
         return cls(
             subject=subject,
             catalog_nbr=catalog_nbr,
             class_nbr=class_nbr,
             lecture=lecture,
-            lab=list(laboratory),
-            tutorial=list(tutorial),
+            lab=laboratory,
+            tutorial=tutorials,
             lab_count=lab_count,
             biweekly_lab_freq=biweekly_lab_freq,
             lab_duration=lab_duration,
