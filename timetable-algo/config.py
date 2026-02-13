@@ -32,17 +32,3 @@ DB_PASSWORD = "coolbird18"
 # 4 = Winter term
 TARGET_SEASON = 2  # Default to Fall term
 ACADEMIC_YEAR = 2026  # Academic year for schedule generation
-
-# Database connection
-DB_HOST = "localhost"
-DB_PORT = 9999
-DB_NAME = "uvo490_3"
-DB_USER = "uvo490_3"
-DB_PASSWORD = "password"
-
-# Season/Term selection
-# 2 = Fall term
-# 4 = Winter term
-# 6 = Summer term (not typically used for scheduling)
-TARGET_SEASON = 2  # Default to Fall term
-ACADEMIC_YEAR = 2025  # Academic year for schedule extraction
