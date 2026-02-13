@@ -22,7 +22,7 @@ DB_HOST = "localhost"
 DB_PORT = 9999
 DB_NAME = "uvo490_3"
 DB_USER = "uvo490_3"
-DB_PASSWORD = "password"
+DB_PASSWORD = "coolbird18"
 
 # Season/Term selection
 # Season codes:
