@@ -19,7 +19,7 @@ from termination import (should_terminate, display_termination_status,
 from room_management import load_room_assignments, create_room_timetables, display_room_timetable, validate_room_timetables
 from export_utils import export_fittest_individual, display_export_summary
 from conflict_export import export_conflicts_csv
-from db_timetable_export import export_to_database
+from scheduleterm_export import export_to_scheduleterm_format
 from db_room_extractor import extract_and_generate_room_data
 from db_sequence_extractor import extract_and_generate_sequences
 from db_course_extractor import extract_and_generate_course_data
@@ -366,17 +366,18 @@ if __name__ == "__main__":
     
     # Export to database
     print(f"\n{'='*70}")
-    print("DATABASE EXPORT (OPTIONAL)")
+    print("DATABASE EXPORT (SCHEDULETERM FORMAT)")
     print(f"{'='*70}")
     
     try:
-        termcode = f"2{str(ACADEMIC_YEAR)[-2:]}{TARGET_SEASON}"
-        print(f"Termcode: {termcode}, Courses: {len(population[best_idx])}")
+        print(f"Academic year: {ACADEMIC_YEAR}, Season: {TARGET_SEASON}")
+        print(f"Schedule has {len(population[best_idx])} courses")
         
-        success = export_to_database(
+        success = export_to_scheduleterm_format(
             schedule=population[best_idx],
             room_assignments=room_assignments,
-            termcode=termcode
+            year=ACADEMIC_YEAR,
+            season=TARGET_SEASON
         )
         
         if success:
