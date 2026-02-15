@@ -1,20 +1,13 @@
 # course.py
 from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Tuple, List
-from day import parse_day_pattern          # adjust names to match your day.py
-from course_element import CourseElement        # adjust to match your file
+from day import parse_day_pattern
+from course_element import CourseElement
 import re
 
 def parse_time_to_minutes(raw: str) -> int:
-    """
-    Accepts:
-      '11:45'
-      '11:45:00'
-      '11.45.00'
-      '13.00.00'
-    """
+    """Parse time formats: '11:45', '11:45:00', '11.45.00', '13.00.00'."""
     s = (raw or "").strip()
     if not s:
         raise ValueError("start_time/end_time is empty")
@@ -66,12 +59,9 @@ class Course:
 
     @property
     def day_codes(self) -> List[int]:
-        """
-        Example:
-          TuTh -> [2, 9, 4, 11]
-        """
+        """Get day codes from lecture (e.g., TuTh -> [2, 9, 4, 11])."""
         codes: List[int] = []
-        for d in self.lecture.day:  # FIXED: changed from self.days to self.lecture.day
+        for d in self.lecture.day:
             codes.extend(d.as_list())
         return codes
 
@@ -101,13 +91,11 @@ class Course:
         weekly_tut_freq = _int_or_zero(_get(row, "weekly_tut_freq"))
         tut_duration = _int_or_zero(_get(row, "tut_duration"))
 
-        # Build lab objects (placeholders until you have actual lab day/time columns)
         laboratory = tuple(
             CourseElement(day=[], start=0, end=0, bldg=None, room=None) 
             for _ in range(lab_count)
         )
 
-        # Build tutorial objects (placeholders)
         tutorials = tuple(
             CourseElement(day=[], start=0, end=0, bldg=None, room=None) 
             for _ in range(tut_count)
