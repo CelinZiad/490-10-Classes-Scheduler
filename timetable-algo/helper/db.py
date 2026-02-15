@@ -1,6 +1,6 @@
 import psycopg2
 from psycopg2.extras import RealDictCursor
-from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+from genetic_algo.config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 
 
 def get_connection():
