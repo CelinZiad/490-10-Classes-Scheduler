@@ -1,3 +1,4 @@
+# day.py
 from __future__ import annotations
 from enum import Enum
 from typing import Tuple, List
@@ -25,24 +26,13 @@ class Day(Enum):
 
 
 _DAY_TOKEN_TO_ENUM = {
-    "Mo": Day.MO,
-    "Tu": Day.TU,
-    "We": Day.WE,
-    "Th": Day.TH,
-    "Fr": Day.FR,
-    "Sa": Day.SA,
-    "Su": Day.SU,
+    "Mo": Day.MO, "Tu": Day.TU, "We": Day.WE, "Th": Day.TH,
+    "Fr": Day.FR, "Sa": Day.SA, "Su": Day.SU,
 }
 
 
 def parse_day_pattern(raw: str) -> Tuple[Day, ...]:
-    """
-    Parses:
-      'MoWe'    -> (Day.MO, Day.WE)
-      'TuTh'    -> (Day.TU, Day.TH)
-      'WeFr'    -> (Day.WE, Day.FR)
-      'MoWeFr'  -> (Day.MO, Day.WE, Day.FR)
-    """
+    """Parse day patterns like 'MoWe' -> (Day.MO, Day.WE), 'TuTh' -> (Day.TU, Day.TH)."""
     s = (raw or "").strip()
     if not s:
         raise ValueError("day_of_week is empty")
