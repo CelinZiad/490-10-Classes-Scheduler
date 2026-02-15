@@ -1,8 +1,9 @@
 # conflict_export.py
 import csv
 from typing import List, Dict, Tuple
-from course import Course
+from genetic_algo.course import Course
 from itertools import product
+
 
 def times_overlap(element1, element2):
     """Check if two course elements overlap in time."""
@@ -27,7 +28,7 @@ def minutes_to_time_string(minutes: int) -> str:
 
 def extract_day_number(day):
     """Extract integer day number from Day enum or int."""
-    from day import Day
+    from genetic_algo.day import Day
     
     if isinstance(day, Day):
         return day.first if hasattr(day, 'first') else day.value[0]
@@ -35,26 +36,19 @@ def extract_day_number(day):
 
 
 def collect_lecture_conflicts(schedule: List[Course]) -> List[Dict]:
-    """
-    Collect all lecture-tutorial/lab conflicts.
-    
-    Returns:
-        List of conflict dictionaries
-    """
+    """Collect all lecture-tutorial/lab conflicts."""
     conflicts = []
     
     for course in schedule:
         if not course.lecture:
             continue
         
-        # Check tutorial overlaps with lecture
         if course.tutorial:
             for tut_index, tut in enumerate(course.tutorial):
                 if tut is None or not tut.day:
                     continue
                 
                 if times_overlap(course.lecture, tut):
-                    # Find overlapping days
                     lecture_days = set()
                     for d in course.lecture.day:
                         lecture_days.add(extract_day_number(d))
@@ -81,14 +75,12 @@ def collect_lecture_conflicts(schedule: List[Course]) -> List[Dict]:
                             'Room': ''
                         })
         
-        # Check lab overlaps with lecture
         if course.lab:
             for lab_index, lab in enumerate(course.lab):
                 if lab is None or not lab.day:
                     continue
                 
                 if times_overlap(course.lecture, lab):
-                    # Find overlapping days
                     lecture_days = set()
                     for d in course.lecture.day:
                         lecture_days.add(extract_day_number(d))
@@ -119,16 +111,10 @@ def collect_lecture_conflicts(schedule: List[Course]) -> List[Dict]:
 
 
 def collect_sequence_conflicts(schedule: List[Course], core_sequences: List[List[str]]) -> List[Dict]:
-    """
-    Collect all sequence conflicts (no valid combination for core courses).
-    
-    Returns:
-        List of conflict dictionaries
-    """
+    """Collect all sequence conflicts (no valid combination for core courses)."""
     conflicts = []
     
     for semester_idx, semester_courses in enumerate(core_sequences):
-        # Get all courses in the sequence
         courses = []
         for course_code in semester_courses:
             subject = ''.join(c for c in course_code if c.isalpha())
@@ -140,7 +126,6 @@ def collect_sequence_conflicts(schedule: List[Course], core_sequences: List[List
                     break
         
         if len(courses) != len(semester_courses):
-            # Missing course in sequence
             conflicts.append({
                 'Conflict_Type': 'Sequence-Missing Course',
                 'Course': 'Multiple',
@@ -157,9 +142,7 @@ def collect_sequence_conflicts(schedule: List[Course], core_sequences: List[List
             })
             continue
         
-        # Check if there's a valid combination
         if not has_valid_sequence_combination(schedule, semester_courses):
-            # Find specific conflicts
             all_tutorials = []
             all_labs = []
             
@@ -174,10 +157,8 @@ def collect_sequence_conflicts(schedule: List[Course], core_sequences: List[List
                     if valid_labs:
                         all_labs.append((course, valid_labs))
             
-            # Try to find specific overlapping pairs
             found_specific = False
             
-            # Check tutorial-tutorial conflicts
             for i, (course1, tuts1) in enumerate(all_tutorials):
                 for j, (course2, tuts2) in enumerate(all_tutorials[i+1:], i+1):
                     for tut1 in tuts1:
@@ -204,7 +185,6 @@ def collect_sequence_conflicts(schedule: List[Course], core_sequences: List[List
                                     })
                                     found_specific = True
             
-            # Check lab-lab conflicts
             for i, (course1, labs1) in enumerate(all_labs):
                 for j, (course2, labs2) in enumerate(all_labs[i+1:], i+1):
                     for lab1 in labs1:
@@ -231,11 +211,10 @@ def collect_sequence_conflicts(schedule: List[Course], core_sequences: List[List
                                     })
                                     found_specific = True
             
-            # Check tutorial-lab conflicts
-            for course1, tuts in all_tutorials:
-                for course2, labs in all_labs:
-                    for tut in tuts:
-                        for lab in labs:
+            for i, (course1, tuts1) in enumerate(all_tutorials):
+                for j, (course2, labs2) in enumerate(all_labs):
+                    for tut in tuts1:
+                        for lab in labs2:
                             if times_overlap(tut, lab):
                                 tut_days = set(extract_day_number(d) for d in tut.day)
                                 lab_days = set(extract_day_number(d) for d in lab.day)
@@ -247,9 +226,9 @@ def collect_sequence_conflicts(schedule: List[Course], core_sequences: List[List
                                         'Course': f"{course1.subject}{course1.catalog_nbr} & {course2.subject}{course2.catalog_nbr}",
                                         'Class_Nbr': f"{course1.class_nbr} & {course2.class_nbr}",
                                         'Component1': f"{course1.subject}{course1.catalog_nbr} Tutorial",
-                                        'Component1_Index': tuts.index(tut),
+                                        'Component1_Index': tuts1.index(tut),
                                         'Component2': f"{course2.subject}{course2.catalog_nbr} Lab",
-                                        'Component2_Index': labs.index(lab),
+                                        'Component2_Index': labs2.index(lab),
                                         'Day': day,
                                         'Time1': f"{minutes_to_time_string(tut.start)}-{minutes_to_time_string(tut.end)}",
                                         'Time2': f"{minutes_to_time_string(lab.start)}-{minutes_to_time_string(lab.end)}",
@@ -258,7 +237,6 @@ def collect_sequence_conflicts(schedule: List[Course], core_sequences: List[List
                                     })
                                     found_specific = True
             
-            # If no specific conflicts found, add generic sequence conflict
             if not found_specific:
                 conflicts.append({
                     'Conflict_Type': 'Sequence-No Valid Combination',
@@ -355,30 +333,21 @@ def has_valid_sequence_combination(schedule, sequence_courses):
 
 
 def collect_room_conflicts(schedule: List[Course], room_assignments) -> List[Dict]:
-    """
-    Collect all room conflicts.
-    
-    Returns:
-        List of conflict dictionaries
-    """
-    from room_management import create_room_timetables
+    """Collect all room conflicts."""
+    from genetic_algo.room_management import create_room_timetables
     
     conflicts = []
     
-    # Create room timetables
     timetables = create_room_timetables(schedule, room_assignments)
     
-    # Check for conflicts in each room
     for (bldg, room), timetable in timetables.items():
         slots = sorted(timetable.slots, key=lambda s: (s.day, s.start))
         
-        # Check all pairs of slots
         for i in range(len(slots)):
             for j in range(i + 1, len(slots)):
                 slot1 = slots[i]
                 slot2 = slots[j]
                 
-                # Same day and overlapping times
                 if slot1.day == slot2.day:
                     if slot1.start < slot2.end and slot2.start < slot1.end:
                         conflicts.append({
@@ -401,40 +370,18 @@ def collect_room_conflicts(schedule: List[Course], room_assignments) -> List[Dic
 
 def export_conflicts_csv(schedule: List[Course], core_sequences: List[List[str]], 
                         room_assignments, output_path: str):
-    """
-    Export all conflicts to a CSV file.
-    
-    Args:
-        schedule: List of Course objects (the schedule to check)
-        core_sequences: List of lists of course codes
-        room_assignments: List of RoomAssignment objects
-        output_path: Path to output CSV file
-    """
-    print("\n" + "=" * 70)
-    print("COLLECTING CONFLICTS FOR EXPORT")
-    print("=" * 70)
-    
+    """Export all conflicts to a CSV file."""
     all_conflicts = []
     
-    # Collect lecture conflicts
-    print("Checking lecture-tutorial/lab conflicts...")
     lecture_conflicts = collect_lecture_conflicts(schedule)
     all_conflicts.extend(lecture_conflicts)
-    print(f"  Found {len(lecture_conflicts)} lecture conflicts")
     
-    # Collect sequence conflicts
-    print("Checking sequence conflicts...")
     sequence_conflicts = collect_sequence_conflicts(schedule, core_sequences)
     all_conflicts.extend(sequence_conflicts)
-    print(f"  Found {len(sequence_conflicts)} sequence conflicts")
     
-    # Collect room conflicts
-    print("Checking room conflicts...")
     room_conflicts = collect_room_conflicts(schedule, room_assignments)
     all_conflicts.extend(room_conflicts)
-    print(f"  Found {len(room_conflicts)} room conflicts")
     
-    # Write to CSV
     fieldnames = [
         'Conflict_Type', 'Course', 'Class_Nbr', 
         'Component1', 'Component1_Index', 
@@ -446,9 +393,5 @@ def export_conflicts_csv(schedule: List[Course], core_sequences: List[List[str]]
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(all_conflicts)
-    
-    print(f"\nTotal conflicts: {len(all_conflicts)}")
-    print(f"Conflicts exported to: {output_path}")
-    print("=" * 70)
     
     return len(all_conflicts)
