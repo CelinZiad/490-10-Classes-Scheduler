@@ -35,3 +35,16 @@ def format_time(mins):
 def slot_block(day,start,duration):
 
     return TimeBlock(day=day,start=start, end = start+duration)
+
+def to_minutes(t) -> int:
+    if isinstance(t, int):
+        return t
+
+
+    if hasattr(t, "hour") and hasattr(t, "minute"):
+        return t.hour * 60 + t.minute
+
+
+    s = str(t)
+    hh, mm = s.split(":")[0], s.split(":")[1]
+    return int(hh) * 60 + int(mm)

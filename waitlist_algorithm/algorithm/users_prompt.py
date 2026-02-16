@@ -1,6 +1,3 @@
-from time_block import TimeBlock
-
-
 def prompt_waitlisted_studyids() -> list[int]:
     raw = input("Enter waitlisted studyid(s) (comma-separated): ").strip()
     if not raw:

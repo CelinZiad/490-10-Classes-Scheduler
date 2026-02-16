@@ -1,8 +1,8 @@
 # test_waitlist.py
 import unittest
 
-from waitlist_algorithm.lab_generator import propose_waitlist_slots
-from waitlist_algorithm.time_block import TimeBlock,m
+from waitlist_algorithm.algorithm.lab_generator import propose_waitlist_slots
+from waitlist_algorithm.algorithm.time_block import TimeBlock,m
 
 
 

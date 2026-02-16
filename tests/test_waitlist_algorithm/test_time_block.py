@@ -1,4 +1,4 @@
-from waitlist_algorithm.time_block import TimeBlock, m, overlaps, overlaps_any, slot_block
+from waitlist_algorithm.algorithm.time_block import TimeBlock, m, overlaps, overlaps_any, slot_block
 
 
 def test_minutes():

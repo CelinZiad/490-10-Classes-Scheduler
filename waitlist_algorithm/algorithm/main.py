@@ -1,9 +1,9 @@
-from lab_generator import propose_waitlist_slots
-from time_block import format_time,m
+from waitlist_algorithm.algorithm.lab_generator import propose_waitlist_slots
+from waitlist_algorithm.algorithm.time_block import format_time,m
 
 from waitlist_algorithm.algorithm.students_busy import load_students_busy_from_db
 from waitlist_algorithm.algorithm.room_busy import load_room_busy_for_course
-from users_prompt import get_waitlisted_students_and_course_from_user
+from waitlist_algorithm.algorithm.users_prompt import get_waitlisted_students_and_course_from_user
 
 from waitlist_algorithm.database_connection.db import get_conn
 
