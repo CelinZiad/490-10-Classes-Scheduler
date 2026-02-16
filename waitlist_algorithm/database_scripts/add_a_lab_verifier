@@ -1,0 +1,83 @@
+# =====================================
+In order to verify the output generated we need to examine if the days the algorithm came up
+with are valid results. The two following scripts are used to see the student schedule occupied block
+and when the room is being used.
+# =====================================
+
+
+# =====================================
+Student busy time blocks
+# =====================================
+
+
+SELECT
+    sss.studyid,
+    st.subject,
+    st.catalog,
+    st.componentcode,
+    st.meetingpatternnumber,
+    st.classstarttime,
+    st.classendtime,
+    st.mondays,
+    st.tuesdays,
+    st.wednesdays,
+    st.thursdays,
+    st.fridays,
+    st.saturdays,
+    st.sundays,
+    st.buildingcode,
+    st.room,
+    ss.studentscheduleid,
+    ss.sequencetermid,
+    st.cid
+FROM studentschedulestudy sss
+JOIN studentschedule ss
+  ON ss.studyid = sss.studyid
+JOIN studentscheduleclass ssc
+  ON ssc.studentscheduleid = ss.studentscheduleid
+JOIN scheduleterm st
+  ON st.cid = ssc.cid
+WHERE sss.studyid in (5001,5002) # <-- the student id e.g "5001,5002"
+ORDER BY st.subject, st.catalog, st.componentcode, st.classstarttime;
+
+
+
+# =====================================
+Room busy time blocks
+# =====================================
+
+WITH allowed_rooms AS (
+    SELECT lr.labroomid, lr.building, lr.room
+    FROM courselabs cl
+    JOIN labrooms lr
+      ON lr.labroomid = cl.labroomid
+    WHERE cl.subject = 'COEN' # <-- change the class subject
+      AND cl.catalog = '212'  # <--  change the class catalog
+)
+SELECT
+    st.subject,
+    st.catalog,
+    ar.labroomid,
+    st.buildingcode,
+    st.room,
+    st.meetingpatternnumber,
+    st.classstarttime,
+    st.classendtime,
+    st.mondays,
+    st.tuesdays,
+    st.wednesdays,
+    st.thursdays,
+    st.fridays,
+    st.saturdays,
+    st.sundays
+FROM scheduleterm st
+JOIN allowed_rooms ar
+  ON ar.building = st.buildingcode
+ AND ar.room     = st.room
+WHERE st.subject = 'COEN'
+  AND st.catalog = '212'
+ORDER BY
+  st.buildingcode, st.room,
+  st.componentcode,
+  st.meetingpatternnumber,
+  st.classstarttime;

@@ -1,4 +1,4 @@
-from waitlist_algorithm.db import get_conn
+from waitlist_algorithm.database_connection.db import get_conn
 
 query = """
 SELECT classnumber, subject, catalog, termcode,
