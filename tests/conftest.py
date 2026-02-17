@@ -75,6 +75,16 @@ class _FakeSession:
         if "from sequencecourse" in sql:
             return _FakeResult(rows=[])
 
+        if "from solution" in sql:
+            return _FakeResult(rows=[])
+
+        if "from conflict" in sql:
+            return _FakeResult(rows=[])
+
+        # Inserts / deletes (no result needed)
+        if sql.strip().startswith("insert") or sql.strip().startswith("delete"):
+            return _FakeResult(rows=[])
+
         return _FakeResult(rows=[])
 
     def commit(self):

@@ -1,7 +1,7 @@
 import os
 import json
 from datetime import date
-from flask import Flask, render_template, jsonify, request, redirect, url_for
+from flask import Flask, render_template, jsonify, request, redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from sqlalchemy.exc import SQLAlchemyError
@@ -33,8 +33,30 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-# flip to True when your real algorithm exists
-algorithmimplemented = False
+# Algorithm is implemented via algo_runner.py
+algorithmimplemented = True
+
+
+# --- Solution derivation from conflicts ---
+
+SOLUTION_MAP = {
+    "Lecture-Tutorial": "Reschedule tutorial to a non-conflicting time slot",
+    "Lecture-Lab": "Reschedule lab to a non-conflicting time slot",
+    "Room Conflict": "Assign an alternative lab room",
+    "Sequence-Tutorial Overlap": "Adjust tutorial sections to avoid overlap",
+    "Sequence-Lab Overlap": "Adjust lab sections to avoid overlap",
+    "Sequence-Tutorial/Lab Overlap": "Adjust tutorial/lab sections to avoid overlap",
+    "Sequence-Missing Course": "Add missing course to the schedule",
+    "Sequence-No Valid Combination": "Re-evaluate section combinations for sequence courses",
+}
+
+
+def derive_solution(conflict_row: dict) -> str:
+    """Derive a solution description from a conflict CSV row."""
+    ctype = conflict_row.get("Conflict_Type", "")
+    course = conflict_row.get("Course", "")
+    base = SOLUTION_MAP.get(ctype, f"Review and resolve {ctype} conflict")
+    return f"{course}: {base}"
 
 
 def logactivity(
@@ -123,24 +145,101 @@ def postschedulerrun():
         )
         return redirect(url_for("dashboard"))
 
-    # algo exists -> create a schedulerun row
+    # Run the genetic algorithm
+    from algo_runner import run_algorithm
+
+    result = run_algorithm()
+
+    # Log the schedule run
     db.session.execute(
         db.text(
             """
             insert into schedulerun (name, status)
-            values (:name, 'generated');
+            values (:name, :status);
         """
         ),
-        {"name": schedulename},
+        {"name": schedulename, "status": result["status"]},
     )
     db.session.commit()
 
     logactivity(
         eventtype="schedulegenerated",
-        title=f'Schedule "{schedulename}" generated',
+        title=(
+            f'Schedule "{schedulename}": fitness={result["best_fitness"]}, '
+            f'generations={result["generations"]}, '
+            f'duration={result.get("duration_seconds", 0)}s'
+        ),
         actorname="system",
-        metadata={"schedulename": schedulename},
+        metadata={
+            "schedulename": schedulename,
+            "best_fitness": result["best_fitness"],
+            "generations": result["generations"],
+            "termination_reason": result.get("termination_reason", ""),
+            "num_courses": result.get("num_courses", 0),
+            "num_conflicts": result["num_conflicts"],
+        },
     )
+
+    # Insert conflicts into DB
+    if result["conflicts"]:
+        db.session.execute(
+            db.text("delete from conflict where status = 'active';")
+        )
+        db.session.commit()
+
+        for row in result["conflicts"]:
+            db.session.execute(
+                db.text(
+                    """
+                    insert into conflict (status, description)
+                    values ('active', :description);
+                """
+                ),
+                {
+                    "description": (
+                        f"{row.get('Conflict_Type', 'Unknown')}: "
+                        f"{row.get('Course', '')} - "
+                        f"{row.get('Time1', '')} vs {row.get('Time2', '')}"
+                    )
+                },
+            )
+        db.session.commit()
+
+        logactivity(
+            eventtype="conflictsdetected",
+            title=f"Detected {result['num_conflicts']} conflicts",
+            actorname="system",
+            metadata={"count": result["num_conflicts"]},
+        )
+
+        # Derive and insert solutions
+        db.session.execute(
+            db.text("delete from solution where status = 'proposed';")
+        )
+        db.session.commit()
+
+        solutions_added = 0
+        for row in result["conflicts"]:
+            desc = derive_solution(row)
+            db.session.execute(
+                db.text(
+                    """
+                    insert into solution (status, description)
+                    values ('proposed', :description);
+                """
+                ),
+                {"description": desc},
+            )
+            solutions_added += 1
+        db.session.commit()
+
+        if solutions_added:
+            logactivity(
+                eventtype="solutionsproposed",
+                title=f"Proposed {solutions_added} solutions",
+                actorname="system",
+                metadata={"count": solutions_added},
+            )
 
     return redirect(url_for("dashboard"))
 
@@ -291,12 +390,42 @@ def catalog():
 
 @app.get("/conflicts")
 def conflicts():
-    return render_template(ROUTE_TEMPLATES["/conflicts"])
+    from algo_runner import load_conflicts_from_csv
+
+    rows = load_conflicts_from_csv()
+    return render_template(ROUTE_TEMPLATES["/conflicts"], conflicts=rows)
 
 
 @app.get("/solutions")
 def solutions():
-    return render_template(ROUTE_TEMPLATES["/solutions"])
+    rows = (
+        db.session.execute(
+            db.text(
+                """
+            select solutionid, status, description, createdat
+            from solution
+            order by createdat desc;
+        """
+            )
+        )
+        .mappings()
+        .all()
+    )
+    return render_template(ROUTE_TEMPLATES["/solutions"], solutions=rows)
+
+
+@app.get("/api/export-csv")
+def api_export_csv():
+    """Download the generated schedule as CSV."""
+    from algo_runner import get_schedule_csv_path
+
+    path = get_schedule_csv_path()
+    if not os.path.isfile(path):
+        return jsonify({"error": "No schedule CSV found. Generate a schedule first."}), 404
+    return send_file(
+        path, mimetype="text/csv", as_attachment=True,
+        download_name="schedule_timetable.csv",
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -7,16 +7,37 @@
   <h1>Proposed Conflict Resolutions</h1>
 </header>
 
+{% if solutions %}
 <section class="card">
-  <h2>Conflict: EV 3.309 double-booked</h2>
-  <ul>
-    <li>Move COMP 490 to EV 5.227</li>
-    <li>Swap SOEN 357 timeslot</li>
-    <li>Assign alternative instructor</li>
-  </ul>
-
-  <a class="btn btn-ghost" href="{{ url_for('conflicts') }}">
-    Back to Conflicts
-  </a>
+  <p>{{ solutions|length }} solution{{ 's' if solutions|length != 1 }} proposed.</p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Description</th>
+        <th>Status</th>
+        <th>Proposed At</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in solutions %}
+      <tr>
+        <td>{{ s.solutionid }}</td>
+        <td>{{ s.description }}</td>
+        <td>{{ s.status }}</td>
+        <td>{{ s.createdat.strftime("%Y-%m-%d %H:%M") }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </section>
+{% else %}
+<section class="card">
+  <p>No solutions proposed yet. Generate a schedule to see proposed resolutions.</p>
+</section>
+{% endif %}
+
+<a class="btn btn-ghost" href="{{ url_for('conflicts') }}">
+  Back to Conflicts
+</a>
 {% endblock %}
