@@ -47,19 +47,15 @@ class _FakeSession:
     def execute(self, statement, params=None):
         sql = str(statement).lower()
 
-        # Used only by _db_reachable() when it runs under mocks (harmless)
         if "select 1" in sql:
             return _FakeResult(scalar_value=1)
 
-        # /api/events
         if "from scheduleterm" in sql and "select distinct on" in sql:
             return _FakeResult(rows=[])
 
-        # /api/filters: terms query
         if "group by sch.termcode" in sql:
             return _FakeResult(rows=[])
 
-        # /api/filters dropdowns
         if "select distinct sch.subject" in sql:
             return _FakeResult(rows=[])
         if "select distinct sch.componentcode" in sql:
@@ -67,21 +63,29 @@ class _FakeSession:
         if "select distinct sch.buildingcode" in sql:
             return _FakeResult(rows=[])
 
-        # /api/filters plans
         if "from sequenceplan" in sql and "select planid" in sql:
             return _FakeResult(rows=[])
 
-        # /api/plans/<id>/terms
         if "from sequenceterm" in sql and "where planid" in sql:
             return _FakeResult(rows=[])
 
-        # pages that query activitylog/catalog
         if "from activitylog" in sql:
             return _FakeResult(rows=[])
+
         if "from sequencecourse" in sql:
             return _FakeResult(rows=[])
 
         return _FakeResult(rows=[])
+
+    def commit(self):
+        return None
+
+    def rollback(self):
+        return None
+
+    def remove(self):
+        # Flask-SQLAlchemy calls this at request teardown
+        return None
 
     def commit(self):
         return None
