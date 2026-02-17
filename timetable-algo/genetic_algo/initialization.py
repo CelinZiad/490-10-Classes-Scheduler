@@ -31,27 +31,31 @@ def insert_tut_into_timetable(course):
             tut.day = [d, d + 7]
             if any(d in day.value for day in course.lecture.day):
                 diff = -1
-                while 0 >= diff:
+                attempts = 0
+                while 0 >= diff and attempts < 120:
                     tut_start = random.choice(tut_50_start)
                     if tut_start > course.lecture.start:
                         diff = tut_start - course.lecture.end
                     elif course.lecture.start > tut_start:
                         diff = course.lecture.end - 50 - tut_start
+                    attempts += 1
                 tut.start = tut_start
             else:
-                tut.start = random.choice(tut_50_start)    
+                tut.start = random.choice(tut_50_start)
             tut.end = tut.start + 50
         elif course.weekly_tut_freq == 1 and course.tut_duration == 100:
             d = random.choice(day_of_week_tut)
             tut.day = [d, d + 7]
             if any(d in day.value for day in course.lecture.day):
                 diff = -1
-                while 0 >= diff:
+                attempts = 0
+                while 0 >= diff and attempts < 120:
                     tut_start = random.choice(tut_100_start)
                     if tut_start > course.lecture.start:
                         diff = tut_start - course.lecture.end
                     elif course.lecture.start > tut_start:
                         diff = course.lecture.end - 100 - tut_start
+                    attempts += 1
                 tut.start = tut_start
             else:
                 tut.start = random.choice(tut_100_start)    
@@ -141,27 +145,31 @@ def insert_lab_into_timetable(course, room_timetable: Optional[Dict] = None):
                 lab.day = [d]
                 if any(d in day.value for day in course.lecture.day):
                     diff = -1
-                    while 0 >= diff:
+                    attempts = 0
+                    while 0 >= diff and attempts < 120:
                         lab_start = random.choice(lab_165_start)
                         if lab_start > course.lecture.start:
                             diff = lab_start - course.lecture.end
                         elif course.lecture.start > lab_start:
                             diff = course.lecture.end - 165 - lab_start
+                        attempts += 1
                     lab.start = lab_start
                 else:
-                    lab.start = random.choice(lab_165_start)    
+                    lab.start = random.choice(lab_165_start)
                 lab.end = lab.start + 165
             elif course.biweekly_lab_freq == 1 and course.lab_duration == 100:
                 d = random.choice(day_of_week_lab)
                 lab.day = [d]
                 if any(d in day.value for day in course.lecture.day):
                     diff = -1
-                    while 0 >= diff:
+                    attempts = 0
+                    while 0 >= diff and attempts < 120:
                         lab_start = random.choice(tut_100_start)
                         if lab_start > course.lecture.start:
                             diff = lab_start - course.lecture.end
                         elif course.lecture.start > lab_start:
                             diff = course.lecture.end - 100 - lab_start
+                        attempts += 1
                     lab.start = lab_start
                 else:
                     lab.start = random.choice(tut_100_start)    
