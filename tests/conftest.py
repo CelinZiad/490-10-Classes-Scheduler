@@ -84,19 +84,17 @@ class _FakeSession:
         return None
 
     def remove(self):
-        # Flask-SQLAlchemy calls this at request teardown
-        return None
-
-    def commit(self):
-        return None
-
-    def rollback(self):
         return None
 
 
 def _install_db_mocks(monkeypatch):
-    # Patch the whole session (more reliable than patching execute on scoped_session)
-    monkeypatch.setattr(db, "session", _FakeSession())
+    fake = _FakeSession()
+
+    # what your app code uses
+    monkeypatch.setattr(db, "session", fake, raising=False)
+
+    # what Flask-SQLAlchemy teardown uses internally
+    monkeypatch.setattr(db, "_session", fake, raising=False)
 
 
 @pytest.fixture()
