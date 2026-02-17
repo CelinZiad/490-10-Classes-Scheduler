@@ -4,24 +4,6 @@ import pytest
 import json
 
 
-class TestHealthDbApi:
-    """Tests for GET /health/db endpoint."""
-
-    def test_health_db_returns_json(self, client):
-        res = client.get("/health/db")
-        assert res.content_type == "application/json"
-        assert res.status_code in (200, 500)
-        data = res.get_json()
-        assert "ok" in data
-
-
-    def test_health_db_has_ok_field(self, client):
-        """Health check response should have 'ok' field."""
-        res = client.get("/health/db")
-        data = json.loads(res.get_data(as_text=True))
-        assert "ok" in data
-
-
 class TestApiEventsEndpoint:
     """Tests for GET /api/events endpoint."""
 

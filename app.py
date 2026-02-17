@@ -63,16 +63,6 @@ def logactivity(
     db.session.commit()
 
 
-@app.get("/health/db")
-def health_db():
-    try:
-        ok = db.session.execute(db.text("select 1")).scalar() == 1
-        return jsonify(ok=ok), 200
-    except SQLAlchemyError as e:
-        # DB unreachable / credentials wrong / server down, etc.
-        return jsonify(ok=False, error=str(e.__class__.__name__)), 500
-
-
 @app.get("/")
 def dashboard():
     # scheduler status

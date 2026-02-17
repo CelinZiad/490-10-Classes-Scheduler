@@ -3,12 +3,6 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 
-def test_health_db_route_exists(app):
-    """The /health/db route must be registered."""
-    rules = {r.rule for r in app.url_map.iter_rules()}
-    assert "/health/db" in rules
-
-
 def test_dashboard_route_exists(app):
     """The / (dashboard) route must be registered."""
     rules = {r.rule for r in app.url_map.iter_rules()}

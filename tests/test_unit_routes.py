@@ -11,7 +11,6 @@ EXPECTED_GET_ROUTES = {
     "/conflicts",
     "/solutions",
     "/timetable",
-    "/health/db",
     "/api/events",
     "/api/filters",
     "/api/plans/<int:planid>/terms",
