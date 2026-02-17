@@ -1,92 +1,82 @@
 from unittest.mock import MagicMock
 import pytest
-import waitlist_algorithm.algorithm.main as mod
+import importlib
 
 
-def test_main_happy_path(monkeypatch, capsys):
-    fake_cur = MagicMock()
-    fake_conn = MagicMock()
-    fake_conn.cursor.return_value = fake_cur
+@pytest.fixture
+def mod():
+    return importlib.import_module("waitlist_algorithm.algorithm.main")
 
-    monkeypatch.setattr(mod, "get_conn", lambda: fake_conn)
-    monkeypatch.setattr(
-        mod,
-        "get_waitlisted_students_and_course_from_user",
-        lambda cur: ([5001, 5002], ("COEN", "243")),
+
+def test_main_happy_path_calls_everything_and_commits(mod):
+    conn = MagicMock()
+    cur = MagicMock()
+    conn.cursor.return_value = cur
+
+    mod.get_conn = MagicMock(return_value=conn)
+
+    mod.get_waitlisted_students_and_course_from_user = MagicMock(
+        return_value=([101, 202], ("COEN", "352"))
     )
-    monkeypatch.setattr(
-        mod,
-        "load_students_busy_from_db",
-        lambda cur, ids: {5001: [], 5002: []},
-    )
-    monkeypatch.setattr(
-        mod,
-        "load_room_busy_for_course",
-        lambda cur, subject, catalog: [],
-    )
-    monkeypatch.setattr(
-        mod,
-        "propose_waitlist_slots",
-        lambda **kwargs: {(1, 525): [5001], (2, 705): [5002, 5001]},
-    )
+
+    students_busy = {101: [], 202: []}
+    week1 = "2026-02-16"
+    room_busy = ["rb1"]
+
+    mod.load_students_busy_from_db = MagicMock(return_value=students_busy)
+    mod.get_two_week_anchor_monday = MagicMock(return_value=week1)
+    mod.load_room_busy_for_course = MagicMock(return_value=room_busy)
+
+    results = {(2, 600): [202], (1, 525): [101, 202]}
+    mod.propose_waitlist_slots = MagicMock(return_value=results)
+
+    mod.save_lab_results_to_db = MagicMock()
+    mod.format_time = MagicMock(side_effect=lambda x: f"T{x}")
 
     mod.main()
 
-    out = capsys.readouterr().out
-    assert "--- Proposed Lab Slots ---" in out
-    assert "1,08:45,5001" in out
-    assert "2,11:45,5002,5001" in out
+    mod.get_conn.assert_called_once()
+    conn.cursor.assert_called_once()
+
+    mod.get_waitlisted_students_and_course_from_user.assert_called_once_with(cur)
+    mod.load_students_busy_from_db.assert_called_once_with(cur, [101, 202])
+    mod.get_two_week_anchor_monday.assert_called_once_with(cur, [101, 202])
+    mod.load_room_busy_for_course.assert_called_once_with(cur, "COEN", "352", week1)
+
+    assert mod.propose_waitlist_slots.call_count == 1
+    _, kwargs = mod.propose_waitlist_slots.call_args
+    assert kwargs["waitlisted_students"] == [101, 202]
+    assert kwargs["students_busy"] == students_busy
+    assert kwargs["room_busy"] == room_busy
+    assert kwargs["lab_start_times"] == [mod.m(8, 45), mod.m(11, 45), mod.m(14, 45), mod.m(17, 45)]
+
+    mod.save_lab_results_to_db.assert_called_once_with(cur, "COEN", "352", 180, results)
+    conn.commit.assert_called_once()
 
 
-def test_main_no_results(monkeypatch, capsys):
-    fake_cur = MagicMock()
-    fake_conn = MagicMock()
-    fake_conn.cursor.return_value = fake_cur
+def test_main_prints_sorted_results(mod, capsys):
+    conn = MagicMock()
+    cur = MagicMock()
+    conn.cursor.return_value = cur
 
-    monkeypatch.setattr(mod, "get_conn", lambda: fake_conn)
-    monkeypatch.setattr(
-        mod,
-        "get_waitlisted_students_and_course_from_user",
-        lambda cur: ([5001], ("COEN", "243")),
+    mod.get_conn = MagicMock(return_value=conn)
+    mod.get_waitlisted_students_and_course_from_user = MagicMock(
+        return_value=([1, 2], ("COEN", "352"))
     )
-    monkeypatch.setattr(mod, "load_students_busy_from_db", lambda cur, ids: {5001: []})
-    monkeypatch.setattr(mod, "load_room_busy_for_course", lambda cur, s, c: [])
-    monkeypatch.setattr(mod, "propose_waitlist_slots", lambda **kwargs: {})
+    mod.load_students_busy_from_db = MagicMock(return_value={})
+    mod.get_two_week_anchor_monday = MagicMock(return_value="2026-02-16")
+    mod.load_room_busy_for_course = MagicMock(return_value=[])
+
+    results = {(2, 600): [2], (1, 525): [1, 2]}
+    mod.propose_waitlist_slots = MagicMock(return_value=results)
+
+    mod.save_lab_results_to_db = MagicMock()
+    mod.format_time = MagicMock(side_effect=lambda x: f"{x}")
 
     mod.main()
 
-    out = capsys.readouterr().out
-    assert "--- Proposed Lab Slots ---" in out
+    out = capsys.readouterr().out.strip().splitlines()
 
-
-def test_main_calls_propose_with_expected_arguments(monkeypatch):
-    fake_cur = MagicMock()
-    fake_conn = MagicMock()
-    fake_conn.cursor.return_value = fake_cur
-
-    captured = {}
-
-    def fake_propose_waitlist_slots(**kwargs):
-        captured.update(kwargs)
-        return {}
-
-    monkeypatch.setattr(mod, "get_conn", lambda: fake_conn)
-    monkeypatch.setattr(
-        mod,
-        "get_waitlisted_students_and_course_from_user",
-        lambda cur: ([5001, 5002], ("COEN", "243")),
-    )
-
-    fake_students_busy = {5001: [], 5002: []}
-    fake_room_busy = []
-
-    monkeypatch.setattr(mod, "load_students_busy_from_db", lambda cur, ids: fake_students_busy)
-    monkeypatch.setattr(mod, "load_room_busy_for_course", lambda cur, s, c: fake_room_busy)
-    monkeypatch.setattr(mod, "propose_waitlist_slots", fake_propose_waitlist_slots)
-
-    mod.main()
-
-    assert captured["waitlisted_students"] == [5001, 5002]
-    assert captured["students_busy"] is fake_students_busy
-    assert captured["room_busy"] is fake_room_busy
-    assert captured["lab_start_times"] == [mod.m(8, 45), mod.m(11, 45), mod.m(14, 45), mod.m(17, 45)]
+    assert "--- Proposed Lab Slots ---" in out[0]
+    assert out[1] == "1,525,1,2"
+    assert out[2] == "2,600,2"

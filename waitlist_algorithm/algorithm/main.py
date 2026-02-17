@@ -1,11 +1,13 @@
 from waitlist_algorithm.algorithm.lab_generator import propose_waitlist_slots
 from waitlist_algorithm.algorithm.time_block import format_time,m
 
-from waitlist_algorithm.algorithm.students_busy import load_students_busy_from_db
+from waitlist_algorithm.algorithm.students_busy import load_students_busy_from_db,get_two_week_anchor_monday
 from waitlist_algorithm.algorithm.room_busy import load_room_busy_for_course
 from waitlist_algorithm.algorithm.users_prompt import get_waitlisted_students_and_course_from_user
+from waitlist_algorithm.algorithm.database_results import save_lab_results_to_db
 
 from waitlist_algorithm.database_connection.db import get_conn
+
 
 
 
@@ -16,8 +18,9 @@ def main():
 
     lab_start_time = [m(8,45),m(11,45),m(14,45),m(17,45)]
 
+    conn = get_conn()
+    cur = conn.cursor()
 
-    cur = get_conn().cursor()
 
 
 
@@ -25,11 +28,16 @@ def main():
     subject, catalog = course
 
     students_busy = load_students_busy_from_db(cur, waitlisted_students)
-    room_busy = load_room_busy_for_course(cur, subject,catalog)
-
+    week1 = get_two_week_anchor_monday(cur, waitlisted_students)
+    room_busy = load_room_busy_for_course(cur, subject, catalog, week1)
 
 
     results = propose_waitlist_slots(waitlisted_students= waitlisted_students, students_busy= students_busy,room_busy= room_busy,lab_start_times= lab_start_time)
+
+
+    save_lab_results_to_db(cur, subject, catalog, 180, results)
+    conn.commit()
+
 
     print("\n--- Proposed Lab Slots ---")
     for(day,start), students in sorted(results.items()):

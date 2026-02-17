@@ -1,76 +1,79 @@
+import datetime as dt
 from unittest.mock import MagicMock
+
 import pytest
-import waitlist_algorithm.algorithm.room_busy as mod
-from waitlist_algorithm.algorithm.time_block import TimeBlock,m
+
+from waitlist_algorithm.algorithm.room_busy import load_room_busy_for_course
+from waitlist_algorithm.algorithm.time_block import TimeBlock, to_minutes
 
 
-def test_exec_called_with_correct_params_and_sql_contains_core_parts():
+def test_load_room_busy_for_course_executes_query_with_params():
     cur = MagicMock()
     cur.fetchall.return_value = []
 
-    out = mod.load_room_busy_for_course(cur, "COEN", "346")
+    subject = "COEN"
+    catalog = "352"
+    week1_monday = dt.date(2026, 2, 16)
 
-    assert out == []
+    result = load_room_busy_for_course(cur, subject, catalog, week1_monday)
+
+    assert result == []
+
     cur.execute.assert_called_once()
 
-    sql_arg, params_arg = cur.execute.call_args.args
-    assert params_arg == ("COEN", "346")
+    _sql, params = cur.execute.call_args[0]
+    assert params == (subject, catalog, week1_monday)
 
-    assert "WITH allowed_rooms AS" in sql_arg
-    assert "FROM courselabs" in sql_arg
-    assert "FROM scheduleterm" in sql_arg
-    assert "ORDER BY day, start_time" in sql_arg
+    assert "WITH allowed_rooms AS" in _sql
+    assert "generate_series(0, 13)" in _sql
+    assert "ORDER BY day, start_time" in _sql
 
 
-def test_builds_timeblocks_from_string_times():
+def test_load_room_busy_for_course_maps_rows_to_timeblocks():
     cur = MagicMock()
+
     cur.fetchall.return_value = [
-        (1, "09:00:00", "10:15:00"),
-        (8, "13:30:00", "15:00:00"),
+        (1, dt.time(8, 45), dt.time(10, 0)),
+        (3, dt.time(14, 45), dt.time(16, 30)),
     ]
 
-    out = mod.load_room_busy_for_course(cur, "COEN", "346")
+    result = load_room_busy_for_course(cur, "COEN", "352", dt.date(2026, 2, 16))
 
-    assert out == [
-        TimeBlock(day=1, start=540, end=615),
-        TimeBlock(day=8, start=810, end=900),
+    assert result == [
+        TimeBlock(day=1, start=to_minutes(dt.time(8, 45)), end=to_minutes(dt.time(10, 0))),
+        TimeBlock(day=3, start=to_minutes(dt.time(14, 45)), end=to_minutes(dt.time(16, 30))),
     ]
 
 
-def test_day_is_cast_to_int_if_driver_returns_string():
+def test_load_room_busy_for_course_casts_day_to_int():
     cur = MagicMock()
+
     cur.fetchall.return_value = [
-        ("2", "08:00:00", "09:00:00"),
+        ("2", dt.time(11, 45), dt.time(12, 35)),
     ]
 
-    out = mod.load_room_busy_for_course(cur, "COEN", "346")
+    result = load_room_busy_for_course(cur, "COEN", "352", dt.date(2026, 2, 16))
 
-    assert out == [TimeBlock(day=2, start=480, end=540)]
+    assert len(result) == 1
+    assert result[0].day == 2
+    assert result[0].start == to_minutes(dt.time(11, 45))
+    assert result[0].end == to_minutes(dt.time(12, 35))
 
 
-def test_builds_timeblocks_from_time_objects_with_hour_minute():
-    class FakeTime:
-        def __init__(self, hour, minute):
-            self.hour = hour
-            self.minute = minute
-
+def test_load_room_busy_for_course_multiple_rows_order_preserved():
     cur = MagicMock()
+
     cur.fetchall.return_value = [
-        (3, FakeTime(14, 5), FakeTime(16, 0)),
+        (1, dt.time(9, 0), dt.time(10, 0)),
+        (1, dt.time(10, 0), dt.time(11, 0)),
+        (2, dt.time(8, 45), dt.time(9, 35)),
     ]
 
-    out = mod.load_room_busy_for_course(cur, "COEN", "346")
+    result = load_room_busy_for_course(cur, "COEN", "352", dt.date(2026, 2, 16))
 
-    assert out == [TimeBlock(day=3, start=14 * 60 + 5, end=16 * 60)]
-
-
-def test_builds_timeblocks_from_int_minutes_directly():
-    cur = MagicMock()
-    cur.fetchall.return_value = [
-        (5, 600, 660),
+    assert [tb.day for tb in result] == [1, 1, 2]
+    assert [(tb.start, tb.end) for tb in result] == [
+        (to_minutes(dt.time(9, 0)), to_minutes(dt.time(10, 0))),
+        (to_minutes(dt.time(10, 0)), to_minutes(dt.time(11, 0))),
+        (to_minutes(dt.time(8, 45)), to_minutes(dt.time(9, 35))),
     ]
-
-    out = mod.load_room_busy_for_course(cur, "COEN", "346")
-
-    assert out == [TimeBlock(day=5, start=600, end=660)]
-
