@@ -360,6 +360,8 @@ def insert_optimized_components(schedule: List[Course], room_assignments,
                 location = 'SGW' if instruction_mode == 'P' else 'ONL'
                 
                 for tut_idx, tut in enumerate(course.tutorial):
+                    if tut is None or not tut.day:
+                        continue
                     all_day_numbers = []
                     for day_enum in tut.day:
                         all_day_numbers.extend(extract_day_numbers(day_enum))
@@ -400,9 +402,11 @@ def insert_optimized_components(schedule: List[Course], room_assignments,
                 career = 'GRAD' if course.catalog_nbr.startswith('6') else 'UGRD'
                 instruction_mode = prev_lab['instructionmodecode']
                 location = 'SGW' if instruction_mode == 'P' else 'ONL'
-                buildingcode = 'H' if building else ''
-                
+                buildingcode = building if building else ''
+
                 for lab_idx, lab in enumerate(course.lab):
+                    if lab is None or not lab.day:
+                        continue
                     all_day_numbers = []
                     for day_enum in lab.day:
                         all_day_numbers.extend(extract_day_numbers(day_enum))

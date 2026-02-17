@@ -49,9 +49,12 @@ def should_include_course(subject: str, catalog: str) -> bool:
 
 def read_courses_from_csv(path: str) -> List[Course]:
     """Read courses from CSV file and return list of Course objects (filtered)."""
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"CSV file not found: {path}")
+
     courses: List[Course] = []
     filtered_count = 0
-    
+
     with open(path, "r", newline="", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for i, row in enumerate(reader, start=2):
@@ -79,10 +82,10 @@ def initialize_population(courses: List[Course], population_size: int,
         individual = []
         for c in courses:
             course_copy = deepcopy(c)
-            if not initialize_course_with_validation(course_copy, 
+            if not initialize_course_with_validation(course_copy,
                                                      room_assignments=room_assignments,
                                                      existing_schedule=individual):
-                pass
+                print(f"Warning: Could not fully initialize {course_copy.subject}{course_copy.catalog_nbr}")
             individual.append(course_copy)
         population.append(individual)
     
@@ -142,6 +145,10 @@ if __name__ == "__main__":
                                      show_summary=True)
     
     courses = read_courses_from_csv("Data.csv")
+    if not courses:
+        print("Error: No courses loaded from Data.csv. Exiting.")
+        sys.exit(1)
+
     room_assignments = load_room_assignments("Room_data.csv")
     population = initialize_population(courses, POPULATION_SIZE, room_assignments)
     

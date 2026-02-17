@@ -54,10 +54,10 @@ def has_valid_sequence_combination(schedule, sequence_courses):
     if not all_tutorials and not all_labs:
         return True
     
-    tut_combinations = list(product(*all_tutorials)) if all_tutorials else [[]]
-    lab_combinations = list(product(*all_labs)) if all_labs else [[]]
-    
-    for tut_combo in tut_combinations:
+    tut_iter = product(*all_tutorials) if all_tutorials else iter([[]])
+    lab_list = list(product(*all_labs)) if all_labs else [[]]
+
+    for tut_combo in tut_iter:
         tut_has_overlap = False
         for i, tut1 in enumerate(tut_combo):
             for tut2 in tut_combo[i+1:]:
@@ -66,11 +66,11 @@ def has_valid_sequence_combination(schedule, sequence_courses):
                     break
             if tut_has_overlap:
                 break
-        
+
         if tut_has_overlap:
             continue
-        
-        for lab_combo in lab_combinations:
+
+        for lab_combo in lab_list:
             lab_has_overlap = False
             for i, lab1 in enumerate(lab_combo):
                 for lab2 in lab_combo[i+1:]:
@@ -79,10 +79,10 @@ def has_valid_sequence_combination(schedule, sequence_courses):
                         break
                 if lab_has_overlap:
                     break
-            
+
             if lab_has_overlap:
                 continue
-            
+
             tut_lab_overlap = False
             for tut in tut_combo:
                 for lab in lab_combo:
@@ -91,10 +91,10 @@ def has_valid_sequence_combination(schedule, sequence_courses):
                         break
                 if tut_lab_overlap:
                     break
-            
+
             if not tut_lab_overlap:
                 return True
-    
+
     return False
 
 

@@ -14,7 +14,10 @@ def get_connection():
 
 
 def fetch_all(sql, params=None):
-    with get_connection() as conn:
+    conn = get_connection()
+    try:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(sql, params)
             return cur.fetchall()
+    finally:
+        conn.close()
