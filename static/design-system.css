@@ -111,16 +111,20 @@ body {
 .status-error { color: #dc2626; }
 
 /* --- Source toggle --- */
+
 .source-toggle-card { margin-bottom: 0.5rem; }
+
 .source-toggle {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
+
 .source-toggle label {
   font-weight: 600;
   font-size: 0.875rem;
 }
+
 .source-btn {
   padding: 0.375rem 1rem;
   border: 1px solid var(--border-color);
@@ -130,6 +134,7 @@ body {
   font-size: 0.8125rem;
   transition: background 0.15s, color 0.15s;
 }
+
 .source-btn.active {
   background: var(--sidebar-active);
   color: #fff;
@@ -137,10 +142,12 @@ body {
 }
 
 /* --- Export dropdown --- */
+
 .export-dropdown {
   position: relative;
   display: inline-block;
 }
+
 .export-menu {
   display: none;
   position: absolute;
@@ -149,11 +156,13 @@ body {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
   min-width: 200px;
   z-index: 100;
 }
+
 .export-menu.open { display: block; }
+
 .export-menu a {
   display: block;
   padding: 0.5rem 1rem;
@@ -162,4 +171,5 @@ body {
   font-size: 0.8125rem;
   transition: background 0.1s;
 }
+
 .export-menu a:hover { background: var(--app-bg); }
