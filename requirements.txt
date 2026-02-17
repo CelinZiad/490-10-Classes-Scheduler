@@ -2,3 +2,10 @@ flask
 flask-sqlalchemy
 pytest
 pytest-cov
+python-dotenv
+psycopg2-binary
+numpy
+psycopg2-binary
+python-dotenv
+requests
+beautifulsoup4

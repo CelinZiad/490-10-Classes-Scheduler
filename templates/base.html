@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Timetable</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/timetable.css') }}">
+  {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+<div class="app-layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <span class="logo">ECE Scheduler</span>
+    </div>
+
+    <nav class="nav-main">
+      <a class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}"
+         href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a class="nav-item {% if request.endpoint == 'timetable' %}active{% endif %}"
+         href="{{ url_for('timetable') }}">Timetable</a>
+      <a class="nav-item {% if request.endpoint == 'catalog' %}active{% endif %}"
+         href="{{ url_for('catalog') }}">Catalog</a>
+      <a class="nav-item {% if request.endpoint == 'conflicts' %}active{% endif %}"
+         href="{{ url_for('conflicts') }}">Conflicts</a>
+      <a class="nav-item {% if request.endpoint == 'solutions' %}active{% endif %}"
+         href="{{ url_for('solutions') }}">Solutions</a>
+      <a class="nav-item {% if request.endpoint == 'activity' %}active{% endif %}"
+         href="{{ url_for('activity') }}">Activity</a>
+      {% if debug %}
+        <a class="nav-item {% if request.endpoint == 'debug' %}active{% endif %}"
+           href="{{ url_for('debug') }}">Debug</a>
+       {% endif %}
+    </nav>
+  </aside>
+
+  <main class="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>
