@@ -3,6 +3,7 @@ import pytest
 from course_element import CourseElement
 from course import Course
 from day import Day
+from room_management import RoomAssignment
 from initialization import (
     get_lab_days_for_frequency,
     check_room_conflict,
@@ -12,6 +13,7 @@ from initialization import (
     insert_tut_into_timetable,
     insert_lab_into_timetable,
     initialize_course_with_validation,
+    build_room_timetable_for_schedule,
 )
 
 
@@ -270,4 +272,68 @@ def test_initialize_course_with_validation_simple():
 def test_initialize_course_no_labs_no_tuts():
     course = _make_course(lecture_days=(Day.MO,), lec_start=705, lec_end=780)
     result = initialize_course_with_validation(course, max_attempts=10)
+    assert result is True
+
+
+# --- build_room_timetable_for_schedule ---
+
+def test_build_room_timetable_empty_schedule():
+    assignments = [RoomAssignment(bldg="H", room="929", subject="COEN", catalog_nbrs=["311"])]
+    result = build_room_timetable_for_schedule([], assignments)
+    assert result == {}
+
+
+def test_build_room_timetable_course_with_lab():
+    course = _make_course(
+        subject="COEN", catalog="311",
+        lab_count=1, biweekly_lab_freq=1, lab_duration=165,
+    )
+    course.lab[0].day = [1]
+    course.lab[0].start = 525
+    course.lab[0].end = 690
+    assignments = [RoomAssignment(bldg="H", room="929", subject="COEN", catalog_nbrs=["311"])]
+    result = build_room_timetable_for_schedule([course], assignments)
+    assert ("H", "929") in result
+    assert len(result[("H", "929")]) == 1
+
+
+def test_build_room_timetable_no_matching_room():
+    course = _make_course(
+        subject="COEN", catalog="311",
+        lab_count=1, biweekly_lab_freq=1, lab_duration=165,
+    )
+    course.lab[0].day = [1]
+    course.lab[0].start = 525
+    course.lab[0].end = 690
+    assignments = [RoomAssignment(bldg="H", room="929", subject="ELEC", catalog_nbrs=["273"])]
+    result = build_room_timetable_for_schedule([course], assignments)
+    assert ("H", "929") not in result
+
+
+def test_build_room_timetable_skips_empty_labs():
+    course = _make_course(
+        subject="COEN", catalog="311",
+        lab_count=2, biweekly_lab_freq=1, lab_duration=165,
+    )
+    course.lab[0].day = [1]
+    course.lab[0].start = 525
+    course.lab[0].end = 690
+    # lab[1] has empty day list - should be skipped
+    assignments = [RoomAssignment(bldg="H", room="929", subject="COEN", catalog_nbrs=["311"])]
+    result = build_room_timetable_for_schedule([course], assignments)
+    assert len(result[("H", "929")]) == 1
+
+
+# --- initialize_course_with_validation with room assignments ---
+
+def test_initialize_with_room_assignments():
+    random.seed(42)
+    course = _make_course(
+        lecture_days=(Day.MO,), lec_start=705, lec_end=780,
+        lab_count=1, biweekly_lab_freq=1, lab_duration=165,
+    )
+    assignments = [RoomAssignment(bldg="H", room="929", subject="COEN", catalog_nbrs=["311"])]
+    result = initialize_course_with_validation(
+        course, max_attempts=50, room_assignments=assignments, existing_schedule=[]
+    )
     assert result is True

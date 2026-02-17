@@ -10,6 +10,8 @@ from fitness import (
     fitness_function,
     evaluate_population,
     count_sequence_conflicts,
+    display_fitness_details,
+    display_schedule_structure,
 )
 
 
@@ -232,3 +234,54 @@ def test_evaluate_population_length():
     population = [[c1], [c2], [c1, c2]]
     scores = evaluate_population(population)
     assert len(scores) == 3
+
+
+# --- fitness_function with sequence and room params ---
+
+def test_fitness_with_sequences():
+    c1 = _make_course(subject="COEN", catalog="212")
+    c2 = _make_course(subject="COEN", catalog="231")
+    score = fitness_function([c1, c2], core_sequences=[["COEN212", "COEN231"]])
+    assert isinstance(score, float)
+    assert score > 0  # No conflicts expected
+
+
+def test_fitness_with_room_assignments():
+    from room_management import RoomAssignment
+    c1 = _make_course(subject="COEN", catalog="311",
+                      lab_count=1, lab_duration=165)
+    c1.lab[0].day = [1]
+    c1.lab[0].start = 525
+    c1.lab[0].end = 690
+    assignments = [RoomAssignment(bldg="H", room="929", subject="COEN", catalog_nbrs=["311"])]
+    score = fitness_function([c1], room_assignments=assignments)
+    assert isinstance(score, float)
+
+
+def test_fitness_with_variety():
+    c = _make_course(subject="COEN", catalog="311",
+                     tut_count=2, tut_duration=50, lab_count=2, lab_duration=165)
+    c.tutorial[0].day = [1]
+    c.tutorial[0].start = 525
+    c.tutorial[0].end = 575
+    c.tutorial[1].day = [3]
+    c.tutorial[1].start = 700
+    c.tutorial[1].end = 750
+    c.lab[0].day = [2]
+    c.lab[0].start = 525
+    c.lab[0].end = 690
+    c.lab[1].day = [4]
+    c.lab[1].start = 525
+    c.lab[1].end = 690
+    score = fitness_function([c])
+    assert score > 0
+
+
+# --- display functions (no-ops) ---
+
+def test_display_fitness_details():
+    display_fitness_details([])
+
+
+def test_display_schedule_structure():
+    display_schedule_structure([])
