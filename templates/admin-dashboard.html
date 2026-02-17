@@ -38,7 +38,7 @@
 <section class="card" aria-labelledby="recent-activity-title">
   <h2 id="recent-activity-title">Recent Activity</h2>
 
-  {% if recentactivity and recentactivity|length > 0 %}
+  {% if recentactivity %}
     <ul>
       {% for a in recentactivity %}
         <li>

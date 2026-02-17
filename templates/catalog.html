@@ -11,7 +11,7 @@
       <label for="planid">Sequence type</label><br>
       <select id="planid" name="planid" onchange="this.form.submit()">
         {% for p in plans %}
-          <option value="{{ p.planid }}" {% if p.planid == selected_planid %}selected{% endif %}>
+          <option value="{{ p.planid }}"{{ ' selected="selected"' if p.planid == selected_planid else '' }}>
             {{ p.planname }}
           </option>
         {% endfor %}
@@ -22,7 +22,7 @@
       <label for="termid">Semester</label><br>
       <select id="termid" name="termid" onchange="this.form.submit()">
         {% for t in terms %}
-          <option value="{{ t.sequencetermid }}" {% if t.sequencetermid == selected_termid %}selected{% endif %}>
+          <option value="{{ t.sequencetermid }}"{{ ' selected="selected"' if t.sequencetermid == selected_termid else '' }}>
             Year {{ t.yearnumber }} {{ t.season|title }} {% if t.workterm %}(Work term){% endif %}
           </option>
         {% endfor %}
@@ -36,7 +36,7 @@
 </div>
 
 <div class="card">
-  {% if rows and rows|length > 0 %}
+  {% if rows %}
     <table class="data-table">
       <thead>
         <tr>
