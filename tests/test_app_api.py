@@ -1,4 +1,5 @@
 """Unit tests for API endpoints."""
+from http import client
 import pytest
 import json
 
@@ -7,10 +8,12 @@ class TestHealthDbApi:
     """Tests for GET /health/db endpoint."""
 
     def test_health_db_returns_json(self, client):
-        """Health check endpoint should return JSON."""
         res = client.get("/health/db")
-        assert res.status_code in [200, 500]  # May fail if no DB, but should be JSON
         assert res.content_type == "application/json"
+        assert res.status_code in (200, 500)
+        data = res.get_json()
+        assert "ok" in data
+
 
     def test_health_db_has_ok_field(self, client):
         """Health check response should have 'ok' field."""

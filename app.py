@@ -4,6 +4,7 @@ from datetime import date
 from flask import Flask, render_template, jsonify, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
+from sqlalchemy.exc import SQLAlchemyError
 
 load_dotenv()
 
@@ -64,8 +65,12 @@ def logactivity(
 
 @app.get("/health/db")
 def health_db():
-    ok = db.session.execute(db.text("select 1")).scalar() == 1
-    return jsonify(ok=ok)
+    try:
+        ok = db.session.execute(db.text("select 1")).scalar() == 1
+        return jsonify(ok=ok), 200
+    except SQLAlchemyError as e:
+        # DB unreachable / credentials wrong / server down, etc.
+        return jsonify(ok=False, error=str(e.__class__.__name__)), 500
 
 
 @app.get("/")
