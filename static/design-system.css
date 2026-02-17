@@ -97,3 +97,15 @@ body {
 .btn-ghost {
   color: var(--sidebar-active);
 }
+
+/* --- Scheduler status badges --- */
+.status {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.status-warning { color: #b45309; }
+.status-info { color: #2563eb; }
+.status-running { color: #0ea5e9; }
+.status-success { color: #16a34a; }
+.status-error { color: #dc2626; }

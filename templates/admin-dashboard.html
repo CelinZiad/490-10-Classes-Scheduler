@@ -1,46 +1,58 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Admin Dashboard</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
-</head>
+{% extends "base.html" %}
 
-<body>
-<div class="app-layout">
+{% block title %}Admin Dashboard{% endblock %}
 
-  <aside class="sidebar">
-    <a class="nav-item active" href="{{ url_for('dashboard') }}">Dashboard</a>
-    <a class="nav-item" href="{{ url_for('schedule') }}">Schedules</a>
-    <a class="nav-item" href="{{ url_for('conflicts') }}">Conflicts</a>
-    <a class="nav-item" href="{{ url_for('solutions') }}">Solutions</a>
+{% block content %}
+<header>
+  <h1>System Overview</h1>
+</header>
 
-    <div class="nav-separator"></div>
+<section class="card" aria-labelledby="scheduler-status-title">
+  <h2 id="scheduler-status-title">Scheduler Status</h2>
 
-    <div class="nav-item sub-item">Courses</div>
-    <div class="nav-item sub-item">Rooms</div>
-    <div class="nav-item sub-item">Instructors</div>
-    <div class="nav-item sub-item">Constraints</div>
-  </aside>
+  {% if scheduler_status.state == "NOT_IMPLEMENTED" %}
+    <p class="status status-warning">Scheduler not available</p>
+    <p>{{ scheduler_status.message }}</p>
+  {% elif scheduler_status.state == "READY" %}
+    <p class="status status-info">Scheduler ready</p>
+    <p>{{ scheduler_status.message }}</p>
+  {% else %}
+    <p class="status status-info">Unknown status</p>
+    <p>Status is not available.</p>
+  {% endif %}
 
-  <main class="main-content">
-    <h1>System Overview</h1>
+  <form method="POST" action="{{ url_for('postschedulerrun') }}"
+        style="margin-top: 12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <label for="schedulename" class="sr-only">Schedule name</label>
+    <input
+      id="schedulename"
+      type="text"
+      name="schedulename"
+      placeholder="e.g., fall-2026-draft-3"
+      style="padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px;"
+    >
+    <button class="btn btn-primary" type="submit">Generate Schedule</button>
+  </form>
+</section>
 
-    <div class="card">
-      <h2>Scheduler Status</h2>
-      <p>All systems operational.</p>
-    </div>
+<section class="card" aria-labelledby="recent-activity-title">
+  <h2 id="recent-activity-title">Recent Activity</h2>
 
-    <div class="card">
-      <h2>Recent Activity</h2>
-      <ul>
-        <li>Schedule generated for Fall 2025</li>
-        <li>2 conflicts detected</li>
-        <li>Proposed solutions available</li>
-      </ul>
-    </div>
-  </main>
+  {% if recentactivity %}
+    <ul>
+      {% for a in recentactivity %}
+        <li>
+          {{ a.title }}
+          • {{ a.createdat.strftime("%b %d, %I:%M %p") }}
+          {% if a.actorname %} • By {{ a.actorname }}{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No recent activity.</p>
+  {% endif %}
 
-</div>
-</body>
-</html>
+  <a class="btn btn-ghost" href="{{ url_for('activity') }}">View all activity</a>
+</section>
+
+{% endblock %}
