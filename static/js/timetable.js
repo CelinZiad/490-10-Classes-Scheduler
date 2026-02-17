@@ -47,9 +47,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 /* ------------------------------------------------------------------ */
 
 async function loadFilters(termCode) {
-  const url = termCode
-    ? `/api/filters?term=${termCode}`
-    : "/api/filters";
+  const params = new URLSearchParams();
+  if (termCode) params.set("term", termCode);
+  if (planFilter.value) params.set("planid", planFilter.value);
+  if (semesterFilter.value) params.set("termid", semesterFilter.value);
+
+const url = `/api/filters${params.toString() ? `?${params}` : ""}`;
+
   const res = await fetch(url);
   filterOptions = await res.json();
 
@@ -215,11 +219,15 @@ function setupEventListeners() {
     applyFilters();
   });
 
-  planFilter.addEventListener("change", () => {
+  planFilter.addEventListener("change", async () => {
     loadPlanTerms(planFilter.value);
   });
 
   semesterFilter.addEventListener("change", applyFilters);
+
+  componentFilter.addEventListener("change", applyFilters);
+  
+  buildingFilter.addEventListener("change", applyFilters);
 
   subjectFilter.addEventListener("change", () => {
     activeSubjectFilter = subjectFilter.value;
@@ -334,6 +342,9 @@ function showEventModal(event) {
   modalBody.innerHTML = `
     <h2>${event.title}</h2>
     ${p.coursetitle ? `<p class="modal-subtitle">${p.coursetitle}</p>` : ""}
+    ${p.labRooms ? `<p><strong>Lab Rooms:</strong> ${p.labRooms}</p>` : ""}
+    ${p.labRoomIds ? `<p><strong>Lab Room IDs:</strong> ${p.labRoomIds}</p>` : ""}
+
     <div class="modal-info">
       <p><strong>Section:</strong> ${p.section}</p>
       <p><strong>Type:</strong> ${p.component}</p>
