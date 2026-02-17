@@ -1,0 +1,1 @@
+SELECT * FROM public.scheduleterm LIMIT 1000;

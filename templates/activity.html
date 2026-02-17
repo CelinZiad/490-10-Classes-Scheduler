@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Activity Log{% endblock %}
+
+{% block content %}
+<h1>Activity Log</h1>
+
+    <div class="card">
+      <h2>Filter by date</h2>
+
+      <form method="GET" action="{{ url_for('activity') }}"
+            style="display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
+        <div>
+          <label for="startdate">Start date</label><br>
+          <input type="date" id="startdate" name="startdate" value="{{ startdate }}">
+        </div>
+
+        <div>
+          <label for="enddate">End date</label><br>
+          <input type="date" id="enddate" name="enddate" value="{{ enddate }}">
+        </div>
+
+        <button class="btn btn-primary" type="submit">Apply</button>
+        <a class="btn btn-ghost" href="{{ url_for('activity') }}">Clear</a>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Logs</h2>
+
+      {% if logs %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Title</th>
+              <th>Actor</th>
+              <th>Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for l in logs %}
+              <tr>
+                <td>{{ l.createdat.strftime("%Y-%m-%d %I:%M %p") }}</td>
+                <td>{{ l.title }}</td>
+                <td>{{ l.actorname if l.actorname else "-" }}</td>
+                <td>{{ l.eventtype }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <p>No activity found for this filter.</p>
+      {% endif %}
+    </div>
+
+{% endblock %}
