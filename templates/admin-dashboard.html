@@ -3,52 +3,56 @@
 {% block title %}Admin Dashboard{% endblock %}
 
 {% block content %}
-<h1>System Overview</h1>
+<header>
+  <h1>System Overview</h1>
+</header>
 
-<div class="card">
-  <h2>Scheduler Status</h2>
+<section class="card" aria-labelledby="scheduler-status-title">
+  <h2 id="scheduler-status-title">Scheduler Status</h2>
 
-      {% if scheduler_status.state == "NOT_IMPLEMENTED" %}
-        <p class="status status-warning">⚠️ Scheduler not available</p>
-        <p>{{ scheduler_status.message }}</p>
-      {% elif scheduler_status.state == "READY" %}
-        <p class="status status-info">⏳ Scheduler ready</p>
-        <p>{{ scheduler_status.message }}</p>
-      {% else %}
-        <p class="status status-info">ℹ️ Unknown status</p>
-        <p>Status is not available.</p>
-      {% endif %}
+  {% if scheduler_status.state == "NOT_IMPLEMENTED" %}
+    <p class="status status-warning">Scheduler not available</p>
+    <p>{{ scheduler_status.message }}</p>
+  {% elif scheduler_status.state == "READY" %}
+    <p class="status status-info">Scheduler ready</p>
+    <p>{{ scheduler_status.message }}</p>
+  {% else %}
+    <p class="status status-info">Unknown status</p>
+    <p>Status is not available.</p>
+  {% endif %}
 
-      <form method="POST" action="{{ url_for('postschedulerrun') }}"
-            style="margin-top: 12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-        <input
-          type="text"
-          name="schedulename"
-          placeholder="e.g., fall-2026-draft-3"
-          style="padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px;"
-        >
-        <button class="btn btn-primary" type="submit">Generate Schedule</button>
-      </form>
-    </div>
+  <form method="POST" action="{{ url_for('postschedulerrun') }}"
+        style="margin-top: 12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+    <label for="schedulename" class="sr-only">Schedule name</label>
+    <input
+      id="schedulename"
+      type="text"
+      name="schedulename"
+      placeholder="e.g., fall-2026-draft-3"
+      style="padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px;"
+    >
+    <button class="btn btn-primary" type="submit">Generate Schedule</button>
+  </form>
+</section>
 
-<div class="card">
-  <h2>Recent Activity</h2>
+<section class="card" aria-labelledby="recent-activity-title">
+  <h2 id="recent-activity-title">Recent Activity</h2>
 
-      {% if recentactivity and recentactivity|length > 0 %}
-        <ul>
-          {% for a in recentactivity %}
-            <li>
-              {{ a.title }}
-              • {{ a.createdat.strftime("%b %d, %I:%M %p") }}
-              {% if a.actorname %} • By {{ a.actorname }}{% endif %}
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p>No recent activity.</p>
-      {% endif %}
+  {% if recentactivity and recentactivity|length > 0 %}
+    <ul>
+      {% for a in recentactivity %}
+        <li>
+          {{ a.title }}
+          • {{ a.createdat.strftime("%b %d, %I:%M %p") }}
+          {% if a.actorname %} • By {{ a.actorname }}{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p>No recent activity.</p>
+  {% endif %}
 
-      <a class="btn btn-ghost" href="{{ url_for('activity') }}">View all activity</a>
-    </div>
+  <a class="btn btn-ghost" href="{{ url_for('activity') }}">View all activity</a>
+</section>
 
 {% endblock %}

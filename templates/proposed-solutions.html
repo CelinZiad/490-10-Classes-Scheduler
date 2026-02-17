@@ -3,9 +3,11 @@
 {% block title %}Proposed Solutions{% endblock %}
 
 {% block content %}
-<h1>Proposed Conflict Resolutions</h1>
+<header>
+  <h1>Proposed Conflict Resolutions</h1>
+</header>
 
-<div class="card">
+<section class="card">
   <h2>Conflict: EV 3.309 double-booked</h2>
   <ul>
     <li>Move COMP 490 to EV 5.227</li>
@@ -14,7 +16,7 @@
   </ul>
 
   <a class="btn btn-ghost" href="{{ url_for('conflicts') }}">
-    ← Back to Conflicts
+    Back to Conflicts
   </a>
-</div>
+</section>
 {% endblock %}

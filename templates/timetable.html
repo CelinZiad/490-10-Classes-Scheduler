@@ -1,35 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Timetable</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/timetable.css') }}">
-</head>
+{% extends "base.html" %}
 
-<body>
-<div class="app-layout">
+{% block title %}Timetable{% endblock %}
 
-  <aside class="sidebar">
-    <a class="nav-item" href="{{ url_for('dashboard') }}">Dashboard</a>
-    <a class="nav-item active" href="{{ url_for('timetable') }}">Timetable</a>
-    <a class="nav-item" href="{{ url_for('schedule') }}">Schedules</a>
-    <a class="nav-item" href="{{ url_for('catalog') }}">Catalog</a>
-    <a class="nav-item" href="{{ url_for('conflicts') }}">Conflicts</a>
-    <a class="nav-item" href="{{ url_for('solutions') }}">Solutions</a>
+{% block extra_css %}
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+{% endblock %}
 
-    <div class="nav-separator"></div>
-
-    <div class="nav-item sub-item">Courses</div>
-    <div class="nav-item sub-item">Rooms</div>
-    <div class="nav-item sub-item">Instructors</div>
-    <div class="nav-item sub-item">Constraints</div>
-  </aside>
-
-  <main class="main-content">
-    <h1>Timetable View</h1>
+{% block content %}
+<h1>Timetable View</h1>
 
     <!-- Sequence Plan / Term Filters -->
     <div class="card filter-card">
@@ -127,12 +105,9 @@
       <div class="spinner"></div>
       <p>Loading schedule...</p>
     </div>
+{% endblock %}
 
-  </main>
-
-</div>
-
+{% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
 <script src="{{ url_for('static', filename='js/timetable.js') }}"></script>
-</body>
-</html>
+{% endblock %}

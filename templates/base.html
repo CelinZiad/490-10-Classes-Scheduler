@@ -3,8 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Classes Scheduler{% endblock %}</title>
+  <title>Timetable</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
+  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/timetable.css') }}">
   {% block extra_css %}{% endblock %}
 </head>
 
@@ -21,23 +23,18 @@
          href="{{ url_for('dashboard') }}">Dashboard</a>
       <a class="nav-item {% if request.endpoint == 'timetable' %}active{% endif %}"
          href="{{ url_for('timetable') }}">Timetable</a>
-      <a class="nav-item {% if request.endpoint == 'schedule' %}active{% endif %}"
-         href="{{ url_for('schedule') }}">Sequences</a>
       <a class="nav-item {% if request.endpoint == 'catalog' %}active{% endif %}"
          href="{{ url_for('catalog') }}">Catalog</a>
       <a class="nav-item {% if request.endpoint == 'conflicts' %}active{% endif %}"
          href="{{ url_for('conflicts') }}">Conflicts</a>
       <a class="nav-item {% if request.endpoint == 'solutions' %}active{% endif %}"
          href="{{ url_for('solutions') }}">Solutions</a>
-    </nav>
-
-    <div class="nav-separator"></div>
-
-    <nav class="nav-sub">
-      <div class="nav-item sub-item">Courses</div>
-      <div class="nav-item sub-item">Rooms</div>
-      <div class="nav-item sub-item">Instructors</div>
-      <div class="nav-item sub-item">Constraints</div>
+      <a class="nav-item {% if request.endpoint == 'activity' %}active{% endif %}"
+         href="{{ url_for('activity') }}">Activity</a>
+      {% if debug %}
+        <a class="nav-item {% if request.endpoint == 'debug' %}active{% endif %}"
+           href="{{ url_for('debug') }}">Debug</a>
+       {% endif %}
     </nav>
   </aside>
 

@@ -159,12 +159,21 @@ def activity():
     where = []
     params = {}
 
+    # Validate date formats
     if startdate:
-        where.append("createdat >= :startdate::date")
+        try:
+            date.fromisoformat(startdate)
+        except ValueError:
+            return jsonify({"error": "Invalid startdate format. Use YYYY-MM-DD"}), 400
+        where.append("createdat >= CAST(:startdate AS date)")
         params["startdate"] = startdate
 
     if enddate:
-        where.append("createdat < (:enddate::date + interval '1 day')")
+        try:
+            date.fromisoformat(enddate)
+        except ValueError:
+            return jsonify({"error": "Invalid enddate format. Use YYYY-MM-DD"}), 400
+        where.append("createdat < (CAST(:enddate AS date) + interval '1 day')")
         params["enddate"] = enddate
 
     wheresql = ""
@@ -197,83 +206,6 @@ def activity():
         enddate=enddate or "",
         today=today,
     )
-
-
-@app.get("/schedule")
-def schedule():
-    plans = (
-        db.session.execute(
-            db.text(
-                """
-        select planid, planname, program, entryterm, option, durationyears, publishedon
-        from sequenceplan
-        order by publishedon desc, planid asc;
-    """
-            )
-        )
-        .mappings()
-        .all()
-    )
-
-    selected_planid = request.args.get("planid", type=int)
-    if selected_planid is None and plans:
-        selected_planid = plans[0]["planid"]
-
-    terms = []
-    if selected_planid is not None:
-        terms = (
-            db.session.execute(
-                db.text(
-                    """
-            select sequencetermid, yearnumber, season, workterm, notes
-            from sequenceterm
-            where planid = :planid
-            order by yearnumber asc,
-                     case season
-                        when 'fall' then 1
-                        when 'winter' then 2
-                        when 'summer' then 3
-                        else 4
-                     end asc;
-        """
-                ),
-                {"planid": selected_planid},
-            )
-            .mappings()
-            .all()
-        )
-
-    selected_termid = request.args.get("termid", type=int)
-    if selected_termid is None and terms:
-        selected_termid = terms[0]["sequencetermid"]
-
-    courses = []
-    if selected_termid is not None:
-        courses = (
-            db.session.execute(
-                db.text(
-                    """
-            select subject, catalog, label, iselective
-            from sequencecourse
-            where sequencetermid = :termid
-            order by subject asc, catalog asc;
-        """
-                ),
-                {"termid": selected_termid},
-            )
-            .mappings()
-            .all()
-        )
-
-    return render_template(
-        ROUTE_TEMPLATES["/schedule"],
-        plans=plans,
-        terms=terms,
-        courses=courses,
-        selected_planid=selected_planid,
-        selected_termid=selected_termid,
-    )
-
 
 @app.get("/catalog")
 def catalog():
@@ -428,7 +360,7 @@ def api_events():
 
     params = {}
 
-    # 🔵 PLAN / TERM SEQUENCE FILTER
+    # PLAN / TERM SEQUENCE FILTER
     if planid or termid:
         query += """
           AND EXISTS (
