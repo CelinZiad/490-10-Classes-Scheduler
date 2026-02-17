@@ -111,9 +111,9 @@ def _install_db_mocks(monkeypatch):
 def app(monkeypatch):
     flask_app.config.update(TESTING=True)
 
-    # If DB isn't reachable (CI), mock it so endpoints still work.
-    if not _db_reachable():
-        _install_db_mocks(monkeypatch)
+    # Always mock the DB for unit tests to avoid polluting real data.
+    # Integration tests (marked @pytest.mark.integration) use real DB.
+    _install_db_mocks(monkeypatch)
 
     return flask_app
 

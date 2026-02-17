@@ -5,6 +5,7 @@
 let calendar = null;
 let filterOptions = null;
 let activeSubjectFilter = "";
+let activeSource = "scheduleterm"; // "scheduleterm" or "optimized"
 
 const ECE_SUBJECTS = ["COEN", "ELEC", "COMP", "SOEN"];
 
@@ -254,6 +255,35 @@ function setupEventListeners() {
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeModal();
   });
+
+  // Source toggle: Original vs Optimized
+  const srcOriginal = document.getElementById("source-original");
+  const srcOptimized = document.getElementById("source-optimized");
+  if (srcOriginal && srcOptimized) {
+    srcOriginal.addEventListener("click", () => {
+      activeSource = "scheduleterm";
+      srcOriginal.classList.add("active");
+      srcOptimized.classList.remove("active");
+      applyFilters();
+    });
+    srcOptimized.addEventListener("click", () => {
+      activeSource = "optimized";
+      srcOptimized.classList.add("active");
+      srcOriginal.classList.remove("active");
+      applyFilters();
+    });
+  }
+
+  // Export dropdown toggle
+  const exportBtn = document.getElementById("export-btn");
+  const exportMenu = document.getElementById("export-menu");
+  if (exportBtn && exportMenu) {
+    exportBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      exportMenu.classList.toggle("open");
+    });
+    document.addEventListener("click", () => exportMenu.classList.remove("open"));
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -271,6 +301,8 @@ function getFilterParams() {
 
   if (componentFilter.value) params.component = componentFilter.value;
   if (buildingFilter.value) params.building = buildingFilter.value;
+
+  if (activeSource !== "scheduleterm") params.source = activeSource;
 
   return params;
 }

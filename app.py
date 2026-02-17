@@ -416,16 +416,76 @@ def solutions():
 
 @app.get("/api/export-csv")
 def api_export_csv():
-    """Download the generated schedule as CSV."""
-    from algo_runner import get_schedule_csv_path
+    """Download schedule as CSV with format and source options.
 
-    path = get_schedule_csv_path()
-    if not os.path.isfile(path):
-        return jsonify({"error": "No schedule CSV found. Generate a schedule first."}), 404
-    return send_file(
-        path, mimetype="text/csv", as_attachment=True,
-        download_name="schedule_timetable.csv",
-    )
+    Query params:
+        source: "optimized" (generated) or "original" (scheduleterm)  [default: optimized]
+        format: "detailed" (all columns) or "condensed" (key columns) [default: detailed]
+    """
+    import csv as csv_mod
+    import io
+
+    source = request.args.get("source", "optimized")
+    fmt = request.args.get("format", "detailed")
+
+    # For optimized source, try the CSV file first (fastest)
+    if source == "optimized":
+        from algo_runner import get_schedule_csv_path
+        csv_path = get_schedule_csv_path()
+        if not os.path.isfile(csv_path):
+            return jsonify({"error": "No optimized schedule found. Generate a schedule first."}), 404
+
+        if fmt == "condensed":
+            condensed_cols = ["Subject", "Catalog_Nbr", "Type", "Day_Name", "Start_Time", "End_Time", "Building", "Room"]
+            from algo_runner import _read_csv_file
+            rows = _read_csv_file(csv_path)
+            buf = io.StringIO()
+            writer = csv_mod.DictWriter(buf, fieldnames=condensed_cols, extrasaction="ignore")
+            writer.writeheader()
+            for r in rows:
+                writer.writerow(r)
+            resp = app.response_class(buf.getvalue(), mimetype="text/csv")
+            resp.headers["Content-Disposition"] = "attachment; filename=schedule_condensed.csv"
+            return resp
+
+        return send_file(
+            csv_path, mimetype="text/csv", as_attachment=True,
+            download_name="schedule_detailed.csv",
+        )
+
+    # For original source, query the scheduleterm DB table
+    detailed_cols = [
+        "subject", "catalog", "section", "componentcode", "termcode",
+        "classnumber", "buildingcode", "room", "classstarttime", "classendtime",
+        "mondays", "tuesdays", "wednesdays", "thursdays", "fridays",
+        "enrollmentcapacity", "currentenrollment",
+    ]
+    condensed_cols = [
+        "subject", "catalog", "componentcode", "classstarttime", "classendtime",
+        "buildingcode", "room", "mondays", "tuesdays", "wednesdays", "thursdays", "fridays",
+    ]
+
+    cols = condensed_cols if fmt == "condensed" else detailed_cols
+    col_sql = ", ".join(cols)
+
+    rows = db.session.execute(
+        db.text(
+            f"SELECT {col_sql} FROM scheduleterm "
+            "WHERE departmentcode = 'ELECCOEN' "
+            "AND classstarttime IS NOT NULL AND classstarttime != '00:00:00' "
+            "ORDER BY subject, catalog, section, componentcode"
+        )
+    ).mappings().all()
+
+    buf = io.StringIO()
+    writer = csv_mod.DictWriter(buf, fieldnames=cols)
+    writer.writeheader()
+    for r in rows:
+        writer.writerow(dict(r))
+    resp = app.response_class(buf.getvalue(), mimetype="text/csv")
+    label = "condensed" if fmt == "condensed" else "detailed"
+    resp.headers["Content-Disposition"] = f"attachment; filename=schedule_original_{label}.csv"
+    return resp
 
 
 # ---------------------------------------------------------------------------
@@ -460,8 +520,12 @@ def api_events():
     subject = request.args.get("subject")
     component = request.args.get("component")
     building = request.args.get("building")
+    source = request.args.get("source", "scheduleterm")  # "scheduleterm" or "optimized"
 
-    query = """
+    # Choose source table
+    source_table = "optimized_schedule" if source == "optimized" else "scheduleterm"
+
+    query = f"""
         SELECT DISTINCT ON (st.subject, st.catalog, st.section,
                             st.componentcode, st.classnumber)
             st.subject, st.catalog, st.section, st.componentcode,
@@ -472,7 +536,7 @@ def api_events():
             st.termcode, st.currentenrollment, st.enrollmentcapacity,
             st.currentwaitlisttotal, st.waitlistcapacity,
             c.title AS coursetitle
-        FROM scheduleterm st
+        FROM {source_table} st
         LEFT JOIN catalog c
           ON c.subject = st.subject
          AND c.catalog = st.catalog
@@ -536,7 +600,13 @@ def api_events():
         LIMIT 500
     """
 
-    rows = db.session.execute(db.text(query), params).mappings().all()
+    try:
+        rows = db.session.execute(db.text(query), params).mappings().all()
+    except SQLAlchemyError:
+        db.session.rollback()
+        if source == "optimized":
+            return jsonify({"error": "No optimized schedule found. Generate a schedule first."}), 404
+        return jsonify({"error": "Database error loading events."}), 500
 
     events = []
     for row in rows:

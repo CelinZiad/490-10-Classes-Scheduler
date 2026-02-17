@@ -148,6 +148,19 @@ def run_algorithm() -> dict:
             output_path="conflicts.csv",
         )
 
+        # Step 6: Export to optimized_schedule DB table
+        try:
+            from helper.scheduleterm_export import export_to_scheduleterm_format
+            export_to_scheduleterm_format(
+                schedule=best_individual,
+                room_assignments=room_assignments,
+                year=ACADEMIC_YEAR,
+                season=TARGET_SEASON,
+            )
+            db_exported = True
+        except Exception:
+            db_exported = False
+
         duration = round(time.time() - start_time, 1)
 
         return {
@@ -160,6 +173,7 @@ def run_algorithm() -> dict:
             "num_conflicts": num_conflicts if isinstance(num_conflicts, int) else 0,
             "num_courses": len(courses),
             "duration_seconds": duration,
+            "db_exported": db_exported,
         }
 
     except Exception as e:
