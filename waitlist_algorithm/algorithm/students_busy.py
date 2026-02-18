@@ -1,7 +1,6 @@
 from waitlist_algorithm.algorithm.time_block import TimeBlock, to_minutes
 
 
-
 def get_two_week_anchor_monday(cur, studyids: list[int]):
     sql = """
     WITH sched AS (
@@ -10,19 +9,26 @@ def get_two_week_anchor_monday(cur, studyids: list[int]):
       WHERE ss.studyid = ANY(%s)
     )
     SELECT date_trunc('week',
-             COALESCE(
-               MIN(st.classstartdate) FILTER (WHERE st.componentcode <> 'LAB'),
-               MIN(st.classstartdate)
-             )
-           )::date AS week1_monday
+         COALESCE(
+           MIN(st.classstartdate) FILTER (WHERE st.componentcode <> 'LAB'),
+           MIN(st.classstartdate)
+         )
+       )::date AS week1_monday
     FROM sched s
     JOIN studentscheduleclass ssc ON ssc.studentscheduleid = s.studentscheduleid
-    JOIN scheduleterm st ON st.cid = ssc.cid;
+    JOIN scheduleterm st ON st.cid = ssc.cid
+    WHERE st.classstartdate >= DATE '2000-01-01';
     """
-    cur.execute(sql, (studyids,))
-    (week1_monday,) = cur.fetchone()
-    return week1_monday
 
+    cur.execute(sql, (studyids,))
+    row = cur.fetchone()
+
+    if not row or row[0] is None:
+        raise ValueError(
+            "Could not determine anchor week: no valid classstartdate found for these studyids."
+        )
+
+    return row[0]
 
 
 def load_students_busy_from_db(cur, studyids: list[int]) -> dict[int, list[TimeBlock]]:
@@ -30,7 +36,6 @@ def load_students_busy_from_db(cur, studyids: list[int]) -> dict[int, list[TimeB
         return {}
 
     week1_monday = get_two_week_anchor_monday(cur, studyids)
-
 
     sql = """
     WITH sched AS (
@@ -80,27 +85,21 @@ def load_students_busy_from_db(cur, studyids: list[int]) -> dict[int, list[TimeB
     cur.execute(sql, (studyids, week1_monday))
     rows = cur.fetchall()
 
-
-
     students_busy: dict[int, list[TimeBlock]] = {}
     lab_week: dict[int, int] = {}
     min_lab_date = None
-
 
     for studyid, comp, startdate, day, start_t, end_t in rows:
         if comp == "LAB":
             if min_lab_date is None or startdate < min_lab_date:
                 min_lab_date = startdate
 
-
     if min_lab_date is not None:
         for studyid, comp, startdate, day, start_t, end_t in rows:
             if comp == "LAB":
                 lab_week[studyid] = 1 if startdate == min_lab_date else 2
 
-
     for studyid, comp, startdate, day, start_t, end_t in rows:
-
 
         if comp == "LAB":
             wk = lab_week.get(studyid)
@@ -110,11 +109,7 @@ def load_students_busy_from_db(cur, studyids: list[int]) -> dict[int, list[TimeB
                 continue
 
         students_busy.setdefault(studyid, []).append(
-            TimeBlock(
-                day=int(day),
-                start=to_minutes(start_t),
-                end=to_minutes(end_t)
-            )
+            TimeBlock(day=int(day), start=to_minutes(start_t), end=to_minutes(end_t))
         )
 
     return students_busy
