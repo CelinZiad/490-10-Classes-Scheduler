@@ -177,7 +177,7 @@ function initCalendar() {
     eventDidMount: (info) => {
       const p = info.event.extendedProps;
       const name = p.coursetitle ? ` - ${p.coursetitle}` : "";
-      info.el.title = `${info.event.title}${name}\n${p.component} | ${p.building}-${p.room}`;
+      info.el.title = `${info.event.title}${name}\n${p.component} | ${fmtLocation(p)}`;
     },
     eventContent: (arg) => {
       const p = arg.event.extendedProps;
@@ -186,7 +186,7 @@ function initCalendar() {
       if (p.coursetitle) {
         lines.push(`<span class="fc-event-desc">${p.coursetitle}</span>`);
       }
-      lines.push(`<span class="fc-event-meta">${p.component} | ${p.building}-${p.room}</span>`);
+      lines.push(`<span class="fc-event-meta">${p.component} | ${fmtLocation(p)}</span>`);
       return { html: lines.join("") };
     },
     eventClick: (info) => showEventModal(info.event),
@@ -221,7 +221,8 @@ function setupEventListeners() {
   });
 
   planFilter.addEventListener("change", async () => {
-    loadPlanTerms(planFilter.value);
+    await loadPlanTerms(planFilter.value);
+    applyFilters();
   });
 
   semesterFilter.addEventListener("change", applyFilters);
@@ -374,15 +375,13 @@ function showEventModal(event) {
   modalBody.innerHTML = `
     <h2>${event.title}</h2>
     ${p.coursetitle ? `<p class="modal-subtitle">${p.coursetitle}</p>` : ""}
-    ${p.labRooms ? `<p><strong>Lab Rooms:</strong> ${p.labRooms}</p>` : ""}
-    ${p.labRoomIds ? `<p><strong>Lab Room IDs:</strong> ${p.labRoomIds}</p>` : ""}
 
     <div class="modal-info">
       <p><strong>Section:</strong> ${p.section}</p>
       <p><strong>Type:</strong> ${p.component}</p>
       <p><strong>Time:</strong> ${formatTimeRange(event)}</p>
       <p><strong>Days:</strong> ${formatDays(event)}</p>
-      <p><strong>Location:</strong> ${p.building}-${p.room}</p>
+      <p><strong>Location:</strong> ${fmtLocation(p)}</p>
       <p><strong>Enrollment:</strong> ${p.enrollment}/${p.capacity}</p>
       ${p.waitlistCapacity > 0 ? `<p><strong>Waitlist:</strong> ${p.waitlist}/${p.waitlistCapacity}</p>` : ""}
     </div>
@@ -405,6 +404,14 @@ function closeModal() {
 /* ------------------------------------------------------------------ */
 /*  Formatting helpers                                                 */
 /* ------------------------------------------------------------------ */
+
+function fmtLocation(p) {
+  const b = p.building, r = p.room;
+  if (b && b !== "TBA" && r && r !== "TBA") return `${b}-${r}`;
+  if (b && b !== "TBA") return b;
+  if (r && r !== "TBA") return `Room ${r}`;
+  return "TBA";
+}
 
 function formatTimeRange(event) {
   const rd = event._def?.recurringDef?.typeData;

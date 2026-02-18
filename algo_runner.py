@@ -102,6 +102,18 @@ def run_algorithm() -> dict:
         population = initialize_population(courses, POPULATION_SIZE, room_assignments)
         seq = Sequence("Sequences.csv", season_filter=TARGET_SEASON)
 
+        # Build semester labels mapping index → "Fall Year X (Program)"
+        season_names = {1: "Summer", 2: "Fall", 3: "Fall/Winter", 4: "Winter"}
+        season_name = season_names.get(TARGET_SEASON, "Term")
+        semester_labels = {}
+        sem_idx = 0
+        for plan in seq.manager.get_all_plans():
+            for term in plan.get_terms_for_season(TARGET_SEASON):
+                sem_idx += 1
+                semester_labels[str(sem_idx)] = (
+                    f"{season_name} Year {term.yearnumber} ({plan.program})"
+                )
+
         # Step 3: Initial fitness
         fitness_scores = [
             fitness_function(ind, core_sequences=seq.year, room_assignments=room_assignments)
@@ -174,6 +186,7 @@ def run_algorithm() -> dict:
             "num_courses": len(courses),
             "duration_seconds": duration,
             "db_exported": db_exported,
+            "semester_labels": semester_labels,
         }
 
     except Exception as e:
@@ -186,6 +199,7 @@ def run_algorithm() -> dict:
             "conflicts": [],
             "num_conflicts": 0,
             "num_courses": 0,
+            "semester_labels": {},
         }
     finally:
         os.chdir(orig_dir)

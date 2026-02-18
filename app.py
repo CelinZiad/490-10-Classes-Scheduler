@@ -39,7 +39,15 @@ algorithmimplemented = True
 
 # --- Solution derivation from conflicts ---
 
-def conflict_detail(row: dict) -> str:
+def _semester_label(raw: str, semester_labels: dict | None) -> str:
+    """Convert 'Semester 3' → 'Fall Year 2 (COEN)' using the labels map."""
+    if not semester_labels or not raw.startswith("Semester "):
+        return raw
+    num = raw.replace("Semester ", "")
+    return semester_labels.get(num, raw)
+
+
+def conflict_detail(row: dict, semester_labels: dict = None) -> str:
     """Build a human-readable detail string from a conflict CSV row."""
     ctype = row.get("Conflict_Type", "")
     course = row.get("Course", "")
@@ -54,10 +62,12 @@ def conflict_detail(row: dict) -> str:
     if ctype == "Sequence-Missing Course":
         # comp1 = "Semester 3", comp2 = "['COEN490']"
         missing = comp2.strip("[]' ").replace("'", "")
-        return f"{comp1}: missing {missing}"
+        sem = _semester_label(comp1, semester_labels)
+        return f"{sem}: missing {missing}"
 
     if ctype == "Sequence-No Valid Combination":
-        return f"{comp1}: no valid tutorial/lab combination avoids conflicts"
+        sem = _semester_label(comp1, semester_labels)
+        return f"{sem}: no valid tutorial/lab combination avoids conflicts"
 
     if ctype in ("Lecture-Tutorial", "Lecture-Lab"):
         parts = [course]
@@ -86,7 +96,7 @@ def conflict_detail(row: dict) -> str:
     return f"{course}: {comp1} vs {comp2}" if comp1 else course
 
 
-def derive_solution(conflict_row: dict) -> str:
+def derive_solution(conflict_row: dict, semester_labels: dict = None) -> str:
     """Derive a specific solution description from a conflict CSV row."""
     ctype = conflict_row.get("Conflict_Type", "")
     course = conflict_row.get("Course", "")
@@ -116,10 +126,12 @@ def derive_solution(conflict_row: dict) -> str:
 
     if ctype == "Sequence-Missing Course":
         missing = comp2.strip("[]' ").replace("'", "")
-        return f"Add {missing} to the schedule (required in {comp1})"
+        sem = _semester_label(comp1, semester_labels)
+        return f"Add {missing} to the schedule (required in {sem})"
 
     if ctype == "Sequence-No Valid Combination":
-        return f"{comp1}: Re-evaluate section combinations for sequence courses"
+        sem = _semester_label(comp1, semester_labels)
+        return f"{sem}: Re-evaluate section combinations for sequence courses"
 
     return f"{course}: Review and resolve {ctype} conflict"
 
@@ -216,6 +228,7 @@ def postschedulerrun():
     result = run_algorithm()
 
     # Log the schedule run
+    run_status = "generated" if result["status"] == "success" else "failed"
     db.session.execute(
         db.text(
             """
@@ -223,27 +236,40 @@ def postschedulerrun():
             values (:name, :status);
         """
         ),
-        {"name": schedulename, "status": "generated" if result["status"] == "success" else "failed"},
+        {"name": schedulename, "status": run_status},
     )
     db.session.commit()
 
-    logactivity(
-        eventtype="schedulegenerated",
-        title=(
-            f'Schedule "{schedulename}": fitness={result["best_fitness"]}, '
-            f'generations={result["generations"]}, '
-            f'duration={result.get("duration_seconds", 0)}s'
-        ),
-        actorname="system",
-        metadata={
-            "schedulename": schedulename,
-            "best_fitness": result["best_fitness"],
-            "generations": result["generations"],
-            "termination_reason": result.get("termination_reason", ""),
-            "num_courses": result.get("num_courses", 0),
-            "num_conflicts": result["num_conflicts"],
-        },
-    )
+    if result["status"] == "success":
+        logactivity(
+            eventtype="schedulegenerated",
+            title=(
+                f'Schedule "{schedulename}": fitness={result["best_fitness"]}, '
+                f'generations={result["generations"]}, '
+                f'duration={result.get("duration_seconds", 0):.1f}s'
+            ),
+            actorname="system",
+            metadata={
+                "schedulename": schedulename,
+                "best_fitness": result["best_fitness"],
+                "generations": result["generations"],
+                "termination_reason": result.get("termination_reason", ""),
+                "num_courses": result.get("num_courses", 0),
+                "num_conflicts": result["num_conflicts"],
+            },
+        )
+    else:
+        logactivity(
+            eventtype="schedulefailed",
+            title=(
+                f'Schedule "{schedulename}" failed: '
+                f'{result.get("termination_reason", "unknown error")}'
+            ),
+            actorname="system",
+            metadata={"schedulename": schedulename},
+        )
+
+    semester_labels = result.get("semester_labels", {})
 
     # Insert conflicts and linked solutions into DB
     if result["conflicts"]:
@@ -269,7 +295,7 @@ def postschedulerrun():
         solutions_added = 0
         for row in result["conflicts"]:
             ctype = row.get("Conflict_Type", "Unknown")
-            detail = conflict_detail(row)
+            detail = conflict_detail(row, semester_labels=semester_labels)
 
             # Store conflict data as JSON for rich frontend display
             conflict_data = json.dumps({
@@ -293,7 +319,7 @@ def postschedulerrun():
             conflict_id = conflict_row["conflictid"] if conflict_row else None
 
             # Insert linked solution
-            desc = derive_solution(row)
+            desc = derive_solution(row, semester_labels=semester_labels)
             db.session.execute(
                 db.text(
                     """

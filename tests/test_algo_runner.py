@@ -87,6 +87,20 @@ def test_derive_solution_missing_course():
     assert "Semester 3" in result
 
 
+def test_derive_solution_missing_course_with_labels():
+    row = {
+        "Conflict_Type": "Sequence-Missing Course",
+        "Course": "Multiple",
+        "Component1": "Semester 3",
+        "Component2": "['COEN490']",
+    }
+    labels = {"3": "Fall Year 2 (COEN)"}
+    result = derive_solution(row, semester_labels=labels)
+    assert "COEN490" in result
+    assert "Fall Year 2 (COEN)" in result
+    assert "Semester 3" not in result
+
+
 def test_conflict_detail_missing_course():
     row = {
         "Conflict_Type": "Sequence-Missing Course",
@@ -96,6 +110,19 @@ def test_conflict_detail_missing_course():
     }
     result = conflict_detail(row)
     assert "Semester 3" in result
+    assert "COEN490" in result
+
+
+def test_conflict_detail_missing_course_with_labels():
+    row = {
+        "Conflict_Type": "Sequence-Missing Course",
+        "Course": "Multiple",
+        "Component1": "Semester 3",
+        "Component2": "['COEN490']",
+    }
+    labels = {"3": "Fall Year 2 (COEN)"}
+    result = conflict_detail(row, semester_labels=labels)
+    assert "Fall Year 2 (COEN)" in result
     assert "COEN490" in result
 
 
@@ -196,6 +223,7 @@ def test_api_generate_with_mock(client):
         "num_conflicts": 1,
         "duration_seconds": 5.0,
         "num_courses": 15,
+        "semester_labels": {},
     }
 
     with patch("algo_runner.run_algorithm", return_value=mock_result):
