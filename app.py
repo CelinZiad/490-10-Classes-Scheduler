@@ -704,24 +704,38 @@ def api_waitlist_filters():
         return f'Fall {y}'
 
     try:
+        if source == 'optimized':
+            from_clause = "optimized_schedule"
+            base_where = "WHERE classstarttime IS NOT NULL"
+            col_prefix = ""
+        else:
+            from_clause = """scheduleterm st
+                JOIN sequencecourse c ON c.subject = st.subject AND c.catalog = st.catalog"""
+            base_where = """
+                WHERE st.waitlistcapacity IS NOT NULL
+                  AND st.waitlistcapacity > 0
+                  AND st.currentwaitlisttotal >= st.waitlistcapacity
+            """
+            col_prefix = "st."
+
         terms = db.session.execute(db.text(f"""
-            SELECT termcode,
-                   to_char(MIN(classstartdate)
-                           FILTER (WHERE classstartdate BETWEEN '2000-01-01' AND '2100-12-31'),
+            SELECT {col_prefix}termcode AS termcode,
+                   to_char(MIN({col_prefix}classstartdate)
+                           FILTER (WHERE {col_prefix}classstartdate BETWEEN '2000-01-01' AND '2100-12-31'),
                            'YYYY-MM-DD') AS first_date
-            FROM {table}
-            WHERE termcode IS NOT NULL
-            GROUP BY termcode ORDER BY termcode DESC
+            FROM {from_clause}
+            {base_where} AND {col_prefix}termcode IS NOT NULL
+            GROUP BY {col_prefix}termcode ORDER BY {col_prefix}termcode DESC
         """)).mappings().all()
 
         subjects = db.session.execute(db.text(f"""
-            SELECT DISTINCT subject FROM {table}
-            WHERE subject IS NOT NULL ORDER BY subject
+            SELECT DISTINCT {col_prefix}subject AS subject FROM {from_clause}
+            {base_where} AND {col_prefix}subject IS NOT NULL ORDER BY {col_prefix}subject
         """)).scalars().all()
 
         components = db.session.execute(db.text(f"""
-            SELECT DISTINCT componentcode FROM {table}
-            WHERE componentcode IS NOT NULL ORDER BY componentcode
+            SELECT DISTINCT {col_prefix}componentcode AS componentcode FROM {from_clause}
+            {base_where} AND {col_prefix}componentcode IS NOT NULL ORDER BY {col_prefix}componentcode
         """)).scalars().all()
 
         return jsonify({
