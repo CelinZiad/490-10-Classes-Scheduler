@@ -58,14 +58,12 @@ async function loadWaitlistStats(){
     const table = document.createElement('table');
     table.className = 'data-table';
 
-    const extraTh = currentSource === 'optimized' ? '<th>Component</th>' : '';
-    table.innerHTML = `<thead><tr><th>Subject</th><th>Catalog</th><th>Section</th>${extraTh}<th>Waitlist</th><th>Waitlist Cap</th><th>Enrollment</th><th>Enroll Cap</th><th>Action</th></tr></thead>`;
+    table.innerHTML = `<thead><tr><th>Subject</th><th>Catalog</th><th>Section</th><th>Component</th><th>Waitlist</th><th>Waitlist Cap</th><th>Enrollment</th><th>Enroll Cap</th><th>Action</th></tr></thead>`;
 
     const tbody = document.createElement('tbody');
     data.forEach(r=>{
       const tr = document.createElement('tr');
-      const extraTd = currentSource === 'optimized' ? `<td>${r.component||''}</td>` : '';
-      tr.innerHTML = `<td>${r.subject}</td><td>${r.catalog}</td><td>${r.section||''}</td>${extraTd}<td>${r.waitlist}</td><td>${r.waitlistCapacity}</td><td>${r.currentEnrollment}</td><td>${r.enrollmentCapacity}</td><td><button class="btn btn-ghost" data-subject="${r.subject}" data-catalog="${r.catalog}">Process</button></td>`;
+      tr.innerHTML = `<td>${r.subject}</td><td>${r.catalog}</td><td>${r.section||''}</td><td>${r.component||''}</td><td>${r.waitlist}</td><td>${r.waitlistCapacity}</td><td>${r.currentEnrollment}</td><td>${r.enrollmentCapacity}</td><td><button class="btn btn-ghost" data-subject="${r.subject}" data-catalog="${r.catalog}">Process</button></td>`;
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);

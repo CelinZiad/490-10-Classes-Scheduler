@@ -810,7 +810,7 @@ def api_waitlist_stats():
             } for r in rows]
         else:
             query = """
-                SELECT st.subject, st.catalog, st.section,
+                SELECT st.subject, st.catalog, st.section, st.componentcode,
                        MAX(st.currentwaitlisttotal) AS currentwaitlisttotal,
                        MAX(st.waitlistcapacity) AS waitlistcapacity,
                        MAX(st.enrollmentcapacity) AS enrollmentcapacity,
@@ -832,7 +832,7 @@ def api_waitlist_stats():
                 query += " AND st.componentcode = :component"
                 params['component'] = component
             query += """
-                GROUP BY st.subject, st.catalog, st.section
+                GROUP BY st.subject, st.catalog, st.section, st.componentcode
                 ORDER BY MAX(st.currentwaitlisttotal) DESC
             """
 
@@ -841,6 +841,7 @@ def api_waitlist_stats():
                 'subject': r['subject'],
                 'catalog': r['catalog'],
                 'section': r.get('section'),
+                'component': r.get('componentcode'),
                 'waitlist': r.get('currentwaitlisttotal') or 0,
                 'waitlistCapacity': r.get('waitlistcapacity') or 0,
                 'enrollmentCapacity': r.get('enrollmentcapacity') or 0,
@@ -994,12 +995,17 @@ def api_waitlist_download():
 
         buf = io.StringIO()
         w = csv_mod.writer(buf)
-        w.writerow(['subject','catalog','start','end','mondays','tuesdays','wednesdays','thursdays','fridays','saturdays','sundays','studyids'])
+        w.writerow(['subject','catalog','start','end','mondays','tuesdays','wednesdays','thursdays','fridays','saturdays','sundays','studentids'])
         for r in rows:
+            raw_ids = r['studyids'] or []
+            if isinstance(raw_ids, (list, tuple)):
+                student_str = ', '.join(str(sid) for sid in raw_ids)
+            else:
+                student_str = str(raw_ids)
             w.writerow([
                 r['subject'], r['catalog'], str(r['classstarttime']), str(r['classendtime']),
                 r['mondays'], r['tuesdays'], r['wednesdays'], r['thursdays'], r['fridays'], r['saturdays'], r['sundays'],
-                ','.join(map(str, r['studyids'] or []))
+                student_str
             ])
         resp = app.response_class(buf.getvalue(), mimetype='text/csv')
         resp.headers['Content-Disposition'] = f'attachment; filename={source_label}-waitlist-{subject}-{catalog}.csv'
