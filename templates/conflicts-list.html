@@ -1,49 +1,41 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Conflicts</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
-</head>
+{% extends "base.html" %}
 
-<body>
-<div class="app-layout">
+{% block title %}Conflicts{% endblock %}
 
-  <aside class="sidebar">
-    <a class="nav-item" href="{{ url_for('dashboard') }}">Dashboard</a>
-    <a class="nav-item" href="{{ url_for('schedule') }}">Schedules</a>
-    <a class="nav-item active" href="{{ url_for('conflicts') }}">Conflicts</a>
-    <a class="nav-item" href="{{ url_for('solutions') }}">Solutions</a>
-    <a class="nav-item" href="{{ url_for('import_data') }}">Import Data</a>
-  </aside>
+{% block content %}
+<h1>Detected Conflicts</h1>
 
-  <main class="main-content">
-    <h1>Detected Conflicts</h1>
-
-    <div class="card">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Type</th>
-            <th>Description</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Room</td>
-            <td>EV 3.309 double-booked</td>
-            <td>
-              <a class="btn btn-primary" href="{{ url_for('solutions') }}">
-                View Solutions
-              </a>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-  </main>
+{% if conflicts %}
+<div class="card">
+  <p>{{ conflicts|length }} conflict{{ 's' if conflicts|length != 1 }} detected in the current schedule.</p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Course</th>
+        <th>Details</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in conflicts %}
+      <tr>
+        <td>{{ c.type }}</td>
+        <td>{{ c.course or '-' }}</td>
+        <td>{{ c.detail }}</td>
+        <td>
+          <a class="btn btn-primary" href="{{ url_for('solutions', conflictid=c.conflictid) }}">
+            View Solution
+          </a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </div>
-</body>
-</html>
+{% else %}
+<div class="card">
+  <p>No conflicts detected. Generate a schedule to check for conflicts.</p>
+</div>
+{% endif %}
+{% endblock %}

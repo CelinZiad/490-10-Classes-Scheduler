@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Catalog{% endblock %}
+
+{% block content %}
+<h1>Catalog View (by Sequence)</h1>
+
+<div class="card">
+  <form method="GET" action="{{ url_for('catalog') }}" style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
+    <div>
+      <label for="planid">Sequence type</label><br>
+      <select id="planid" name="planid" onchange="this.form.submit()">
+        {% for p in plans %}
+          <option value="{{ p.planid }}"{{ ' selected="selected"' if p.planid == selected_planid else '' }}>
+            {{ p.planname }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label for="termid">Semester</label><br>
+      <select id="termid" name="termid" onchange="this.form.submit()">
+        {% for t in terms %}
+          <option value="{{ t.sequencetermid }}"{{ ' selected="selected"' if t.sequencetermid == selected_termid else '' }}>
+            Year {{ t.yearnumber }} {{ t.season|title }} {% if t.workterm %}(Work term){% endif %}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <noscript>
+      <button type="submit">Load</button>
+    </noscript>
+  </form>
+</div>
+
+<div class="card">
+  {% if rows %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Course</th>
+          <th>Title</th>
+          <th>Credits</th>
+          <th>Elective</th>
+          <th>Prerequisites</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+          <tr>
+            <td>{{ r.subject }} {{ r.catalog }}</td>
+            <td>{{ r.title if r.title else "Not found in catalog" }}</td>
+            <td>{{ r.classunit if r.classunit is not none else "-" }}</td>
+            <td>{{ "Yes" if r.iselective else "No" }}</td>
+            <td style="max-width: 520px;">
+              {{ r.prerequisites if r.prerequisites else "-" }}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p>No courses found for this selection.</p>
+  {% endif %}
+</div>
+{% endblock %}

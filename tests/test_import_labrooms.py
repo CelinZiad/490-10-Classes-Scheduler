@@ -67,7 +67,7 @@ def test_parse_skips_short_rows():
 
 
 # ---------------------------------------------------------------------------
-# API endpoint tests (DB mocked)
+# API endpoint tests (DB mocked via SQLAlchemy)
 # ---------------------------------------------------------------------------
 
 def test_import_no_file(client):
@@ -89,9 +89,9 @@ def test_import_empty_csv(client):
     assert res.status_code == 400
 
 
-@patch("app.get_db_connection")
-def test_import_db_error(mock_conn, client):
-    mock_conn.side_effect = Exception("Connection refused")
+@patch("app.db.session")
+def test_import_db_error(mock_session, client):
+    mock_session.execute.side_effect = Exception("Connection refused")
     csv_data = (
         b"Course Code,Title,Room,Capacity,Cap_MAX,Responsible,Comments\n"
         b"COEN 314,Digital Electronics 1,H-861,14,16,Shiyu,\n"
@@ -102,13 +102,14 @@ def test_import_db_error(mock_conn, client):
     assert "database" in res.get_json()["message"].lower()
 
 
-@patch("app.get_db_connection")
-def test_import_success(mock_get_conn, client):
-    mock_cursor = MagicMock()
-    mock_conn = MagicMock()
-    mock_conn.cursor.return_value.__enter__ = MagicMock(return_value=mock_cursor)
-    mock_conn.cursor.return_value.__exit__ = MagicMock(return_value=False)
-    mock_get_conn.return_value = mock_conn
+@patch("app.db.session")
+def test_import_success(mock_session, client):
+    # Mock the execute call to return a row with labroomid
+    mock_result = MagicMock()
+    mock_mapping = MagicMock()
+    mock_mapping.__getitem__ = lambda self, key: 1  # labroomid = 1
+    mock_result.mappings.return_value.first.return_value = mock_mapping
+    mock_session.execute.return_value = mock_result
 
     csv_data = (
         b"Course Code,Title,Room,Capacity,Cap_MAX,Responsible,Comments\n"

@@ -111,13 +111,16 @@ CREATE TABLE public.sessions (
 
 CREATE TABLE public.solution (
 	solutionid bigserial NOT NULL,
+	conflictid bigint NULL,
 	status text NOT NULL,
 	description text NOT NULL,
 	createdat timestamptz DEFAULT now() NOT NULL,
 	CONSTRAINT solution_pkey PRIMARY KEY (solutionid),
-	CONSTRAINT solution_status_check CHECK ((status = ANY (ARRAY['proposed'::text, 'accepted'::text, 'rejected'::text])))
+	CONSTRAINT solution_status_check CHECK ((status = ANY (ARRAY['proposed'::text, 'accepted'::text, 'rejected'::text]))),
+	CONSTRAINT solution_conflict_fk FOREIGN KEY (conflictid) REFERENCES public."conflict"(conflictid) ON DELETE SET NULL
 );
 CREATE INDEX solutionstatusidx ON public.solution USING btree (status);
+CREATE INDEX solutionconflictidx ON public.solution USING btree (conflictid);
 
 CREATE TABLE public."user" (
 	username varchar NOT NULL,

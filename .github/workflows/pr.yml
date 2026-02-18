@@ -58,7 +58,7 @@ jobs:
 
       - name: Unit tests + coverage (no quality gate)
         run: |
-          PYTHONPATH=${{ github.workspace }} python -m pytest -q --disable-warnings --maxfail=1 --cov=app --cov-report=term-missing
+          PYTHONPATH=${{ github.workspace }} python -m pytest -q --disable-warnings --maxfail=1 --cov=app --cov=timetable-algo/genetic_algo --cov=timetable-algo/helper --cov-report=term-missing
         env:
           FLASK_ENV: testing
 
