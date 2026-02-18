@@ -1081,6 +1081,16 @@ def api_import_labrooms():
             except (ValueError, TypeError):
                 cap_max = cap
 
+            # Ensure building exists (FK requirement)
+            db.session.execute(
+                db.text("""
+                    INSERT INTO building (campus, building)
+                    VALUES ('SGW', :building)
+                    ON CONFLICT (campus, building) DO NOTHING;
+                """),
+                {"building": building},
+            )
+
             # Upsert lab room
             result = db.session.execute(
                 db.text("""
@@ -1114,6 +1124,19 @@ def api_import_labrooms():
             else:
                 subject = course_code
                 catalog = ""
+
+            # Ensure catalog entry exists (FK requirement)
+            db.session.execute(
+                db.text("""
+                    INSERT INTO catalog (id, subject, catalog, title)
+                    VALUES (
+                        (SELECT COALESCE(MAX(id), 0) + 1 FROM catalog),
+                        :subject, :catalog, :title
+                    )
+                    ON CONFLICT (subject, catalog) DO NOTHING;
+                """),
+                {"subject": subject, "catalog": catalog, "title": row["title"]},
+            )
 
             # Upsert course-lab assignment
             db.session.execute(
