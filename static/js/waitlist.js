@@ -15,20 +15,14 @@ async function loadWaitlistStats(){
     const table = document.createElement('table');
     table.className = 'data-table';
 
-    if(currentSource === 'optimized'){
-      table.innerHTML = '<thead><tr><th>Subject</th><th>Catalog</th><th>Section</th><th>Component</th><th>Action</th></tr></thead>';
-    } else {
-      table.innerHTML = '<thead><tr><th>Subject</th><th>Catalog</th><th>Section</th><th>Waitlist</th><th>Capacity</th><th>Action</th></tr></thead>';
-    }
+    const extraTh = currentSource === 'optimized' ? '<th>Component</th>' : '';
+    table.innerHTML = `<thead><tr><th>Subject</th><th>Catalog</th><th>Section</th>${extraTh}<th>Waitlist</th><th>Waitlist Cap</th><th>Enrollment</th><th>Enroll Cap</th><th>Action</th></tr></thead>`;
 
     const tbody = document.createElement('tbody');
     data.forEach(r=>{
       const tr = document.createElement('tr');
-      if(currentSource === 'optimized'){
-        tr.innerHTML = `<td>${r.subject}</td><td>${r.catalog}</td><td>${r.section||''}</td><td>${r.component||''}</td><td><button class="btn btn-ghost" data-subject="${r.subject}" data-catalog="${r.catalog}">Process</button></td>`;
-      } else {
-        tr.innerHTML = `<td>${r.subject}</td><td>${r.catalog}</td><td>${r.section||''}</td><td>${r.waitlist}</td><td>${r.waitlistCapacity}</td><td><button class="btn btn-ghost" data-subject="${r.subject}" data-catalog="${r.catalog}">Process</button></td>`;
-      }
+      const extraTd = currentSource === 'optimized' ? `<td>${r.component||''}</td>` : '';
+      tr.innerHTML = `<td>${r.subject}</td><td>${r.catalog}</td><td>${r.section||''}</td>${extraTd}<td>${r.waitlist}</td><td>${r.waitlistCapacity}</td><td>${r.currentEnrollment}</td><td>${r.enrollmentCapacity}</td><td><button class="btn btn-ghost" data-subject="${r.subject}" data-catalog="${r.catalog}">Process</button></td>`;
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
@@ -139,7 +133,7 @@ async function loadStudentsDropdown(subject, catalog){
     const data = await res.json();
 
     if(!data.length){
-      sel.innerHTML = '<option disabled>No students found for this course</option>';
+      sel.innerHTML = '<option disabled>No students found</option>';
       list.innerHTML = '<p>No candidate students found.</p>';
       panel.style.display = '';
       return;

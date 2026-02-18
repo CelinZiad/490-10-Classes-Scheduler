@@ -695,11 +695,12 @@ def api_waitlist_stats():
             rows = db.session.execute(
                 db.text(
                     """
-                    SELECT DISTINCT subject, catalog, section, componentcode
+                    SELECT DISTINCT subject, catalog, section, componentcode,
+                           currentwaitlisttotal, waitlistcapacity,
+                           enrollmentcapacity, currentenrollment
                     FROM optimized_schedule
                     WHERE classstarttime IS NOT NULL
                     ORDER BY subject, catalog, section
-                    LIMIT 200
                     """
                 )
             ).mappings().all()
@@ -708,19 +709,24 @@ def api_waitlist_stats():
                 'catalog': r['catalog'],
                 'section': r.get('section'),
                 'component': r.get('componentcode'),
+                'waitlist': r.get('currentwaitlisttotal') or 0,
+                'waitlistCapacity': r.get('waitlistcapacity') or 0,
+                'enrollmentCapacity': r.get('enrollmentcapacity') or 0,
+                'currentEnrollment': r.get('currentenrollment') or 0,
             } for r in rows]
         else:
             rows = db.session.execute(
                 db.text(
                     """
-                    SELECT st.subject, st.catalog, st.section, st.currentwaitlisttotal, st.waitlistcapacity
+                    SELECT st.subject, st.catalog, st.section,
+                           st.currentwaitlisttotal, st.waitlistcapacity,
+                           st.enrollmentcapacity, st.currentenrollment
                     FROM scheduleterm st
                     JOIN sequencecourse c ON c.subject = st.subject AND c.catalog = st.catalog
                     WHERE st.waitlistcapacity IS NOT NULL
                       AND st.waitlistcapacity > 0
                       AND st.currentwaitlisttotal >= st.waitlistcapacity
                     ORDER BY st.currentwaitlisttotal DESC
-                    LIMIT 200
                     """
                 )
             ).mappings().all()
@@ -730,6 +736,8 @@ def api_waitlist_stats():
                 'section': r.get('section'),
                 'waitlist': r.get('currentwaitlisttotal') or 0,
                 'waitlistCapacity': r.get('waitlistcapacity') or 0,
+                'enrollmentCapacity': r.get('enrollmentcapacity') or 0,
+                'currentEnrollment': r.get('currentenrollment') or 0,
             } for r in rows]
         return jsonify(out)
     except Exception as e:
@@ -760,6 +768,19 @@ def api_waitlist_students():
             ),
             {'subject': subject, 'catalog': catalog},
         ).mappings().all()
+
+        # Fallback: if no students found for this specific course, return all known students
+        if not rows:
+            rows = db.session.execute(
+                db.text(
+                    """
+                    SELECT DISTINCT studyid, studyname
+                    FROM studentschedulestudy
+                    ORDER BY studyname NULLS LAST, studyid
+                    LIMIT 500
+                    """
+                )
+            ).mappings().all()
 
         out = [{'studyid': r['studyid'], 'studyname': r['studyname']} for r in rows]
         return jsonify(out)
