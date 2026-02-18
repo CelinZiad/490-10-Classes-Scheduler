@@ -7,6 +7,10 @@ from flask import Flask, render_template, jsonify, request, redirect, url_for, s
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from sqlalchemy.exc import SQLAlchemyError
+import json
+import io
+import csv as csv_mod
+import traceback
 
 load_dotenv()
 
@@ -676,6 +680,339 @@ DEFAULT_COLOR = "#6B7280"  # Gray
 @app.get("/timetable")
 def timetable():
     return render_template(ROUTE_TEMPLATES["/timetable"])
+
+
+@app.get('/waitlist')
+def waitlist():
+    return render_template(ROUTE_TEMPLATES.get('/waitlist', 'waitlist.html'))
+
+
+@app.get('/api/waitlist/filters')
+def api_waitlist_filters():
+    """Return distinct term / subject / component values for the waitlist filter bar."""
+    source = request.args.get('source', 'scheduleterm')
+    table = 'optimized_schedule' if source == 'optimized' else 'scheduleterm'
+
+    def _label(ymd):
+        if not ymd:
+            return 'Unknown term'
+        y, m = int(ymd[:4]), int(ymd[5:7])
+        if 1 <= m <= 4:
+            return f'Winter {y}'
+        if 5 <= m <= 8:
+            return f'Summer {y}'
+        return f'Fall {y}'
+
+    try:
+        if source == 'optimized':
+            from_clause = """optimized_schedule o
+                JOIN sequencecourse c ON c.subject = o.subject AND c.catalog = o.catalog"""
+            base_where = "WHERE o.classstarttime IS NOT NULL AND o.componentcode = 'LAB'"
+            col_prefix = "o."
+        else:
+            from_clause = """scheduleterm st
+                JOIN sequencecourse c ON c.subject = st.subject AND c.catalog = st.catalog"""
+            base_where = """
+                WHERE st.waitlistcapacity IS NOT NULL
+                  AND st.waitlistcapacity > 0
+                  AND st.currentwaitlisttotal >= st.waitlistcapacity
+                  AND st.componentcode = 'LAB'
+            """
+            col_prefix = "st."
+
+        terms_raw = db.session.execute(db.text(f"""
+            SELECT {col_prefix}termcode AS termcode,
+                   to_char(MIN({col_prefix}classstartdate)
+                           FILTER (WHERE {col_prefix}classstartdate BETWEEN '2000-01-01' AND '2100-12-31'),
+                           'YYYY-MM-DD') AS first_date
+            FROM {from_clause}
+            {base_where} AND {col_prefix}termcode IS NOT NULL
+            GROUP BY {col_prefix}termcode ORDER BY {col_prefix}termcode DESC
+        """)).mappings().all()
+
+        # Deduplicate by semester label and keep only Fall 2025 – Winter 2026
+        seen_labels = set()
+        terms = []
+        for r in terms_raw:
+            label = _label(r['first_date'])
+            if label in seen_labels:
+                continue
+            if label not in ('Fall 2025', 'Winter 2026'):
+                continue
+            seen_labels.add(label)
+            terms.append({'code': r['termcode'], 'name': label})
+
+        subjects = db.session.execute(db.text(f"""
+            SELECT DISTINCT {col_prefix}subject AS subject FROM {from_clause}
+            {base_where} AND {col_prefix}subject IS NOT NULL ORDER BY {col_prefix}subject
+        """)).scalars().all()
+
+        components = db.session.execute(db.text(f"""
+            SELECT DISTINCT {col_prefix}componentcode AS componentcode FROM {from_clause}
+            {base_where} AND {col_prefix}componentcode IS NOT NULL ORDER BY {col_prefix}componentcode
+        """)).scalars().all()
+
+        return jsonify({
+            'terms': terms,
+            'subjects': subjects,
+            'components': components,
+        })
+    except Exception as e:
+        app.logger.error('waitlist filters error: %s', e)
+        return jsonify({'terms': [], 'subjects': [], 'components': []}), 500
+
+
+@app.get('/api/waitlist/stats')
+def api_waitlist_stats():
+    source = request.args.get('source', 'scheduleterm')
+    term = request.args.get('term', type=int)
+    subject = request.args.get('subject')
+    component = request.args.get('component')
+
+    try:
+        params = {}
+        if source == 'optimized':
+            query = """
+                SELECT o.subject, o.catalog, o.section, o.componentcode,
+                       MAX(o.currentwaitlisttotal) AS currentwaitlisttotal,
+                       MAX(o.waitlistcapacity) AS waitlistcapacity,
+                       MAX(o.enrollmentcapacity) AS enrollmentcapacity,
+                       MAX(o.currentenrollment) AS currentenrollment
+                FROM optimized_schedule o
+                JOIN sequencecourse c ON c.subject = o.subject AND c.catalog = o.catalog
+                WHERE o.classstarttime IS NOT NULL
+                  AND o.componentcode = 'LAB'
+            """
+            if term:
+                query += " AND o.termcode = :term"
+                params['term'] = term
+            if subject:
+                query += " AND o.subject = :subject"
+                params['subject'] = subject
+            if component:
+                query += " AND o.componentcode = :component"
+                params['component'] = component
+            query += """
+                GROUP BY o.subject, o.catalog, o.section, o.componentcode
+                ORDER BY o.subject, o.catalog, o.section
+            """
+
+            rows = db.session.execute(db.text(query), params).mappings().all()
+            out = [{
+                'subject': r['subject'],
+                'catalog': r['catalog'],
+                'section': r.get('section'),
+                'component': r.get('componentcode'),
+                'waitlist': r.get('currentwaitlisttotal') or 0,
+                'waitlistCapacity': r.get('waitlistcapacity') or 0,
+                'enrollmentCapacity': r.get('enrollmentcapacity') or 0,
+                'currentEnrollment': r.get('currentenrollment') or 0,
+            } for r in rows]
+        else:
+            query = """
+                SELECT st.subject, st.catalog, st.section, st.componentcode,
+                       MAX(st.currentwaitlisttotal) AS currentwaitlisttotal,
+                       MAX(st.waitlistcapacity) AS waitlistcapacity,
+                       MAX(st.enrollmentcapacity) AS enrollmentcapacity,
+                       MAX(st.currentenrollment) AS currentenrollment
+                FROM scheduleterm st
+                JOIN sequencecourse c ON c.subject = st.subject AND c.catalog = st.catalog
+                WHERE st.waitlistcapacity IS NOT NULL
+                  AND st.waitlistcapacity > 0
+                  AND st.currentwaitlisttotal >= st.waitlistcapacity
+                  AND st.componentcode = 'LAB'
+            """
+            if term:
+                query += " AND st.termcode = :term"
+                params['term'] = term
+            if subject:
+                query += " AND st.subject = :subject"
+                params['subject'] = subject
+            if component:
+                query += " AND st.componentcode = :component"
+                params['component'] = component
+            query += """
+                GROUP BY st.subject, st.catalog, st.section, st.componentcode
+                ORDER BY MAX(st.currentwaitlisttotal) DESC
+            """
+
+            rows = db.session.execute(db.text(query), params).mappings().all()
+            out = [{
+                'subject': r['subject'],
+                'catalog': r['catalog'],
+                'section': r.get('section'),
+                'component': r.get('componentcode'),
+                'waitlist': r.get('currentwaitlisttotal') or 0,
+                'waitlistCapacity': r.get('waitlistcapacity') or 0,
+                'enrollmentCapacity': r.get('enrollmentcapacity') or 0,
+                'currentEnrollment': r.get('currentenrollment') or 0,
+            } for r in rows]
+        return jsonify(out)
+    except Exception as e:
+        app.logger.error('waitlist stats error: %s', e)
+        return jsonify({'error': 'DB error loading waitlist stats'}), 500
+
+
+@app.get('/api/waitlist/students')
+def api_waitlist_students():
+    subject = request.args.get('subject')
+    catalog = request.args.get('catalog')
+    if not subject or not catalog:
+        return jsonify({'error': 'subject and catalog required'}), 400
+
+    try:
+        rows = db.session.execute(
+            db.text(
+                """
+                SELECT DISTINCT sss.studyid, sss.studyname
+                FROM studentschedulestudy sss
+                JOIN studentschedule ss ON ss.studyid = sss.studyid
+                JOIN studentscheduleclass ssc ON ssc.studentscheduleid = ss.studentscheduleid
+                JOIN "section" sec ON sec.term = ssc.term AND sec.classnumber = ssc.classnumber AND sec."section" = ssc."section"
+                WHERE sec.subject = :subject AND sec.catalog = :catalog
+                ORDER BY sss.studyname NULLS LAST, sss.studyid
+                LIMIT 500
+                """,
+            ),
+            {'subject': subject, 'catalog': catalog},
+        ).mappings().all()
+
+        # Fallback: if no students found for this specific course, return all known students
+        if not rows:
+            rows = db.session.execute(
+                db.text(
+                    """
+                    SELECT DISTINCT studyid, studyname
+                    FROM studentschedulestudy
+                    ORDER BY studyname NULLS LAST, studyid
+                    LIMIT 500
+                    """
+                )
+            ).mappings().all()
+
+        out = [{'studyid': r['studyid'], 'studyname': r['studyname']} for r in rows]
+        return jsonify(out)
+    except Exception as e:
+        app.logger.error('waitlist students error: %s', e)
+        return jsonify({'error': 'DB error loading students'}), 500
+
+
+@app.post('/api/waitlist/run')
+def api_waitlist_run():
+    data = request.get_json(silent=True) or {}
+    students = data.get('students') or []
+    subject = (data.get('subject') or '').strip().upper()
+    catalog = (data.get('catalog') or '').strip()
+
+    app.logger.info('POST /api/waitlist/run: subject=%s, catalog=%s, students=%s', subject, catalog, students)
+
+    if not subject or not catalog or not students:
+        return jsonify({'error': 'subject, catalog and students are required'}), 400
+
+    try:
+        # Import algorithm pieces dynamically
+        from waitlist_algorithm.database_connection.db import get_conn
+        from waitlist_algorithm.algorithm.students_busy import load_students_busy_from_db, get_two_week_anchor_monday
+        from waitlist_algorithm.algorithm.room_busy import load_room_busy_for_course
+        from waitlist_algorithm.algorithm.lab_generator import propose_waitlist_slots
+        from waitlist_algorithm.algorithm.database_results import save_lab_results_to_db
+
+        conn = get_conn()
+        cur = conn.cursor()
+
+        students_busy = load_students_busy_from_db(cur, students)
+        week1 = get_two_week_anchor_monday(cur, students)
+        room_busy = load_room_busy_for_course(cur, subject, catalog, week1)
+
+        lab_start_time = [  # minutes from midnight
+            8*60 + 45,
+            11*60 + 45,
+            14*60 + 45,
+            17*60 + 45,
+        ]
+
+        results = propose_waitlist_slots(
+            waitlisted_students=students,
+            students_busy=students_busy,
+            room_busy=room_busy,
+            lab_start_times=lab_start_time,
+        )
+
+        # persist results
+        save_lab_results_to_db(cur, subject, catalog, 180, results)
+        conn.commit()
+
+        # Format results for JSON — human-readable
+        DAY_NAMES = {
+            1: 'Monday (Week 1)', 2: 'Tuesday (Week 1)', 3: 'Wednesday (Week 1)',
+            4: 'Thursday (Week 1)', 5: 'Friday (Week 1)', 6: 'Saturday (Week 1)', 7: 'Sunday (Week 1)',
+            8: 'Monday (Week 2)', 9: 'Tuesday (Week 2)', 10: 'Wednesday (Week 2)',
+            11: 'Thursday (Week 2)', 12: 'Friday (Week 2)', 13: 'Saturday (Week 2)', 14: 'Sunday (Week 2)',
+        }
+
+        def _fmt_time(mins):
+            return f"{mins // 60:02d}:{mins % 60:02d}"
+
+        out = []
+        for (day, start), ids in sorted(results.items()):
+            out.append({
+                'day': DAY_NAMES.get(day, f'Day {day}'),
+                'time': f"{_fmt_time(start)} – {_fmt_time(start + 180)}",
+                'students': ids,
+            })
+        return jsonify({'status': 'success', 'results': out})
+
+    except Exception as e:
+        app.logger.error('waitlist run failed: %s', traceback.format_exc())
+        return jsonify({'error': 'Algorithm execution failed'}), 500
+
+
+@app.get('/api/waitlist/download')
+def api_waitlist_download():
+    subject = request.args.get('subject')
+    catalog = request.args.get('catalog')
+    source = request.args.get('source', 'scheduleterm')
+    if not subject or not catalog:
+        return jsonify({'error': 'subject and catalog required'}), 400
+
+    source_label = 'optimized' if source == 'optimized' else 'original'
+
+    try:
+        rows = db.session.execute(
+            db.text(
+                """
+                SELECT subject, catalog, classstarttime, classendtime, mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays, studyids
+                FROM lab_slot_result
+                WHERE subject = :subject AND catalog = :catalog
+                ORDER BY classstarttime
+                """
+            ),
+            {'subject': subject, 'catalog': catalog},
+        ).mappings().all()
+
+        if not rows:
+            return jsonify({'error': 'No results found'}), 404
+
+        buf = io.StringIO()
+        w = csv_mod.writer(buf)
+        w.writerow(['subject','catalog','start','end','mondays','tuesdays','wednesdays','thursdays','fridays','saturdays','sundays','studentids'])
+        for r in rows:
+            raw_ids = r['studyids'] or []
+            if isinstance(raw_ids, (list, tuple)):
+                student_str = ', '.join(str(sid) for sid in raw_ids)
+            else:
+                student_str = str(raw_ids)
+            w.writerow([
+                r['subject'], r['catalog'], str(r['classstarttime']), str(r['classendtime']),
+                r['mondays'], r['tuesdays'], r['wednesdays'], r['thursdays'], r['fridays'], r['saturdays'], r['sundays'],
+                student_str
+            ])
+        resp = app.response_class(buf.getvalue(), mimetype='text/csv')
+        resp.headers['Content-Disposition'] = f'attachment; filename={source_label}-waitlist-{subject}-{catalog}.csv'
+        return resp
+    except Exception as e:
+        app.logger.error('waitlist download error: %s', e)
+        return jsonify({'error': 'Error generating CSV'}), 500
 
 
 @app.get("/api/events")

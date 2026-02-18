@@ -1,0 +1,40 @@
+# =====================================
+
+Depending of the term and program of a student, he will need to take specifics classes.
+This script is generating a lecture, tutorial and laboratory for a choose term and program
+identified by a sequence term id.
+
+Each schedule for a student has a student schedule id to differentiate beetween the students schedules.
+
+# =====================================
+
+INSERT INTO studentscheduleclass
+    (classentryid, studentscheduleid, classnumber, term, section,cid)
+
+SELECT
+    ROW_NUMBER() OVER () AS classentryid,
+    1001 AS studentscheduleid, # <-- Change the number depending on the schedule e.g "1001"
+    classnumber,
+    termcode,
+    section,
+    cid,
+FROM (
+    SELECT st.subject,
+           st.catalog,
+           st.componentcode,
+           st.classnumber,
+           st.termcode,
+           st.section,
+           st.cid,
+           ROW_NUMBER() OVER (
+               PARTITION BY st.subject, st.catalog, st.componentcode
+               ORDER BY st.cid
+           ) AS rn
+    FROM scheduleterm st
+    JOIN sequencecourse sc
+      ON sc.subject = st.subject
+     AND sc.catalog = st.catalog
+    WHERE sc.sequencetermid = 12 # <-- Change the number depending on the sequence term e.g "12"
+      AND st.componentcode IN ('LEC','TUT','LAB')
+) x
+WHERE rn = 1;
