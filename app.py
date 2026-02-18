@@ -713,7 +713,8 @@ def api_events():
         query += ")"
 
     # DIRECT FILTERS
-    if term:
+    # Skip term filter for optimized schedule (it's already term-specific)
+    if term and source != "optimized":
         query += " AND st.termcode = :term"
         params["term"] = term
 
