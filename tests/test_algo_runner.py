@@ -13,7 +13,7 @@ from algo_runner import (
     load_schedule_from_csv,
     load_conflicts_from_csv,
 )
-from app import derive_solution
+from app import derive_solution, conflict_detail
 
 
 def test_read_csv_file_missing():
@@ -75,17 +75,62 @@ def test_derive_solution_unknown_type():
 
 
 def test_derive_solution_missing_course():
-    row = {"Conflict_Type": "Sequence-Missing Course", "Course": "Multiple"}
+    row = {
+        "Conflict_Type": "Sequence-Missing Course",
+        "Course": "Multiple",
+        "Component1": "Semester 3",
+        "Component2": "['COEN490']",
+    }
     result = derive_solution(row)
-    assert "missing course" in result.lower()
+    assert "COEN490" in result
+    assert "Semester 3" in result
+
+
+def test_conflict_detail_missing_course():
+    row = {
+        "Conflict_Type": "Sequence-Missing Course",
+        "Course": "Multiple",
+        "Component1": "Semester 3",
+        "Component2": "['COEN490']",
+    }
+    result = conflict_detail(row)
+    assert "Semester 3" in result
+    assert "COEN490" in result
+
+
+def test_conflict_detail_lecture_tutorial():
+    row = {
+        "Conflict_Type": "Lecture-Tutorial",
+        "Course": "COEN311",
+        "Component1": "Lecture",
+        "Component2": "Tutorial",
+        "Day": "3",
+        "Time1": "08:45",
+        "Time2": "10:00",
+    }
+    result = conflict_detail(row)
+    assert "COEN311" in result
+    assert "08:45" in result
+
+
+def test_conflict_detail_room_conflict():
+    row = {
+        "Conflict_Type": "Room Conflict",
+        "Course": "COEN311",
+        "Building": "H",
+        "Room": "807",
+    }
+    result = conflict_detail(row)
+    assert "H-807" in result
 
 
 def test_conflicts_page_with_mock_data(client):
-    """Conflicts page shows data when CSV has conflicts."""
+    """Conflicts page shows data with enriched detail column."""
     mock_conflicts = [
         {"Conflict_Type": "Room Conflict", "Course": "COEN311",
          "Day": "1", "Time1": "10:00", "Time2": "12:00",
-         "Building": "H", "Room": "807"},
+         "Building": "H", "Room": "807",
+         "Component1": "", "Component2": ""},
     ]
     with patch("algo_runner.load_conflicts_from_csv", return_value=mock_conflicts):
         res = client.get("/conflicts")
@@ -93,6 +138,7 @@ def test_conflicts_page_with_mock_data(client):
         html = res.get_data(as_text=True)
         assert "COEN311" in html
         assert "Room Conflict" in html
+        assert "H-807" in html
 
 
 def test_conflicts_page_empty(client):
@@ -104,11 +150,10 @@ def test_conflicts_page_empty(client):
         assert "No conflicts detected" in html
 
 
-def test_export_csv_404_when_no_file(client):
-    """Export CSV returns 404 when no schedule file exists."""
-    with patch("algo_runner.get_schedule_csv_path", return_value="/nonexistent/file.csv"):
-        res = client.get("/api/export-csv")
-        assert res.status_code == 404
+def test_export_csv_404_when_no_data(client):
+    """Export CSV returns 404 when DB has no schedule data."""
+    res = client.get("/api/export-csv")
+    assert res.status_code == 404
 
 
 def test_api_generate_with_mock(client):

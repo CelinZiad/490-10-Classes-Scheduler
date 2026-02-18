@@ -13,11 +13,7 @@
       <tr>
         <th>Type</th>
         <th>Course</th>
-        <th>Day</th>
-        <th>Time 1</th>
-        <th>Time 2</th>
-        <th>Building</th>
-        <th>Room</th>
+        <th>Details</th>
         <th>Action</th>
       </tr>
     </thead>
@@ -26,11 +22,7 @@
       <tr>
         <td>{{ c.get('Conflict_Type', '-') }}</td>
         <td>{{ c.get('Course', '-') }}</td>
-        <td>{{ c.get('Day', '-') }}</td>
-        <td>{{ c.get('Time1', '-') }}</td>
-        <td>{{ c.get('Time2', '-') }}</td>
-        <td>{{ c.get('Building', '-') }}</td>
-        <td>{{ c.get('Room', '-') }}</td>
+        <td>{{ c.get('detail', '-') }}</td>
         <td>
           <a class="btn btn-primary" href="{{ url_for('solutions') }}">
             View Solutions

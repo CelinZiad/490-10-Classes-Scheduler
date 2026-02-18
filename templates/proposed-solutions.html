@@ -13,17 +13,25 @@
   <table class="data-table">
     <thead>
       <tr>
-        <th>ID</th>
-        <th>Description</th>
+        <th>Conflict Type</th>
+        <th>Proposed Resolution</th>
         <th>Status</th>
         <th>Proposed At</th>
       </tr>
     </thead>
     <tbody>
       {% for s in solutions %}
+      {% set desc = s.description or '' %}
+      {% if desc.startswith('[') and '] ' in desc %}
+        {% set ctype = desc[1:desc.index('] ')] %}
+        {% set body = desc[desc.index('] ') + 2:] %}
+      {% else %}
+        {% set ctype = '-' %}
+        {% set body = desc %}
+      {% endif %}
       <tr>
-        <td>{{ s.solutionid }}</td>
-        <td>{{ s.description }}</td>
+        <td>{{ ctype }}</td>
+        <td>{{ body }}</td>
         <td>{{ s.status }}</td>
         <td>{{ s.createdat.strftime("%Y-%m-%d %H:%M") }}</td>
       </tr>

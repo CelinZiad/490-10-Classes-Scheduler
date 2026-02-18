@@ -39,24 +39,89 @@ algorithmimplemented = True
 
 # --- Solution derivation from conflicts ---
 
-SOLUTION_MAP = {
-    "Lecture-Tutorial": "Reschedule tutorial to a non-conflicting time slot",
-    "Lecture-Lab": "Reschedule lab to a non-conflicting time slot",
-    "Room Conflict": "Assign an alternative lab room",
-    "Sequence-Tutorial Overlap": "Adjust tutorial sections to avoid overlap",
-    "Sequence-Lab Overlap": "Adjust lab sections to avoid overlap",
-    "Sequence-Tutorial/Lab Overlap": "Adjust tutorial/lab sections to avoid overlap",
-    "Sequence-Missing Course": "Add missing course to the schedule",
-    "Sequence-No Valid Combination": "Re-evaluate section combinations for sequence courses",
-}
+def conflict_detail(row: dict) -> str:
+    """Build a human-readable detail string from a conflict CSV row."""
+    ctype = row.get("Conflict_Type", "")
+    course = row.get("Course", "")
+    comp1 = row.get("Component1", "")
+    comp2 = row.get("Component2", "")
+    day = row.get("Day", "")
+    t1 = row.get("Time1", "")
+    t2 = row.get("Time2", "")
+    bldg = row.get("Building", "")
+    room = row.get("Room", "")
+
+    if ctype == "Sequence-Missing Course":
+        # comp1 = "Semester 3", comp2 = "['COEN490']"
+        missing = comp2.strip("[]' ").replace("'", "")
+        return f"{comp1}: missing {missing}"
+
+    if ctype == "Sequence-No Valid Combination":
+        return f"{comp1}: no valid tutorial/lab combination avoids conflicts"
+
+    if ctype in ("Lecture-Tutorial", "Lecture-Lab"):
+        parts = [course]
+        if t1 and t2:
+            parts.append(f"{comp1 or 'Lecture'} {t1} vs {comp2 or ctype.split('-')[1]} {t2}")
+        if day:
+            parts.append(f"on day {day}")
+        return " — ".join(parts)
+
+    if ctype in ("Sequence-Tutorial Overlap", "Sequence-Lab Overlap",
+                 "Sequence-Tutorial/Lab Overlap"):
+        parts = [f"{comp1} vs {comp2}"]
+        if t1 and t2:
+            parts.append(f"{t1} vs {t2}")
+        if day:
+            parts.append(f"on day {day}")
+        return " — ".join(parts)
+
+    if ctype == "Room Conflict":
+        loc = f"{bldg}-{room}" if bldg and room else "same room"
+        parts = [f"{course} both assigned {loc}"]
+        if t1 and t2:
+            parts.append(f"{t1} vs {t2}")
+        return " — ".join(parts)
+
+    return f"{course}: {comp1} vs {comp2}" if comp1 else course
 
 
 def derive_solution(conflict_row: dict) -> str:
-    """Derive a solution description from a conflict CSV row."""
+    """Derive a specific solution description from a conflict CSV row."""
     ctype = conflict_row.get("Conflict_Type", "")
     course = conflict_row.get("Course", "")
-    base = SOLUTION_MAP.get(ctype, f"Review and resolve {ctype} conflict")
-    return f"{course}: {base}"
+    comp1 = conflict_row.get("Component1", "")
+    comp2 = conflict_row.get("Component2", "")
+
+    if ctype == "Lecture-Tutorial":
+        return f"{course}: Reschedule tutorial to a non-conflicting time slot"
+
+    if ctype == "Lecture-Lab":
+        return f"{course}: Reschedule lab to a non-conflicting time slot"
+
+    if ctype == "Room Conflict":
+        bldg = conflict_row.get("Building", "")
+        room = conflict_row.get("Room", "")
+        loc = f" (currently {bldg}-{room})" if bldg and room else ""
+        return f"{course}: Assign an alternative lab room{loc}"
+
+    if ctype == "Sequence-Tutorial Overlap":
+        return f"{course}: Adjust tutorial sections to avoid overlap between {comp1} and {comp2}"
+
+    if ctype == "Sequence-Lab Overlap":
+        return f"{course}: Adjust lab sections to avoid overlap between {comp1} and {comp2}"
+
+    if ctype == "Sequence-Tutorial/Lab Overlap":
+        return f"{course}: Adjust tutorial/lab sections to avoid overlap between {comp1} and {comp2}"
+
+    if ctype == "Sequence-Missing Course":
+        missing = comp2.strip("[]' ").replace("'", "")
+        return f"Add {missing} to the schedule (required in {comp1})"
+
+    if ctype == "Sequence-No Valid Combination":
+        return f"{comp1}: Re-evaluate section combinations for sequence courses"
+
+    return f"{course}: Review and resolve {ctype} conflict"
 
 
 def logactivity(
@@ -158,7 +223,7 @@ def postschedulerrun():
             values (:name, :status);
         """
         ),
-        {"name": schedulename, "status": result["status"]},
+        {"name": schedulename, "status": "generated" if result["status"] == "success" else "failed"},
     )
     db.session.commit()
 
@@ -188,6 +253,8 @@ def postschedulerrun():
         db.session.commit()
 
         for row in result["conflicts"]:
+            ctype = row.get("Conflict_Type", "Unknown")
+            detail = conflict_detail(row)
             db.session.execute(
                 db.text(
                     """
@@ -195,13 +262,7 @@ def postschedulerrun():
                     values ('active', :description);
                 """
                 ),
-                {
-                    "description": (
-                        f"{row.get('Conflict_Type', 'Unknown')}: "
-                        f"{row.get('Course', '')} - "
-                        f"{row.get('Time1', '')} vs {row.get('Time2', '')}"
-                    )
-                },
+                {"description": f"{ctype}: {detail}"},
             )
         db.session.commit()
 
@@ -220,6 +281,7 @@ def postschedulerrun():
 
         solutions_added = 0
         for row in result["conflicts"]:
+            ctype = row.get("Conflict_Type", "Unknown")
             desc = derive_solution(row)
             db.session.execute(
                 db.text(
@@ -228,7 +290,7 @@ def postschedulerrun():
                     values ('proposed', :description);
                 """
                 ),
-                {"description": desc},
+                {"description": f"[{ctype}] {desc}"},
             )
             solutions_added += 1
         db.session.commit()
@@ -393,6 +455,9 @@ def conflicts():
     from algo_runner import load_conflicts_from_csv
 
     rows = load_conflicts_from_csv()
+    # Enrich each row with a human-readable detail string
+    for row in rows:
+        row["detail"] = conflict_detail(row)
     return render_template(ROUTE_TEMPLATES["/conflicts"], conflicts=rows)
 
 
@@ -428,63 +493,68 @@ def api_export_csv():
     source = request.args.get("source", "optimized")
     fmt = request.args.get("format", "detailed")
 
-    # For optimized source, try the CSV file first (fastest)
-    if source == "optimized":
-        from algo_runner import get_schedule_csv_path
-        csv_path = get_schedule_csv_path()
-        if not os.path.isfile(csv_path):
-            return jsonify({"error": "No optimized schedule found. Generate a schedule first."}), 404
+    # Get latest schedule name for filename prefix
+    try:
+        row = db.session.execute(
+            db.text("SELECT name FROM schedulerun ORDER BY generatedat DESC LIMIT 1")
+        ).mappings().first()
+        schedule_name = row["name"] if row else "schedule"
+    except Exception:
+        schedule_name = "schedule"
 
-        if fmt == "condensed":
-            condensed_cols = ["Subject", "Catalog_Nbr", "Type", "Day_Name", "Start_Time", "End_Time", "Building", "Room"]
-            from algo_runner import _read_csv_file
-            rows = _read_csv_file(csv_path)
-            buf = io.StringIO()
-            writer = csv_mod.DictWriter(buf, fieldnames=condensed_cols, extrasaction="ignore")
-            writer.writeheader()
-            for r in rows:
-                writer.writerow(r)
-            resp = app.response_class(buf.getvalue(), mimetype="text/csv")
-            resp.headers["Content-Disposition"] = "attachment; filename=schedule_condensed.csv"
-            return resp
-
-        return send_file(
-            csv_path, mimetype="text/csv", as_attachment=True,
-            download_name="schedule_detailed.csv",
-        )
-
-    # For original source, query the scheduleterm DB table
-    detailed_cols = [
+    # Column definitions
+    all_cols = [
         "subject", "catalog", "section", "componentcode", "termcode",
-        "classnumber", "buildingcode", "room", "classstarttime", "classendtime",
-        "mondays", "tuesdays", "wednesdays", "thursdays", "fridays",
+        "classnumber", "session", "buildingcode", "room",
+        "instructionmodecode", "locationcode",
+        "currentwaitlisttotal", "waitlistcapacity",
         "enrollmentcapacity", "currentenrollment",
+        "departmentcode", "facultycode",
+        "classstarttime", "classendtime", "classstartdate", "classenddate",
+        "mondays", "tuesdays", "wednesdays", "thursdays", "fridays",
+        "saturdays", "sundays", "facultydescription", "career",
+        "meetingpatternnumber",
     ]
     condensed_cols = [
-        "subject", "catalog", "componentcode", "classstarttime", "classendtime",
-        "buildingcode", "room", "mondays", "tuesdays", "wednesdays", "thursdays", "fridays",
+        "subject", "catalog", "section", "componentcode",
+        "buildingcode", "room", "classstarttime", "classendtime",
+        "mondays", "tuesdays", "wednesdays", "thursdays", "fridays",
     ]
 
-    cols = condensed_cols if fmt == "condensed" else detailed_cols
+    table = "optimized_schedule" if source == "optimized" else "scheduleterm"
+    cols = condensed_cols if fmt == "condensed" else all_cols
     col_sql = ", ".join(cols)
 
-    rows = db.session.execute(
-        db.text(
-            f"SELECT {col_sql} FROM scheduleterm "
-            "WHERE departmentcode = 'ELECCOEN' "
-            "AND classstarttime IS NOT NULL AND classstarttime != '00:00:00' "
-            "ORDER BY subject, catalog, section, componentcode"
-        )
-    ).mappings().all()
+    where = (
+        "WHERE classstarttime IS NOT NULL AND classstarttime != '00:00:00'"
+    )
+    if source == "original":
+        where += " AND departmentcode = 'ELECCOEN'"
+
+    try:
+        rows = db.session.execute(
+            db.text(
+                f"SELECT {col_sql} FROM {table} {where} "
+                "ORDER BY subject, catalog, section, componentcode"
+            )
+        ).mappings().all()
+    except SQLAlchemyError:
+        db.session.rollback()
+        return jsonify({"error": f"No {source} schedule found. Generate a schedule first."}), 404
+
+    if not rows:
+        return jsonify({"error": f"No {source} schedule data found."}), 404
 
     buf = io.StringIO()
     writer = csv_mod.DictWriter(buf, fieldnames=cols)
     writer.writeheader()
     for r in rows:
         writer.writerow(dict(r))
+
+    label = "detailed" if fmt == "detailed" else "condensed"
+    filename = f"{schedule_name}-{label}.csv"
     resp = app.response_class(buf.getvalue(), mimetype="text/csv")
-    label = "condensed" if fmt == "condensed" else "detailed"
-    resp.headers["Content-Disposition"] = f"attachment; filename=schedule_original_{label}.csv"
+    resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
     return resp
 
 
