@@ -7,6 +7,10 @@ from flask import Flask, render_template, jsonify, request, redirect, url_for, s
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from sqlalchemy.exc import SQLAlchemyError
+import json
+import io
+import csv as csv_mod
+import traceback
 
 load_dotenv()
 
@@ -676,6 +680,173 @@ DEFAULT_COLOR = "#6B7280"  # Gray
 @app.get("/timetable")
 def timetable():
     return render_template(ROUTE_TEMPLATES["/timetable"])
+
+
+@app.get('/waitlist')
+def waitlist():
+    return render_template(ROUTE_TEMPLATES.get('/waitlist', 'waitlist.html'))
+
+
+@app.get('/api/waitlist/stats')
+def api_waitlist_stats():
+    # Return courses where waitlist has reached capacity
+    try:
+        rows = (
+            db.session.execute(
+                db.text(
+                    """
+                    SELECT st.subject, st.catalog, st.section, st.currentwaitlisttotal, st.waitlistcapacity
+                    FROM scheduleterm st
+                    JOIN sequencecourse c ON c.subject = st.subject AND c.catalog = st.catalog
+                    WHERE st.waitlistcapacity IS NOT NULL
+                      AND st.waitlistcapacity > 0
+                      AND st.currentwaitlisttotal >= st.waitlistcapacity
+                    ORDER BY st.currentwaitlisttotal DESC
+                    LIMIT 200
+                    """
+                )
+            )
+            .mappings()
+            .all()
+        )
+        out = []
+        for r in rows:
+            out.append({
+                'subject': r['subject'],
+                'catalog': r['catalog'],
+                'section': r.get('section'),
+                'waitlist': r.get('currentwaitlisttotal') or 0,
+                'waitlistCapacity': r.get('waitlistcapacity') or 0,
+            })
+        return jsonify(out)
+    except Exception as e:
+        app.logger.error('waitlist stats error: %s', e)
+        return jsonify({'error': 'DB error loading waitlist stats'}), 500
+
+
+@app.get('/api/waitlist/students')
+def api_waitlist_students():
+    subject = request.args.get('subject')
+    catalog = request.args.get('catalog')
+    if not subject or not catalog:
+        return jsonify({'error': 'subject and catalog required'}), 400
+
+    try:
+        rows = db.session.execute(
+            db.text(
+                """
+                SELECT DISTINCT sss.studyid, sss.studyname
+                FROM studentschedulestudy sss
+                JOIN studentschedule ss ON ss.studyid = sss.studyid
+                JOIN studentscheduleclass ssc ON ssc.studentscheduleid = ss.studentscheduleid
+                JOIN "section" sec ON sec.term = ssc.term AND sec.classnumber = ssc.classnumber AND sec."section" = ssc."section"
+                WHERE sec.subject = :subject AND sec.catalog = :catalog
+                ORDER BY sss.studyname NULLS LAST, sss.studyid
+                LIMIT 500
+                """,
+            ),
+            {'subject': subject, 'catalog': catalog},
+        ).mappings().all()
+
+        out = [{'studyid': r['studyid'], 'studyname': r['studyname']} for r in rows]
+        return jsonify(out)
+    except Exception as e:
+        app.logger.error('waitlist students error: %s', e)
+        return jsonify({'error': 'DB error loading students'}), 500
+
+
+@app.post('/api/waitlist/run')
+def api_waitlist_run():
+    data = request.get_json(silent=True) or {}
+    students = data.get('students') or []
+    subject = (data.get('subject') or '').strip().upper()
+    catalog = (data.get('catalog') or '').strip()
+
+    app.logger.info('POST /api/waitlist/run: subject=%s, catalog=%s, students=%s', subject, catalog, students)
+
+    if not subject or not catalog or not students:
+        return jsonify({'error': 'subject, catalog and students are required'}), 400
+
+    try:
+        # Import algorithm pieces dynamically
+        from waitlist_algorithm.database_connection.db import get_conn
+        from waitlist_algorithm.algorithm.students_busy import load_students_busy_from_db, get_two_week_anchor_monday
+        from waitlist_algorithm.algorithm.room_busy import load_room_busy_for_course
+        from waitlist_algorithm.algorithm.lab_generator import propose_waitlist_slots
+        from waitlist_algorithm.algorithm.database_results import save_lab_results_to_db
+
+        conn = get_conn()
+        cur = conn.cursor()
+
+        students_busy = load_students_busy_from_db(cur, students)
+        week1 = get_two_week_anchor_monday(cur, students)
+        room_busy = load_room_busy_for_course(cur, subject, catalog, week1)
+
+        lab_start_time = [  # minutes from midnight
+            8*60 + 45,
+            11*60 + 45,
+            14*60 + 45,
+            17*60 + 45,
+        ]
+
+        results = propose_waitlist_slots(
+            waitlisted_students=students,
+            students_busy=students_busy,
+            room_busy=room_busy,
+            lab_start_times=lab_start_time,
+        )
+
+        # persist results
+        save_lab_results_to_db(cur, subject, catalog, 180, results)
+        conn.commit()
+
+        # Format results for JSON (string keys)
+        out = {f"{d},{s}": ids for (d, s), ids in results.items()}
+        return jsonify({'status': 'success', 'results': out})
+
+    except Exception as e:
+        app.logger.error('waitlist run failed: %s', traceback.format_exc())
+        return jsonify({'error': 'Algorithm execution failed'}), 500
+
+
+@app.get('/api/waitlist/download')
+def api_waitlist_download():
+    subject = request.args.get('subject')
+    catalog = request.args.get('catalog')
+    if not subject or not catalog:
+        return jsonify({'error': 'subject and catalog required'}), 400
+
+    try:
+        rows = db.session.execute(
+            db.text(
+                """
+                SELECT subject, catalog, classstarttime, classendtime, mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays, studyids
+                FROM lab_slot_result
+                WHERE subject = :subject AND catalog = :catalog
+                ORDER BY classstarttime
+                """
+            ),
+            {'subject': subject, 'catalog': catalog},
+        ).mappings().all()
+
+        if not rows:
+            return jsonify({'error': 'No results found'}), 404
+
+        buf = io.StringIO()
+        w = csv_mod.writer(buf)
+        w.writerow(['subject','catalog','start','end','mondays','tuesdays','wednesdays','thursdays','fridays','saturdays','sundays','studyids'])
+        for r in rows:
+            w.writerow([
+                r['subject'], r['catalog'], str(r['classstarttime']), str(r['classendtime']),
+                r['mondays'], r['tuesdays'], r['wednesdays'], r['thursdays'], r['fridays'], r['saturdays'], r['sundays'],
+                ','.join(map(str, r['studyids'] or []))
+            ])
+        resp = app.response_class(buf.getvalue(), mimetype='text/csv')
+        resp.headers['Content-Disposition'] = f'attachment; filename=waitlist-{subject}-{catalog}.csv'
+        return resp
+    except Exception as e:
+        app.logger.error('waitlist download error: %s', e)
+        return jsonify({'error': 'Error generating CSV'}), 500
 
 
 @app.get("/api/events")

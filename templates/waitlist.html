@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Waitlist Management{% endblock %}
+
+{% block content %}
+<h1>Waitlist</h1>
+
+<section class="card">
+  <h2>Courses at Waitlist Capacity</h2>
+  <div style="display:flex; align-items:center; gap:12px;">
+    <div id="waitlist-table-container" style="flex:1; max-height:320px; overflow:auto;">Loading...</div>
+    <div style="width:220px;">
+      <label>Progress</label>
+      <progress id="wl-progress" value="0" max="100" style="width:100%;"></progress>
+    </div>
+  </div>
+</section>
+
+<section class="card" style="margin-top:12px;">
+  <h2>Run Waitlist Scheduler</h2>
+  <p>Select a course from the list above or enter one manually.</p>
+  <form id="waitlist-form">
+    <label>Subject</label>
+    <input id="wl-subject" name="subject" placeholder="COEN" style="margin-right:8px;" />
+    <label>Catalog</label>
+    <input id="wl-catalog" name="catalog" placeholder="243" style="margin-right:8px;" />
+    <label>Student IDs (comma separated)</label>
+    <input id="wl-students" name="students" placeholder="5001,5002" style="width:360px; display:inline-block;" />
+    <button id="wl-run" class="btn btn-primary" type="button">Run</button>
+  </form>
+
+  <div id="wl-result" style="margin-top:12px; display:none;"></div>
+
+  <div id="wl-students-panel" style="margin-top:12px; display:none;">
+    <h3>Candidate Students</h3>
+    <div id="wl-students-list" style="max-height:240px; overflow:auto; border:1px solid #e5e7eb; padding:8px;"></div>
+    <p style="margin-top:8px;"><button id="wl-add-selected" class="btn btn-primary" type="button">Add selected to input</button></p>
+  </div>
+</section>
+
+<!-- Simple modal for course selection (used by JS) -->
+<div id="wl-modal" class="modal" style="display:none;">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <button class="modal-close" onclick="document.getElementById('wl-modal').style.display='none'">&times;</button>
+    <div id="wl-modal-body"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/waitlist.js') }}"></script>
+{% endblock %}
