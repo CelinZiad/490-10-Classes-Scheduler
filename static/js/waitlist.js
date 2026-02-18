@@ -21,7 +21,7 @@ async function loadWaitlistFilters(){
     if(prevSubject && data.subjects.includes(prevSubject)) subjectFilter.value = prevSubject;
 
     const prevComp = componentFilter.value;
-    componentFilter.innerHTML = '<option value="">All Types</option>' +
+    componentFilter.innerHTML =
       data.components.map(c => `<option value="${c}">${c}</option>`).join('');
     if(prevComp && data.components.includes(prevComp)) componentFilter.value = prevComp;
   }catch(e){
