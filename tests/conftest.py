@@ -39,6 +39,9 @@ class _FakeResult:
     def all(self):
         return self._rows
 
+    def first(self):
+        return self._rows[0] if self._rows else None
+
     def scalar(self):
         return self._scalar_value
 
@@ -80,6 +83,14 @@ class _FakeSession:
 
         if "from conflict" in sql:
             return _FakeResult(rows=[])
+
+        # ALTER TABLE (schema migrations)
+        if sql.strip().startswith("alter"):
+            return _FakeResult(rows=[])
+
+        # INSERT ... RETURNING conflictid
+        if sql.strip().startswith("insert") and "returning" in sql:
+            return _FakeResult(rows=[{"conflictid": 1}])
 
         # Inserts / deletes (no result needed)
         if sql.strip().startswith("insert") or sql.strip().startswith("delete"):

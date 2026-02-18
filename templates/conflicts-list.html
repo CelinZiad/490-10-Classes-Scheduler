@@ -20,12 +20,12 @@
     <tbody>
       {% for c in conflicts %}
       <tr>
-        <td>{{ c.get('Conflict_Type', '-') }}</td>
-        <td>{{ c.get('Course', '-') }}</td>
-        <td>{{ c.get('detail', '-') }}</td>
+        <td>{{ c.type }}</td>
+        <td>{{ c.course or '-' }}</td>
+        <td>{{ c.detail }}</td>
         <td>
-          <a class="btn btn-primary" href="{{ url_for('solutions') }}">
-            View Solutions
+          <a class="btn btn-primary" href="{{ url_for('solutions', conflictid=c.conflictid) }}">
+            View Solution
           </a>
         </td>
       </tr>

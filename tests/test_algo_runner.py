@@ -14,6 +14,7 @@ from algo_runner import (
     load_conflicts_from_csv,
 )
 from app import derive_solution, conflict_detail
+from conftest import _FakeResult
 
 
 def test_read_csv_file_missing():
@@ -124,30 +125,56 @@ def test_conflict_detail_room_conflict():
     assert "H-807" in result
 
 
-def test_conflicts_page_with_mock_data(client):
-    """Conflicts page shows data with enriched detail column."""
-    mock_conflicts = [
-        {"Conflict_Type": "Room Conflict", "Course": "COEN311",
-         "Day": "1", "Time1": "10:00", "Time2": "12:00",
-         "Building": "H", "Room": "807",
-         "Component1": "", "Component2": ""},
-    ]
-    with patch("algo_runner.load_conflicts_from_csv", return_value=mock_conflicts):
-        res = client.get("/conflicts")
-        assert res.status_code == 200
-        html = res.get_data(as_text=True)
-        assert "COEN311" in html
-        assert "Room Conflict" in html
-        assert "H-807" in html
-
-
 def test_conflicts_page_empty(client):
-    """Conflicts page shows empty state when no CSV data."""
-    with patch("algo_runner.load_conflicts_from_csv", return_value=[]):
-        res = client.get("/conflicts")
-        assert res.status_code == 200
-        html = res.get_data(as_text=True)
-        assert "No conflicts detected" in html
+    """Conflicts page shows empty state when DB has no active conflicts."""
+    res = client.get("/conflicts")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    assert "No conflicts detected" in html
+
+
+def test_conflicts_page_with_db_data(app, monkeypatch):
+    """Conflicts page renders data from DB with enriched detail column."""
+    import json as _json
+    from app import db as _db
+
+    conflict_data = _json.dumps({
+        "type": "Room Conflict",
+        "course": "COEN311",
+        "detail": "COEN311 both assigned H-807 \u2014 10:00 vs 12:00",
+    })
+
+    class _ConflictSession:
+        def execute(self, statement, params=None):
+            sql = str(statement).lower()
+            if "from conflict" in sql:
+                return _FakeResult(rows=[{
+                    "conflictid": 1,
+                    "status": "active",
+                    "description": conflict_data,
+                    "createdat": "2026-01-01 00:00",
+                }])
+            return _FakeResult(rows=[])
+
+        def commit(self):
+            return None
+
+        def rollback(self):
+            return None
+
+        def remove(self):
+            return None
+
+    monkeypatch.setattr(_db, "session", _ConflictSession(), raising=False)
+    monkeypatch.setattr(_db, "_session", _ConflictSession(), raising=False)
+
+    client = app.test_client()
+    res = client.get("/conflicts")
+    assert res.status_code == 200
+    html = res.get_data(as_text=True)
+    assert "Room Conflict" in html
+    assert "COEN311" in html
+    assert "H-807" in html
 
 
 def test_export_csv_404_when_no_data(client):

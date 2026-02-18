@@ -245,25 +245,66 @@ def postschedulerrun():
         },
     )
 
-    # Insert conflicts into DB
+    # Insert conflicts and linked solutions into DB
     if result["conflicts"]:
+        # Ensure solution table has conflictid column (one-time migration)
+        try:
+            db.session.execute(db.text(
+                "ALTER TABLE solution ADD COLUMN IF NOT EXISTS "
+                "conflictid bigint REFERENCES conflict(conflictid) ON DELETE SET NULL"
+            ))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+        # Clear previous active conflicts and proposed solutions
+        db.session.execute(
+            db.text("delete from solution where status = 'proposed';")
+        )
         db.session.execute(
             db.text("delete from conflict where status = 'active';")
         )
         db.session.commit()
 
+        solutions_added = 0
         for row in result["conflicts"]:
             ctype = row.get("Conflict_Type", "Unknown")
             detail = conflict_detail(row)
-            db.session.execute(
+
+            # Store conflict data as JSON for rich frontend display
+            conflict_data = json.dumps({
+                "type": ctype,
+                "course": row.get("Course", ""),
+                "detail": detail,
+            })
+
+            # Insert conflict and get its ID back
+            conflict_row = db.session.execute(
                 db.text(
                     """
                     insert into conflict (status, description)
-                    values ('active', :description);
+                    values ('active', :description)
+                    returning conflictid;
                 """
                 ),
-                {"description": f"{ctype}: {detail}"},
+                {"description": conflict_data},
+            ).mappings().first()
+
+            conflict_id = conflict_row["conflictid"] if conflict_row else None
+
+            # Insert linked solution
+            desc = derive_solution(row)
+            db.session.execute(
+                db.text(
+                    """
+                    insert into solution (status, description, conflictid)
+                    values ('proposed', :description, :conflictid);
+                """
+                ),
+                {"description": f"[{ctype}] {desc}", "conflictid": conflict_id},
             )
+            solutions_added += 1
+
         db.session.commit()
 
         logactivity(
@@ -272,28 +313,6 @@ def postschedulerrun():
             actorname="system",
             metadata={"count": result["num_conflicts"]},
         )
-
-        # Derive and insert solutions
-        db.session.execute(
-            db.text("delete from solution where status = 'proposed';")
-        )
-        db.session.commit()
-
-        solutions_added = 0
-        for row in result["conflicts"]:
-            ctype = row.get("Conflict_Type", "Unknown")
-            desc = derive_solution(row)
-            db.session.execute(
-                db.text(
-                    """
-                    insert into solution (status, description)
-                    values ('proposed', :description);
-                """
-                ),
-                {"description": f"[{ctype}] {desc}"},
-            )
-            solutions_added += 1
-        db.session.commit()
 
         if solutions_added:
             logactivity(
@@ -452,23 +471,13 @@ def catalog():
 
 @app.get("/conflicts")
 def conflicts():
-    from algo_runner import load_conflicts_from_csv
-
-    rows = load_conflicts_from_csv()
-    # Enrich each row with a human-readable detail string
-    for row in rows:
-        row["detail"] = conflict_detail(row)
-    return render_template(ROUTE_TEMPLATES["/conflicts"], conflicts=rows)
-
-
-@app.get("/solutions")
-def solutions():
     rows = (
         db.session.execute(
             db.text(
                 """
-            select solutionid, status, description, createdat
-            from solution
+            select conflictid, status, description, createdat
+            from conflict
+            where status = 'active'
             order by createdat desc;
         """
             )
@@ -476,7 +485,70 @@ def solutions():
         .mappings()
         .all()
     )
-    return render_template(ROUTE_TEMPLATES["/solutions"], solutions=rows)
+
+    # Parse JSON description into display fields
+    parsed = []
+    for r in rows:
+        try:
+            data = json.loads(r["description"])
+        except (json.JSONDecodeError, TypeError):
+            data = {"type": "Unknown", "course": "", "detail": r["description"]}
+        parsed.append({
+            "conflictid": r["conflictid"],
+            "type": data.get("type", "Unknown"),
+            "course": data.get("course", ""),
+            "detail": data.get("detail", ""),
+            "status": r["status"],
+            "createdat": r["createdat"],
+        })
+
+    return render_template(ROUTE_TEMPLATES["/conflicts"], conflicts=parsed)
+
+
+@app.get("/solutions")
+def solutions():
+    conflict_id = request.args.get("conflictid", type=int)
+
+    if conflict_id:
+        rows = (
+            db.session.execute(
+                db.text(
+                    """
+                select s.solutionid, s.status, s.description, s.createdat,
+                       s.conflictid, c.description as conflict_desc
+                from solution s
+                left join conflict c on c.conflictid = s.conflictid
+                where s.conflictid = :cid
+                order by s.createdat desc;
+            """
+                ),
+                {"cid": conflict_id},
+            )
+            .mappings()
+            .all()
+        )
+    else:
+        rows = (
+            db.session.execute(
+                db.text(
+                    """
+                select s.solutionid, s.status, s.description, s.createdat,
+                       s.conflictid, c.description as conflict_desc
+                from solution s
+                left join conflict c on c.conflictid = s.conflictid
+                order by s.createdat desc;
+            """
+                )
+            )
+            .mappings()
+            .all()
+        )
+
+    return render_template(
+        ROUTE_TEMPLATES["/solutions"],
+        solutions=rows,
+        filtered_conflict=conflict_id,
+    )
 
 
 @app.get("/api/export-csv")

@@ -7,9 +7,17 @@
   <h1>Proposed Conflict Resolutions</h1>
 </header>
 
+{% if filtered_conflict %}
+<div class="card" style="margin-bottom: 1rem;">
+  <p>Showing solution for conflict #{{ filtered_conflict }}.
+    <a class="btn btn-ghost" href="{{ url_for('solutions') }}">View All Solutions</a>
+  </p>
+</div>
+{% endif %}
+
 {% if solutions %}
 <section class="card">
-  <p>{{ solutions|length }} solution{{ 's' if solutions|length != 1 }} proposed.</p>
+  <p>{{ solutions|length }} solution{{ 's' if solutions|length != 1 }} {{ 'found' if filtered_conflict else 'proposed' }}.</p>
   <table class="data-table">
     <thead>
       <tr>
@@ -41,7 +49,7 @@
 </section>
 {% else %}
 <section class="card">
-  <p>No solutions proposed yet. Generate a schedule to see proposed resolutions.</p>
+  <p>No solutions {{ 'found for this conflict' if filtered_conflict else 'proposed yet. Generate a schedule to see proposed resolutions' }}.</p>
 </section>
 {% endif %}
 
