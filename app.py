@@ -719,7 +719,7 @@ def api_waitlist_filters():
             """
             col_prefix = "st."
 
-        terms = db.session.execute(db.text(f"""
+        terms_raw = db.session.execute(db.text(f"""
             SELECT {col_prefix}termcode AS termcode,
                    to_char(MIN({col_prefix}classstartdate)
                            FILTER (WHERE {col_prefix}classstartdate BETWEEN '2000-01-01' AND '2100-12-31'),
@@ -728,6 +728,18 @@ def api_waitlist_filters():
             {base_where} AND {col_prefix}termcode IS NOT NULL
             GROUP BY {col_prefix}termcode ORDER BY {col_prefix}termcode DESC
         """)).mappings().all()
+
+        # Deduplicate by semester label and keep only Fall 2025 – Winter 2026
+        seen_labels = set()
+        terms = []
+        for r in terms_raw:
+            label = _label(r['first_date'])
+            if label in seen_labels:
+                continue
+            if label not in ('Fall 2025', 'Winter 2026'):
+                continue
+            seen_labels.add(label)
+            terms.append({'code': r['termcode'], 'name': label})
 
         subjects = db.session.execute(db.text(f"""
             SELECT DISTINCT {col_prefix}subject AS subject FROM {from_clause}
@@ -740,7 +752,7 @@ def api_waitlist_filters():
         """)).scalars().all()
 
         return jsonify({
-            'terms': [{'code': r['termcode'], 'name': _label(r['first_date'])} for r in terms],
+            'terms': terms,
             'subjects': subjects,
             'components': components,
         })
@@ -955,8 +967,11 @@ def api_waitlist_run():
 def api_waitlist_download():
     subject = request.args.get('subject')
     catalog = request.args.get('catalog')
+    source = request.args.get('source', 'scheduleterm')
     if not subject or not catalog:
         return jsonify({'error': 'subject and catalog required'}), 400
+
+    source_label = 'optimized' if source == 'optimized' else 'scheduleterm'
 
     try:
         rows = db.session.execute(
@@ -984,7 +999,7 @@ def api_waitlist_download():
                 ','.join(map(str, r['studyids'] or []))
             ])
         resp = app.response_class(buf.getvalue(), mimetype='text/csv')
-        resp.headers['Content-Disposition'] = f'attachment; filename=waitlist-{subject}-{catalog}.csv'
+        resp.headers['Content-Disposition'] = f'attachment; filename={source_label}-waitlist-{subject}-{catalog}.csv'
         return resp
     except Exception as e:
         app.logger.error('waitlist download error: %s', e)

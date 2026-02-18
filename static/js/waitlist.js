@@ -150,7 +150,7 @@ async function runWaitlist(){
       }
       html += '</tbody></table>';
     }
-    html += `<p style="margin-top:12px;"><a href="/api/waitlist/download?subject=${encodeURIComponent(subject)}&catalog=${encodeURIComponent(catalog)}">Download CSV of results</a></p>`;
+    html += `<p style="margin-top:12px;"><a href="/api/waitlist/download?subject=${encodeURIComponent(subject)}&catalog=${encodeURIComponent(catalog)}&source=${encodeURIComponent(currentSource)}">Download CSV of results</a></p>`;
     resultEl.innerHTML = html;
 
     loadWaitlistStats();
