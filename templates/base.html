@@ -31,6 +31,8 @@
          href="{{ url_for('solutions') }}">Solutions</a>
       <a class="nav-item {% if request.endpoint == 'activity' %}active{% endif %}"
          href="{{ url_for('activity') }}">Activity</a>
+      <a class="nav-item {% if request.endpoint == 'import_data' %}active{% endif %}"
+         href="{{ url_for('import_data') }}">Import Data</a>
       {% if debug %}
         <a class="nav-item {% if request.endpoint == 'debug' %}active{% endif %}"
            href="{{ url_for('debug') }}">Debug</a>

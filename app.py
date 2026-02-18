@@ -1,7 +1,9 @@
 import os
+import csv
+import io
 import json
 from datetime import date
-from flask import Flask, render_template, jsonify, request, redirect, url_for
+from flask import Flask, render_template, jsonify, request, redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
 from sqlalchemy.exc import SQLAlchemyError
@@ -18,6 +20,7 @@ ROUTE_TEMPLATES = {
     "/solutions": "proposed-solutions.html",
     "/activity": "activity.html",
     "/timetable": "timetable.html",
+    "/import": "import-data.html",
 }
 
 DB_HOST = os.getenv("DB_HOST")
@@ -33,8 +36,107 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
-# flip to True when your real algorithm exists
-algorithmimplemented = False
+# Algorithm is implemented via algo_runner.py
+algorithmimplemented = True
+
+
+# --- Solution derivation from conflicts ---
+
+def _semester_label(raw: str, semester_labels: dict | None) -> str:
+    """Convert 'Semester 3' → 'Fall Year 2 (COEN)' using the labels map."""
+    if not semester_labels or not raw.startswith("Semester "):
+        return raw
+    num = raw.replace("Semester ", "")
+    return semester_labels.get(num, raw)
+
+
+def conflict_detail(row: dict, semester_labels: dict = None) -> str:
+    """Build a human-readable detail string from a conflict CSV row."""
+    ctype = row.get("Conflict_Type", "")
+    course = row.get("Course", "")
+    comp1 = row.get("Component1", "")
+    comp2 = row.get("Component2", "")
+    day = row.get("Day", "")
+    t1 = row.get("Time1", "")
+    t2 = row.get("Time2", "")
+    bldg = row.get("Building", "")
+    room = row.get("Room", "")
+
+    if ctype == "Sequence-Missing Course":
+        # comp1 = "Semester 3", comp2 = "['COEN490']"
+        missing = comp2.strip("[]' ").replace("'", "")
+        sem = _semester_label(comp1, semester_labels)
+        return f"{sem}: missing {missing}"
+
+    if ctype == "Sequence-No Valid Combination":
+        sem = _semester_label(comp1, semester_labels)
+        return f"{sem}: no valid tutorial/lab combination avoids conflicts"
+
+    if ctype in ("Lecture-Tutorial", "Lecture-Lab"):
+        parts = [course]
+        if t1 and t2:
+            parts.append(f"{comp1 or 'Lecture'} {t1} vs {comp2 or ctype.split('-')[1]} {t2}")
+        if day:
+            parts.append(f"on day {day}")
+        return " — ".join(parts)
+
+    if ctype in ("Sequence-Tutorial Overlap", "Sequence-Lab Overlap",
+                 "Sequence-Tutorial/Lab Overlap"):
+        parts = [f"{comp1} vs {comp2}"]
+        if t1 and t2:
+            parts.append(f"{t1} vs {t2}")
+        if day:
+            parts.append(f"on day {day}")
+        return " — ".join(parts)
+
+    if ctype == "Room Conflict":
+        loc = f"{bldg}-{room}" if bldg and room else "same room"
+        parts = [f"{course} both assigned {loc}"]
+        if t1 and t2:
+            parts.append(f"{t1} vs {t2}")
+        return " — ".join(parts)
+
+    return f"{course}: {comp1} vs {comp2}" if comp1 else course
+
+
+def derive_solution(conflict_row: dict, semester_labels: dict = None) -> str:
+    """Derive a specific solution description from a conflict CSV row."""
+    ctype = conflict_row.get("Conflict_Type", "")
+    course = conflict_row.get("Course", "")
+    comp1 = conflict_row.get("Component1", "")
+    comp2 = conflict_row.get("Component2", "")
+
+    if ctype == "Lecture-Tutorial":
+        return f"{course}: Reschedule tutorial to a non-conflicting time slot"
+
+    if ctype == "Lecture-Lab":
+        return f"{course}: Reschedule lab to a non-conflicting time slot"
+
+    if ctype == "Room Conflict":
+        bldg = conflict_row.get("Building", "")
+        room = conflict_row.get("Room", "")
+        loc = f" (currently {bldg}-{room})" if bldg and room else ""
+        return f"{course}: Assign an alternative lab room{loc}"
+
+    if ctype == "Sequence-Tutorial Overlap":
+        return f"{course}: Adjust tutorial sections to avoid overlap between {comp1} and {comp2}"
+
+    if ctype == "Sequence-Lab Overlap":
+        return f"{course}: Adjust lab sections to avoid overlap between {comp1} and {comp2}"
+
+    if ctype == "Sequence-Tutorial/Lab Overlap":
+        return f"{course}: Adjust tutorial/lab sections to avoid overlap between {comp1} and {comp2}"
+
+    if ctype == "Sequence-Missing Course":
+        missing = comp2.strip("[]' ").replace("'", "")
+        sem = _semester_label(comp1, semester_labels)
+        return f"Add {missing} to the schedule (required in {sem})"
+
+    if ctype == "Sequence-No Valid Combination":
+        sem = _semester_label(comp1, semester_labels)
+        return f"{sem}: Re-evaluate section combinations for sequence courses"
+
+    return f"{course}: Review and resolve {ctype} conflict"
 
 
 def logactivity(
@@ -123,24 +225,131 @@ def postschedulerrun():
         )
         return redirect(url_for("dashboard"))
 
-    # algo exists -> create a schedulerun row
+    # Run the genetic algorithm
+    from algo_runner import run_algorithm
+
+    result = run_algorithm()
+
+    # Log the schedule run
+    run_status = "generated" if result["status"] == "success" else "failed"
     db.session.execute(
         db.text(
             """
             insert into schedulerun (name, status)
-            values (:name, 'generated');
+            values (:name, :status);
         """
         ),
-        {"name": schedulename},
+        {"name": schedulename, "status": run_status},
     )
     db.session.commit()
 
-    logactivity(
-        eventtype="schedulegenerated",
-        title=f'Schedule "{schedulename}" generated',
-        actorname="system",
-        metadata={"schedulename": schedulename},
-    )
+    if result["status"] == "success":
+        logactivity(
+            eventtype="schedulegenerated",
+            title=(
+                f'Schedule "{schedulename}": fitness={result["best_fitness"]}, '
+                f'generations={result["generations"]}, '
+                f'duration={result.get("duration_seconds", 0):.1f}s'
+            ),
+            actorname="system",
+            metadata={
+                "schedulename": schedulename,
+                "best_fitness": result["best_fitness"],
+                "generations": result["generations"],
+                "termination_reason": result.get("termination_reason", ""),
+                "num_courses": result.get("num_courses", 0),
+                "num_conflicts": result["num_conflicts"],
+            },
+        )
+    else:
+        logactivity(
+            eventtype="schedulefailed",
+            title=(
+                f'Schedule "{schedulename}" failed: '
+                f'{result.get("termination_reason", "unknown error")}'
+            ),
+            actorname="system",
+            metadata={"schedulename": schedulename},
+        )
+
+    semester_labels = result.get("semester_labels", {})
+
+    # Insert conflicts and linked solutions into DB
+    if result["conflicts"]:
+        # Ensure solution table has conflictid column (one-time migration)
+        try:
+            db.session.execute(db.text(
+                "ALTER TABLE solution ADD COLUMN IF NOT EXISTS "
+                "conflictid bigint REFERENCES conflict(conflictid) ON DELETE SET NULL"
+            ))
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+
+        # Clear previous active conflicts and proposed solutions
+        db.session.execute(
+            db.text("delete from solution where status = 'proposed';")
+        )
+        db.session.execute(
+            db.text("delete from conflict where status = 'active';")
+        )
+        db.session.commit()
+
+        solutions_added = 0
+        for row in result["conflicts"]:
+            ctype = row.get("Conflict_Type", "Unknown")
+            detail = conflict_detail(row, semester_labels=semester_labels)
+
+            # Store conflict data as JSON for rich frontend display
+            conflict_data = json.dumps({
+                "type": ctype,
+                "course": row.get("Course", ""),
+                "detail": detail,
+            })
+
+            # Insert conflict and get its ID back
+            conflict_row = db.session.execute(
+                db.text(
+                    """
+                    insert into conflict (status, description)
+                    values ('active', :description)
+                    returning conflictid;
+                """
+                ),
+                {"description": conflict_data},
+            ).mappings().first()
+
+            conflict_id = conflict_row["conflictid"] if conflict_row else None
+
+            # Insert linked solution
+            desc = derive_solution(row, semester_labels=semester_labels)
+            db.session.execute(
+                db.text(
+                    """
+                    insert into solution (status, description, conflictid)
+                    values ('proposed', :description, :conflictid);
+                """
+                ),
+                {"description": f"[{ctype}] {desc}", "conflictid": conflict_id},
+            )
+            solutions_added += 1
+
+        db.session.commit()
+
+        logactivity(
+            eventtype="conflictsdetected",
+            title=f"Detected {result['num_conflicts']} conflicts",
+            actorname="system",
+            metadata={"count": result["num_conflicts"]},
+        )
+
+        if solutions_added:
+            logactivity(
+                eventtype="solutionsproposed",
+                title=f"Proposed {solutions_added} solutions",
+                actorname="system",
+                metadata={"count": solutions_added},
+            )
 
     return redirect(url_for("dashboard"))
 
@@ -291,12 +500,163 @@ def catalog():
 
 @app.get("/conflicts")
 def conflicts():
-    return render_template(ROUTE_TEMPLATES["/conflicts"])
+    rows = (
+        db.session.execute(
+            db.text(
+                """
+            select conflictid, status, description, createdat
+            from conflict
+            where status = 'active'
+            order by createdat desc;
+        """
+            )
+        )
+        .mappings()
+        .all()
+    )
+
+    # Parse JSON description into display fields
+    parsed = []
+    for r in rows:
+        try:
+            data = json.loads(r["description"])
+        except (json.JSONDecodeError, TypeError):
+            data = {"type": "Unknown", "course": "", "detail": r["description"]}
+        parsed.append({
+            "conflictid": r["conflictid"],
+            "type": data.get("type", "Unknown"),
+            "course": data.get("course", ""),
+            "detail": data.get("detail", ""),
+            "status": r["status"],
+            "createdat": r["createdat"],
+        })
+
+    return render_template(ROUTE_TEMPLATES["/conflicts"], conflicts=parsed)
 
 
 @app.get("/solutions")
 def solutions():
-    return render_template(ROUTE_TEMPLATES["/solutions"])
+    conflict_id = request.args.get("conflictid", type=int)
+
+    if conflict_id:
+        rows = (
+            db.session.execute(
+                db.text(
+                    """
+                select s.solutionid, s.status, s.description, s.createdat,
+                       s.conflictid, c.description as conflict_desc
+                from solution s
+                left join conflict c on c.conflictid = s.conflictid
+                where s.conflictid = :cid
+                order by s.createdat desc;
+            """
+                ),
+                {"cid": conflict_id},
+            )
+            .mappings()
+            .all()
+        )
+    else:
+        rows = (
+            db.session.execute(
+                db.text(
+                    """
+                select s.solutionid, s.status, s.description, s.createdat,
+                       s.conflictid, c.description as conflict_desc
+                from solution s
+                left join conflict c on c.conflictid = s.conflictid
+                order by s.createdat desc;
+            """
+                )
+            )
+            .mappings()
+            .all()
+        )
+
+    return render_template(
+        ROUTE_TEMPLATES["/solutions"],
+        solutions=rows,
+        filtered_conflict=conflict_id,
+    )
+
+
+@app.get("/api/export-csv")
+def api_export_csv():
+    """Download schedule as CSV with format and source options.
+
+    Query params:
+        source: "optimized" (generated) or "original" (scheduleterm)  [default: optimized]
+        format: "detailed" (all columns) or "condensed" (key columns) [default: detailed]
+    """
+    import csv as csv_mod
+    import io
+
+    source = request.args.get("source", "optimized")
+    fmt = request.args.get("format", "detailed")
+
+    # Get latest schedule name for filename prefix
+    try:
+        row = db.session.execute(
+            db.text("SELECT name FROM schedulerun ORDER BY generatedat DESC LIMIT 1")
+        ).mappings().first()
+        schedule_name = row["name"] if row else "schedule"
+    except Exception:
+        schedule_name = "schedule"
+
+    # Column definitions
+    all_cols = [
+        "subject", "catalog", "section", "componentcode", "termcode",
+        "classnumber", "session", "buildingcode", "room",
+        "instructionmodecode", "locationcode",
+        "currentwaitlisttotal", "waitlistcapacity",
+        "enrollmentcapacity", "currentenrollment",
+        "departmentcode", "facultycode",
+        "classstarttime", "classendtime", "classstartdate", "classenddate",
+        "mondays", "tuesdays", "wednesdays", "thursdays", "fridays",
+        "saturdays", "sundays", "facultydescription", "career",
+        "meetingpatternnumber",
+    ]
+    condensed_cols = [
+        "subject", "catalog", "section", "componentcode",
+        "buildingcode", "room", "classstarttime", "classendtime",
+        "mondays", "tuesdays", "wednesdays", "thursdays", "fridays",
+    ]
+
+    table = "optimized_schedule" if source == "optimized" else "scheduleterm"
+    cols = condensed_cols if fmt == "condensed" else all_cols
+    col_sql = ", ".join(cols)
+
+    where = (
+        "WHERE classstarttime IS NOT NULL AND classstarttime != '00:00:00'"
+    )
+    if source == "original":
+        where += " AND departmentcode = 'ELECCOEN'"
+
+    try:
+        rows = db.session.execute(
+            db.text(
+                f"SELECT {col_sql} FROM {table} {where} "
+                "ORDER BY subject, catalog, section, componentcode"
+            )
+        ).mappings().all()
+    except SQLAlchemyError:
+        db.session.rollback()
+        return jsonify({"error": f"No {source} schedule found. Generate a schedule first."}), 404
+
+    if not rows:
+        return jsonify({"error": f"No {source} schedule data found."}), 404
+
+    buf = io.StringIO()
+    writer = csv_mod.DictWriter(buf, fieldnames=cols)
+    writer.writeheader()
+    for r in rows:
+        writer.writerow(dict(r))
+
+    label = "detailed" if fmt == "detailed" else "condensed"
+    filename = f"{schedule_name}-{label}.csv"
+    resp = app.response_class(buf.getvalue(), mimetype="text/csv")
+    resp.headers["Content-Disposition"] = f"attachment; filename={filename}"
+    return resp
 
 
 # ---------------------------------------------------------------------------
@@ -331,8 +691,12 @@ def api_events():
     subject = request.args.get("subject")
     component = request.args.get("component")
     building = request.args.get("building")
+    source = request.args.get("source", "scheduleterm")  # "scheduleterm" or "optimized"
 
-    query = """
+    # Choose source table
+    source_table = "optimized_schedule" if source == "optimized" else "scheduleterm"
+
+    query = f"""
         SELECT DISTINCT ON (st.subject, st.catalog, st.section,
                             st.componentcode, st.classnumber)
             st.subject, st.catalog, st.section, st.componentcode,
@@ -343,7 +707,7 @@ def api_events():
             st.termcode, st.currentenrollment, st.enrollmentcapacity,
             st.currentwaitlisttotal, st.waitlistcapacity,
             c.title AS coursetitle
-        FROM scheduleterm st
+        FROM {source_table} st
         LEFT JOIN catalog c
           ON c.subject = st.subject
          AND c.catalog = st.catalog
@@ -378,7 +742,8 @@ def api_events():
         query += ")"
 
     # DIRECT FILTERS
-    if term:
+    # Skip term filter for optimized schedule (it's already term-specific)
+    if term and source != "optimized":
         query += " AND st.termcode = :term"
         params["term"] = term
 
@@ -407,7 +772,13 @@ def api_events():
         LIMIT 500
     """
 
-    rows = db.session.execute(db.text(query), params).mappings().all()
+    try:
+        rows = db.session.execute(db.text(query), params).mappings().all()
+    except SQLAlchemyError:
+        db.session.rollback()
+        if source == "optimized":
+            return jsonify({"error": "No optimized schedule found. Generate a schedule first."}), 404
+        return jsonify({"error": "Database error loading events."}), 500
 
     events = []
     for row in rows:
@@ -638,6 +1009,165 @@ def api_plan_terms(planid):
     )
 
     return jsonify([dict(r) for r in rows])
+
+
+# ---------------------------------------------------------------------------
+# Import Data page + Lab Rooms CSV import
+# ---------------------------------------------------------------------------
+
+@app.get("/import")
+def import_data():
+    return render_template(ROUTE_TEMPLATES["/import"])
+
+
+def _parse_lab_rooms_csv(file_stream):
+    """Parse uploaded CSV and return list of row dicts."""
+    text = file_stream.read().decode("utf-8-sig")
+    reader = csv.reader(io.StringIO(text))
+    header = next(reader, None)
+    if header is None:
+        return []
+    rows = []
+    for line in reader:
+        if len(line) < 7:
+            continue
+        rows.append({
+            "course_code": line[0].strip(),
+            "title": line[1].strip(),
+            "room": line[2].strip(),
+            "capacity": line[3].strip(),
+            "capacity_max": line[4].strip(),
+            "responsible": line[5].strip(),
+            "comments": line[6].strip(),
+        })
+    return rows
+
+
+@app.post("/api/import/labrooms")
+def api_import_labrooms():
+    f = request.files.get("file")
+    if not f or not f.filename.endswith(".csv"):
+        return jsonify({"status": "error", "message": "Please upload a .csv file."}), 400
+
+    rows = _parse_lab_rooms_csv(f.stream)
+    if not rows:
+        return jsonify({"status": "error", "message": "CSV is empty or has no valid rows."}), 400
+
+    rooms_upserted = 0
+    assignments_upserted = 0
+    skipped = 0
+
+    try:
+        for row in rows:
+            room_str = row["room"]
+            course_code = row["course_code"]
+
+            # Parse room: "H-859" → building=H, room=859; "AITS" → building=AITS, room=AITS
+            if "-" in room_str:
+                parts = room_str.split("-", 1)
+                building = parts[0]
+                room_num = parts[1]
+            else:
+                building = room_str
+                room_num = room_str
+
+            # Parse capacity
+            try:
+                cap = int(row["capacity"])
+            except (ValueError, TypeError):
+                cap = 0
+            try:
+                cap_max = int(row["capacity_max"])
+            except (ValueError, TypeError):
+                cap_max = cap
+
+            # Ensure building exists (FK requirement)
+            db.session.execute(
+                db.text("""
+                    INSERT INTO building (campus, building)
+                    VALUES ('SGW', :building)
+                    ON CONFLICT (campus, building) DO NOTHING;
+                """),
+                {"building": building},
+            )
+
+            # Upsert lab room
+            result = db.session.execute(
+                db.text("""
+                    INSERT INTO labrooms (campus, building, room, capacity, capacitymax)
+                    VALUES ('SGW', :building, :room, :capacity, :capacitymax)
+                    ON CONFLICT (campus, building, room)
+                    DO UPDATE SET capacity = EXCLUDED.capacity,
+                                  capacitymax = EXCLUDED.capacitymax
+                    RETURNING labroomid;
+                """),
+                {
+                    "building": building,
+                    "room": room_num,
+                    "capacity": cap,
+                    "capacitymax": cap_max,
+                },
+            )
+            lab_row = result.mappings().first()
+            if lab_row:
+                rooms_upserted += 1
+                labroomid = lab_row["labroomid"]
+            else:
+                skipped += 1
+                continue
+
+            # Parse course code: "COEN 314" → subject=COEN, catalog=314
+            code_parts = course_code.split()
+            if len(code_parts) >= 2:
+                subject = code_parts[0]
+                catalog = code_parts[1]
+            else:
+                subject = course_code
+                catalog = ""
+
+            # Ensure catalog entry exists (FK requirement)
+            db.session.execute(
+                db.text("""
+                    INSERT INTO catalog (id, subject, catalog, title)
+                    VALUES (
+                        (SELECT COALESCE(MAX(id), 0) + 1 FROM catalog),
+                        :subject, :catalog, :title
+                    )
+                    ON CONFLICT (subject, catalog) DO NOTHING;
+                """),
+                {"subject": subject, "catalog": catalog, "title": row["title"]},
+            )
+
+            # Upsert course-lab assignment
+            db.session.execute(
+                db.text("""
+                    INSERT INTO courselabs (labroomid, subject, catalog, comments)
+                    VALUES (:labroomid, :subject, :catalog, :comments)
+                    ON CONFLICT (labroomid, catalog, subject)
+                    DO UPDATE SET comments = EXCLUDED.comments;
+                """),
+                {
+                    "labroomid": labroomid,
+                    "subject": subject,
+                    "catalog": catalog,
+                    "comments": row["comments"],
+                },
+            )
+            assignments_upserted += 1
+
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error("Lab room import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing lab rooms."}), 500
+
+    return jsonify({
+        "status": "success",
+        "rows_processed": len(rows),
+        "rooms_upserted": rooms_upserted,
+        "assignments_upserted": assignments_upserted,
+        "skipped": skipped,
+    })
 
 
 if __name__ == "__main__":

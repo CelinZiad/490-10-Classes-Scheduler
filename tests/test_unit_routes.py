@@ -3,7 +3,6 @@ from pathlib import Path
 from app import ROUTE_TEMPLATES
 
 
-# These are the routes that are ACTUALLY implemented in your current app.py
 EXPECTED_GET_ROUTES = {
     "/",
     "/activity",
@@ -11,13 +10,17 @@ EXPECTED_GET_ROUTES = {
     "/conflicts",
     "/solutions",
     "/timetable",
+    "/import",
     "/api/events",
     "/api/filters",
     "/api/plans/<int:planid>/terms",
+    "/api/export-csv",
+    "/api/import/labrooms",
 }
 
 EXPECTED_POST_ROUTES = {
     "/schedulerrun",
+    "/api/import/labrooms",
 }
 
 
@@ -52,6 +55,7 @@ def test_templates_exist():
         "/conflicts",
         "/solutions",
         "/timetable",
+        "/import",
     ]
 
     required_templates = {ROUTE_TEMPLATES[r] for r in implemented_page_routes}
@@ -59,3 +63,9 @@ def test_templates_exist():
 
     missing = [name for name in sorted(required_templates) if not (templates_dir / name).exists()]
     assert not missing, f"Missing templates in /templates: {missing}"
+
+
+def test_import_route_registered(app):
+    rules = {r.rule for r in app.url_map.iter_rules()}
+    assert "/import" in rules
+    assert "/api/import/labrooms" in rules

@@ -5,26 +5,37 @@
 {% block content %}
 <h1>Detected Conflicts</h1>
 
+{% if conflicts %}
 <div class="card">
+  <p>{{ conflicts|length }} conflict{{ 's' if conflicts|length != 1 }} detected in the current schedule.</p>
   <table class="data-table">
     <thead>
       <tr>
         <th>Type</th>
-        <th>Description</th>
+        <th>Course</th>
+        <th>Details</th>
         <th>Action</th>
       </tr>
     </thead>
     <tbody>
+      {% for c in conflicts %}
       <tr>
-        <td>Room</td>
-        <td>EV 3.309 double-booked</td>
+        <td>{{ c.type }}</td>
+        <td>{{ c.course or '-' }}</td>
+        <td>{{ c.detail }}</td>
         <td>
-          <a class="btn btn-primary" href="{{ url_for('solutions') }}">
-            View Solutions
+          <a class="btn btn-primary" href="{{ url_for('solutions', conflictid=c.conflictid) }}">
+            View Solution
           </a>
         </td>
       </tr>
+      {% endfor %}
     </tbody>
   </table>
 </div>
+{% else %}
+<div class="card">
+  <p>No conflicts detected. Generate a schedule to check for conflicts.</p>
+</div>
+{% endif %}
 {% endblock %}

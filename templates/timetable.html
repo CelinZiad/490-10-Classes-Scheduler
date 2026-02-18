@@ -9,6 +9,15 @@
 {% block content %}
 <h1>Timetable View</h1>
 
+    <!-- Source Toggle: Original vs Optimized -->
+    <div class="card source-toggle-card">
+      <div class="source-toggle">
+        <label>Schedule Source:</label>
+        <button id="source-original" class="source-btn active">Original Schedule</button>
+        <button id="source-optimized" class="source-btn">Optimized Schedule</button>
+      </div>
+    </div>
+
     <!-- Sequence Plan / Term Filters -->
     <div class="card filter-card">
       <div class="filter-bar">
@@ -57,6 +66,14 @@
         <div class="filter-actions">
           <button id="apply-filters" class="btn btn-primary">Apply</button>
           <button id="clear-filters" class="btn btn-ghost">Clear</button>
+          <div class="export-dropdown">
+            <button id="export-btn" class="btn btn-ghost">Export CSV &#9662;</button>
+            <div id="export-menu" class="export-menu">
+              <a href="/api/export-csv?format=detailed&source=optimized" download>Optimized - Detailed</a>
+              <a href="/api/export-csv?format=condensed&source=optimized" download>Optimized - Condensed</a>
+              <a href="/api/export-csv?format=detailed&source=original" download>Original - Detailed</a>
+            </div>
+          </div>
         </div>
       </div>
 

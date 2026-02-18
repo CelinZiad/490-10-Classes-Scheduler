@@ -1,9 +1,9 @@
 flask
 flask-sqlalchemy
+psycopg2-binary
 pytest
 pytest-cov
 python-dotenv
-psycopg2-binary
 numpy
 requests
 beautifulsoup4
