@@ -689,10 +689,28 @@ def waitlist():
 
 @app.get('/api/waitlist/stats')
 def api_waitlist_stats():
-    # Return courses where waitlist has reached capacity
+    source = request.args.get('source', 'scheduleterm')
     try:
-        rows = (
-            db.session.execute(
+        if source == 'optimized':
+            rows = db.session.execute(
+                db.text(
+                    """
+                    SELECT DISTINCT subject, catalog, section, componentcode
+                    FROM optimized_schedule
+                    WHERE classstarttime IS NOT NULL
+                    ORDER BY subject, catalog, section
+                    LIMIT 200
+                    """
+                )
+            ).mappings().all()
+            out = [{
+                'subject': r['subject'],
+                'catalog': r['catalog'],
+                'section': r.get('section'),
+                'component': r.get('componentcode'),
+            } for r in rows]
+        else:
+            rows = db.session.execute(
                 db.text(
                     """
                     SELECT st.subject, st.catalog, st.section, st.currentwaitlisttotal, st.waitlistcapacity
@@ -705,19 +723,14 @@ def api_waitlist_stats():
                     LIMIT 200
                     """
                 )
-            )
-            .mappings()
-            .all()
-        )
-        out = []
-        for r in rows:
-            out.append({
+            ).mappings().all()
+            out = [{
                 'subject': r['subject'],
                 'catalog': r['catalog'],
                 'section': r.get('section'),
                 'waitlist': r.get('currentwaitlisttotal') or 0,
                 'waitlistCapacity': r.get('waitlistcapacity') or 0,
-            })
+            } for r in rows]
         return jsonify(out)
     except Exception as e:
         app.logger.error('waitlist stats error: %s', e)
@@ -800,8 +813,24 @@ def api_waitlist_run():
         save_lab_results_to_db(cur, subject, catalog, 180, results)
         conn.commit()
 
-        # Format results for JSON (string keys)
-        out = {f"{d},{s}": ids for (d, s), ids in results.items()}
+        # Format results for JSON — human-readable
+        DAY_NAMES = {
+            1: 'Monday (Week 1)', 2: 'Tuesday (Week 1)', 3: 'Wednesday (Week 1)',
+            4: 'Thursday (Week 1)', 5: 'Friday (Week 1)', 6: 'Saturday (Week 1)', 7: 'Sunday (Week 1)',
+            8: 'Monday (Week 2)', 9: 'Tuesday (Week 2)', 10: 'Wednesday (Week 2)',
+            11: 'Thursday (Week 2)', 12: 'Friday (Week 2)', 13: 'Saturday (Week 2)', 14: 'Sunday (Week 2)',
+        }
+
+        def _fmt_time(mins):
+            return f"{mins // 60:02d}:{mins % 60:02d}"
+
+        out = []
+        for (day, start), ids in sorted(results.items()):
+            out.append({
+                'day': DAY_NAMES.get(day, f'Day {day}'),
+                'time': f"{_fmt_time(start)} – {_fmt_time(start + 180)}",
+                'students': ids,
+            })
         return jsonify({'status': 'success', 'results': out})
 
     except Exception as e:

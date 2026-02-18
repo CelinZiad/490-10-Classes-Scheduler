@@ -7,13 +7,12 @@
 
 <section class="card">
   <h2>Courses at Waitlist Capacity</h2>
-  <div style="display:flex; align-items:center; gap:12px;">
-    <div id="waitlist-table-container" style="flex:1; max-height:320px; overflow:auto;">Loading...</div>
-    <div style="width:220px;">
-      <label>Progress</label>
-      <progress id="wl-progress" value="0" max="100" style="width:100%;"></progress>
-    </div>
+  <div class="source-toggle" style="margin-bottom:12px;">
+    <label>Source:</label>
+    <button id="source-scheduleterm" class="source-btn active">Original Schedule</button>
+    <button id="source-optimized" class="source-btn">Optimized Schedule</button>
   </div>
+  <div id="waitlist-table-container" style="margin:0 auto;">Loading...</div>
 </section>
 
 <section class="card" style="margin-top:12px;">
@@ -24,8 +23,10 @@
     <input id="wl-subject" name="subject" placeholder="COEN" style="margin-right:8px;" />
     <label>Catalog</label>
     <input id="wl-catalog" name="catalog" placeholder="243" style="margin-right:8px;" />
-    <label>Student IDs (comma separated)</label>
-    <input id="wl-students" name="students" placeholder="5001,5002" style="width:360px; display:inline-block;" />
+    <label>Students</label>
+    <select id="wl-students" name="students" multiple style="width:360px; min-height:120px; display:inline-block;">
+      <option disabled>Select a course first to load students</option>
+    </select>
     <button id="wl-run" class="btn btn-primary" type="button">Run</button>
   </form>
 
