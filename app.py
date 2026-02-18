@@ -705,9 +705,10 @@ def api_waitlist_filters():
 
     try:
         if source == 'optimized':
-            from_clause = "optimized_schedule"
-            base_where = "WHERE classstarttime IS NOT NULL"
-            col_prefix = ""
+            from_clause = """optimized_schedule o
+                JOIN sequencecourse c ON c.subject = o.subject AND c.catalog = o.catalog"""
+            base_where = "WHERE o.classstarttime IS NOT NULL"
+            col_prefix = "o."
         else:
             from_clause = """scheduleterm st
                 JOIN sequencecourse c ON c.subject = st.subject AND c.catalog = st.catalog"""
@@ -759,26 +760,27 @@ def api_waitlist_stats():
         params = {}
         if source == 'optimized':
             query = """
-                SELECT subject, catalog, section, componentcode,
-                       MAX(currentwaitlisttotal) AS currentwaitlisttotal,
-                       MAX(waitlistcapacity) AS waitlistcapacity,
-                       MAX(enrollmentcapacity) AS enrollmentcapacity,
-                       MAX(currentenrollment) AS currentenrollment
-                FROM optimized_schedule
-                WHERE classstarttime IS NOT NULL
+                SELECT o.subject, o.catalog, o.section, o.componentcode,
+                       MAX(o.currentwaitlisttotal) AS currentwaitlisttotal,
+                       MAX(o.waitlistcapacity) AS waitlistcapacity,
+                       MAX(o.enrollmentcapacity) AS enrollmentcapacity,
+                       MAX(o.currentenrollment) AS currentenrollment
+                FROM optimized_schedule o
+                JOIN sequencecourse c ON c.subject = o.subject AND c.catalog = o.catalog
+                WHERE o.classstarttime IS NOT NULL
             """
             if term:
-                query += " AND termcode = :term"
+                query += " AND o.termcode = :term"
                 params['term'] = term
             if subject:
-                query += " AND subject = :subject"
+                query += " AND o.subject = :subject"
                 params['subject'] = subject
             if component:
-                query += " AND componentcode = :component"
+                query += " AND o.componentcode = :component"
                 params['component'] = component
             query += """
-                GROUP BY subject, catalog, section, componentcode
-                ORDER BY subject, catalog, section
+                GROUP BY o.subject, o.catalog, o.section, o.componentcode
+                ORDER BY o.subject, o.catalog, o.section
             """
 
             rows = db.session.execute(db.text(query), params).mappings().all()
