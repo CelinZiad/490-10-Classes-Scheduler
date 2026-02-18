@@ -687,23 +687,87 @@ def waitlist():
     return render_template(ROUTE_TEMPLATES.get('/waitlist', 'waitlist.html'))
 
 
+@app.get('/api/waitlist/filters')
+def api_waitlist_filters():
+    """Return distinct term / subject / component values for the waitlist filter bar."""
+    source = request.args.get('source', 'scheduleterm')
+    table = 'optimized_schedule' if source == 'optimized' else 'scheduleterm'
+
+    def _label(ymd):
+        if not ymd:
+            return 'Unknown term'
+        y, m = int(ymd[:4]), int(ymd[5:7])
+        if 1 <= m <= 4:
+            return f'Winter {y}'
+        if 5 <= m <= 8:
+            return f'Summer {y}'
+        return f'Fall {y}'
+
+    try:
+        terms = db.session.execute(db.text(f"""
+            SELECT termcode,
+                   to_char(MIN(classstartdate)
+                           FILTER (WHERE classstartdate BETWEEN '2000-01-01' AND '2100-12-31'),
+                           'YYYY-MM-DD') AS first_date
+            FROM {table}
+            WHERE termcode IS NOT NULL
+            GROUP BY termcode ORDER BY termcode DESC
+        """)).mappings().all()
+
+        subjects = db.session.execute(db.text(f"""
+            SELECT DISTINCT subject FROM {table}
+            WHERE subject IS NOT NULL ORDER BY subject
+        """)).scalars().all()
+
+        components = db.session.execute(db.text(f"""
+            SELECT DISTINCT componentcode FROM {table}
+            WHERE componentcode IS NOT NULL ORDER BY componentcode
+        """)).scalars().all()
+
+        return jsonify({
+            'terms': [{'code': r['termcode'], 'name': _label(r['first_date'])} for r in terms],
+            'subjects': subjects,
+            'components': components,
+        })
+    except Exception as e:
+        app.logger.error('waitlist filters error: %s', e)
+        return jsonify({'terms': [], 'subjects': [], 'components': []}), 500
+
+
 @app.get('/api/waitlist/stats')
 def api_waitlist_stats():
     source = request.args.get('source', 'scheduleterm')
+    term = request.args.get('term', type=int)
+    subject = request.args.get('subject')
+    component = request.args.get('component')
+
     try:
+        params = {}
         if source == 'optimized':
-            rows = db.session.execute(
-                db.text(
-                    """
-                    SELECT DISTINCT subject, catalog, section, componentcode,
-                           currentwaitlisttotal, waitlistcapacity,
-                           enrollmentcapacity, currentenrollment
-                    FROM optimized_schedule
-                    WHERE classstarttime IS NOT NULL
-                    ORDER BY subject, catalog, section
-                    """
-                )
-            ).mappings().all()
+            query = """
+                SELECT subject, catalog, section, componentcode,
+                       MAX(currentwaitlisttotal) AS currentwaitlisttotal,
+                       MAX(waitlistcapacity) AS waitlistcapacity,
+                       MAX(enrollmentcapacity) AS enrollmentcapacity,
+                       MAX(currentenrollment) AS currentenrollment
+                FROM optimized_schedule
+                WHERE classstarttime IS NOT NULL
+            """
+            if term:
+                query += " AND termcode = :term"
+                params['term'] = term
+            if subject:
+                query += " AND subject = :subject"
+                params['subject'] = subject
+            if component:
+                query += " AND componentcode = :component"
+                params['component'] = component
+            query += """
+                GROUP BY subject, catalog, section, componentcode
+                ORDER BY subject, catalog, section
+            """
+
+            rows = db.session.execute(db.text(query), params).mappings().all()
             out = [{
                 'subject': r['subject'],
                 'catalog': r['catalog'],
@@ -715,21 +779,33 @@ def api_waitlist_stats():
                 'currentEnrollment': r.get('currentenrollment') or 0,
             } for r in rows]
         else:
-            rows = db.session.execute(
-                db.text(
-                    """
-                    SELECT st.subject, st.catalog, st.section,
-                           st.currentwaitlisttotal, st.waitlistcapacity,
-                           st.enrollmentcapacity, st.currentenrollment
-                    FROM scheduleterm st
-                    JOIN sequencecourse c ON c.subject = st.subject AND c.catalog = st.catalog
-                    WHERE st.waitlistcapacity IS NOT NULL
-                      AND st.waitlistcapacity > 0
-                      AND st.currentwaitlisttotal >= st.waitlistcapacity
-                    ORDER BY st.currentwaitlisttotal DESC
-                    """
-                )
-            ).mappings().all()
+            query = """
+                SELECT st.subject, st.catalog, st.section,
+                       MAX(st.currentwaitlisttotal) AS currentwaitlisttotal,
+                       MAX(st.waitlistcapacity) AS waitlistcapacity,
+                       MAX(st.enrollmentcapacity) AS enrollmentcapacity,
+                       MAX(st.currentenrollment) AS currentenrollment
+                FROM scheduleterm st
+                JOIN sequencecourse c ON c.subject = st.subject AND c.catalog = st.catalog
+                WHERE st.waitlistcapacity IS NOT NULL
+                  AND st.waitlistcapacity > 0
+                  AND st.currentwaitlisttotal >= st.waitlistcapacity
+            """
+            if term:
+                query += " AND st.termcode = :term"
+                params['term'] = term
+            if subject:
+                query += " AND st.subject = :subject"
+                params['subject'] = subject
+            if component:
+                query += " AND st.componentcode = :component"
+                params['component'] = component
+            query += """
+                GROUP BY st.subject, st.catalog, st.section
+                ORDER BY MAX(st.currentwaitlisttotal) DESC
+            """
+
+            rows = db.session.execute(db.text(query), params).mappings().all()
             out = [{
                 'subject': r['subject'],
                 'catalog': r['catalog'],

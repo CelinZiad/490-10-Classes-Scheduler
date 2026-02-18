@@ -1,16 +1,59 @@
 let currentSource = 'scheduleterm';
 
+const termFilter = document.getElementById('wl-term-filter');
+const subjectFilter = document.getElementById('wl-subject-filter');
+const componentFilter = document.getElementById('wl-component-filter');
+
+async function loadWaitlistFilters(){
+  try{
+    const res = await fetch(`/api/waitlist/filters?source=${currentSource}`);
+    if(!res.ok) return;
+    const data = await res.json();
+
+    const prevTerm = termFilter.value;
+    termFilter.innerHTML = '<option value="">All Terms</option>' +
+      data.terms.map(t => `<option value="${t.code}">${t.name}</option>`).join('');
+    if(prevTerm) termFilter.value = prevTerm;
+
+    const prevSubject = subjectFilter.value;
+    subjectFilter.innerHTML = '<option value="">All Subjects</option>' +
+      data.subjects.map(s => `<option value="${s}">${s}</option>`).join('');
+    if(prevSubject && data.subjects.includes(prevSubject)) subjectFilter.value = prevSubject;
+
+    const prevComp = componentFilter.value;
+    componentFilter.innerHTML = '<option value="">All Types</option>' +
+      data.components.map(c => `<option value="${c}">${c}</option>`).join('');
+    if(prevComp && data.components.includes(prevComp)) componentFilter.value = prevComp;
+  }catch(e){
+    console.error('Failed to load filters', e);
+  }
+}
+
+function getFilterParams(){
+  const params = new URLSearchParams();
+  params.set('source', currentSource);
+  if(termFilter.value) params.set('term', termFilter.value);
+  if(subjectFilter.value) params.set('subject', subjectFilter.value);
+  if(componentFilter.value) params.set('component', componentFilter.value);
+  return params.toString();
+}
+
 async function loadWaitlistStats(){
   const container = document.getElementById('waitlist-table-container');
+  const rowCount = document.getElementById('wl-row-count');
   container.innerHTML = 'Loading...';
+  rowCount.textContent = '';
   try{
-    const res = await fetch(`/api/waitlist/stats?source=${currentSource}`);
+    const res = await fetch(`/api/waitlist/stats?${getFilterParams()}`);
     if(!res.ok) throw new Error('Failed to load');
     const data = await res.json();
     if(!data.length){
       container.innerHTML = '<p>No courses found.</p>';
+      rowCount.textContent = '0 rows';
       return;
     }
+
+    rowCount.textContent = `${data.length} row${data.length !== 1 ? 's' : ''}`;
 
     const table = document.createElement('table');
     table.className = 'data-table';
@@ -121,7 +164,6 @@ async function loadStudentsDropdown(subject, catalog){
   const sel = document.getElementById('wl-students');
   sel.innerHTML = '<option disabled>Loading...</option>';
 
-  // Also show the candidate panel
   const panel = document.getElementById('wl-students-panel');
   const list = document.getElementById('wl-students-list');
   panel.style.display = 'none';
@@ -139,7 +181,6 @@ async function loadStudentsDropdown(subject, catalog){
       return;
     }
 
-    // Populate dropdown
     sel.innerHTML = '';
     data.forEach(s => {
       const opt = document.createElement('option');
@@ -148,7 +189,6 @@ async function loadStudentsDropdown(subject, catalog){
       sel.appendChild(opt);
     });
 
-    // Populate checkbox panel
     list.innerHTML = '';
     data.forEach(s => {
       const el = document.createElement('div');
@@ -164,23 +204,35 @@ async function loadStudentsDropdown(subject, catalog){
   }
 }
 
+function switchSource(src){
+  currentSource = src;
+  document.getElementById('source-scheduleterm').classList.toggle('active', src === 'scheduleterm');
+  document.getElementById('source-optimized').classList.toggle('active', src === 'optimized');
+  loadWaitlistFilters().then(() => loadWaitlistStats());
+}
+
 document.addEventListener('DOMContentLoaded', ()=>{
-  loadWaitlistStats();
+  loadWaitlistFilters().then(() => loadWaitlistStats());
+
   document.getElementById('wl-run').addEventListener('click', runWaitlist);
 
   // Source toggle
-  document.getElementById('source-scheduleterm').addEventListener('click', ()=>{
-    currentSource = 'scheduleterm';
-    document.getElementById('source-scheduleterm').classList.add('active');
-    document.getElementById('source-optimized').classList.remove('active');
+  document.getElementById('source-scheduleterm').addEventListener('click', ()=> switchSource('scheduleterm'));
+  document.getElementById('source-optimized').addEventListener('click', ()=> switchSource('optimized'));
+
+  // Filter controls
+  document.getElementById('wl-apply-filters').addEventListener('click', ()=> loadWaitlistStats());
+  document.getElementById('wl-clear-filters').addEventListener('click', ()=>{
+    termFilter.value = '';
+    subjectFilter.value = '';
+    componentFilter.value = '';
     loadWaitlistStats();
   });
-  document.getElementById('source-optimized').addEventListener('click', ()=>{
-    currentSource = 'optimized';
-    document.getElementById('source-optimized').classList.add('active');
-    document.getElementById('source-scheduleterm').classList.remove('active');
-    loadWaitlistStats();
-  });
+
+  // Auto-apply on dropdown change
+  termFilter.addEventListener('change', ()=> loadWaitlistStats());
+  subjectFilter.addEventListener('change', ()=> loadWaitlistStats());
+  componentFilter.addEventListener('change', ()=> loadWaitlistStats());
 
   // Add selected checkbox students to dropdown selection
   document.getElementById('wl-add-selected').addEventListener('click', ()=>{
