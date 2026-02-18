@@ -707,7 +707,7 @@ def api_waitlist_filters():
         if source == 'optimized':
             from_clause = """optimized_schedule o
                 JOIN sequencecourse c ON c.subject = o.subject AND c.catalog = o.catalog"""
-            base_where = "WHERE o.classstarttime IS NOT NULL"
+            base_where = "WHERE o.classstarttime IS NOT NULL AND o.componentcode = 'LAB'"
             col_prefix = "o."
         else:
             from_clause = """scheduleterm st
@@ -716,6 +716,7 @@ def api_waitlist_filters():
                 WHERE st.waitlistcapacity IS NOT NULL
                   AND st.waitlistcapacity > 0
                   AND st.currentwaitlisttotal >= st.waitlistcapacity
+                  AND st.componentcode = 'LAB'
             """
             col_prefix = "st."
 
@@ -780,6 +781,7 @@ def api_waitlist_stats():
                 FROM optimized_schedule o
                 JOIN sequencecourse c ON c.subject = o.subject AND c.catalog = o.catalog
                 WHERE o.classstarttime IS NOT NULL
+                  AND o.componentcode = 'LAB'
             """
             if term:
                 query += " AND o.termcode = :term"
@@ -818,6 +820,7 @@ def api_waitlist_stats():
                 WHERE st.waitlistcapacity IS NOT NULL
                   AND st.waitlistcapacity > 0
                   AND st.currentwaitlisttotal >= st.waitlistcapacity
+                  AND st.componentcode = 'LAB'
             """
             if term:
                 query += " AND st.termcode = :term"
@@ -971,7 +974,7 @@ def api_waitlist_download():
     if not subject or not catalog:
         return jsonify({'error': 'subject and catalog required'}), 400
 
-    source_label = 'optimized' if source == 'optimized' else 'scheduleterm'
+    source_label = 'optimized' if source == 'optimized' else 'original'
 
     try:
         rows = db.session.execute(
