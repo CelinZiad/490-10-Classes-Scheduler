@@ -1158,7 +1158,8 @@ def api_import_labrooms():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        return jsonify({"status": "error", "message": f"Database error: {e}"}), 500
+        app.logger.error("Lab room import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing lab rooms."}), 500
 
     return jsonify({
         "status": "success",
