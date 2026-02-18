@@ -14,6 +14,7 @@ EXPECTED_GET_ROUTES = {
     "/api/events",
     "/api/filters",
     "/api/plans/<int:planid>/terms",
+    "/api/export-csv",
 }
 
 EXPECTED_POST_ROUTES = {

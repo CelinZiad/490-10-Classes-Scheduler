@@ -39,6 +39,9 @@ class _FakeResult:
     def all(self):
         return self._rows
 
+    def first(self):
+        return self._rows[0] if self._rows else None
+
     def scalar(self):
         return self._scalar_value
 
@@ -75,6 +78,24 @@ class _FakeSession:
         if "from sequencecourse" in sql:
             return _FakeResult(rows=[])
 
+        if "from solution" in sql:
+            return _FakeResult(rows=[])
+
+        if "from conflict" in sql:
+            return _FakeResult(rows=[])
+
+        # ALTER TABLE (schema migrations)
+        if sql.strip().startswith("alter"):
+            return _FakeResult(rows=[])
+
+        # INSERT ... RETURNING conflictid
+        if sql.strip().startswith("insert") and "returning" in sql:
+            return _FakeResult(rows=[{"conflictid": 1}])
+
+        # Inserts / deletes (no result needed)
+        if sql.strip().startswith("insert") or sql.strip().startswith("delete"):
+            return _FakeResult(rows=[])
+
         return _FakeResult(rows=[])
 
     def commit(self):
@@ -101,9 +122,9 @@ def _install_db_mocks(monkeypatch):
 def app(monkeypatch):
     flask_app.config.update(TESTING=True)
 
-    # If DB isn't reachable (CI), mock it so endpoints still work.
-    if not _db_reachable():
-        _install_db_mocks(monkeypatch)
+    # Always mock the DB for unit tests to avoid polluting real data.
+    # Integration tests (marked @pytest.mark.integration) use real DB.
+    _install_db_mocks(monkeypatch)
 
     return flask_app
 

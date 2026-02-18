@@ -146,17 +146,29 @@ class TestTimetableRoute:
 class TestSchedulerRunRoute:
     """Tests for POST /schedulerrun."""
 
+    _mock_result = {
+        "status": "success",
+        "best_fitness": 42.5,
+        "generations": 10,
+        "termination_reason": "generation_limit",
+        "schedule": [],
+        "conflicts": [],
+        "num_conflicts": 0,
+        "num_courses": 15,
+        "duration_seconds": 1.0,
+    }
+
     def test_schedulerrun_post_requires_form_data(self, client):
         """POST /schedulerrun should accept schedulename form field."""
-        res = client.post("/schedulerrun", data={"schedulename": "test-schedule"})
-        # Should redirect on success (302 or similar)
-        assert res.status_code in [302, 303, 307]
+        with patch("algo_runner.run_algorithm", return_value=self._mock_result):
+            res = client.post("/schedulerrun", data={"schedulename": "test-schedule"})
+            assert res.status_code in [302, 303, 307]
 
     def test_schedulerrun_post_with_empty_name(self, client):
         """POST /schedulerrun should use default name if not provided."""
-        res = client.post("/schedulerrun", data={})
-        # Should still redirect
-        assert res.status_code in [302, 303, 307]
+        with patch("algo_runner.run_algorithm", return_value=self._mock_result):
+            res = client.post("/schedulerrun", data={})
+            assert res.status_code in [302, 303, 307]
 
 
 class TestNotFoundRoute:
@@ -212,10 +224,22 @@ class TestPageRoutesMore:
         assert res.status_code == 200
         assert "text/html" in res.content_type
 
-    def test_schedulerrun_redirects_back_to_dashboard_when_not_implemented(self, client):
-        res = client.post("/schedulerrun", data={"schedulename": "my-test"})
-        assert res.status_code in (302, 303)
-        assert res.headers["Location"].endswith("/")
+    def test_schedulerrun_redirects_back_to_dashboard(self, client):
+        mock_result = {
+            "status": "success",
+            "best_fitness": 42.5,
+            "generations": 10,
+            "termination_reason": "generation_limit",
+            "schedule": [],
+            "conflicts": [],
+            "num_conflicts": 0,
+            "num_courses": 15,
+            "duration_seconds": 1.0,
+        }
+        with patch("algo_runner.run_algorithm", return_value=mock_result):
+            res = client.post("/schedulerrun", data={"schedulename": "my-test"})
+            assert res.status_code in (302, 303)
+            assert res.headers["Location"].endswith("/")
 
     def test_timetable_page_is_html(self, client):
         res = client.get("/timetable")

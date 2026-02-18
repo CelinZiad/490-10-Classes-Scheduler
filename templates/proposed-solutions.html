@@ -7,16 +7,53 @@
   <h1>Proposed Conflict Resolutions</h1>
 </header>
 
-<section class="card">
-  <h2>Conflict: EV 3.309 double-booked</h2>
-  <ul>
-    <li>Move COMP 490 to EV 5.227</li>
-    <li>Swap SOEN 357 timeslot</li>
-    <li>Assign alternative instructor</li>
-  </ul>
+{% if filtered_conflict %}
+<div class="card" style="margin-bottom: 1rem;">
+  <p>Showing solution for conflict #{{ filtered_conflict }}.
+    <a class="btn btn-ghost" href="{{ url_for('solutions') }}">View All Solutions</a>
+  </p>
+</div>
+{% endif %}
 
-  <a class="btn btn-ghost" href="{{ url_for('conflicts') }}">
-    Back to Conflicts
-  </a>
+{% if solutions %}
+<section class="card">
+  <p>{{ solutions|length }} solution{{ 's' if solutions|length != 1 }} {{ 'found' if filtered_conflict else 'proposed' }}.</p>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Conflict Type</th>
+        <th>Proposed Resolution</th>
+        <th>Status</th>
+        <th>Proposed At</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in solutions %}
+      {% set desc = s.description or '' %}
+      {% if desc.startswith('[') and '] ' in desc %}
+        {% set ctype = desc[1:desc.index('] ')] %}
+        {% set body = desc[desc.index('] ') + 2:] %}
+      {% else %}
+        {% set ctype = '-' %}
+        {% set body = desc %}
+      {% endif %}
+      <tr>
+        <td>{{ ctype }}</td>
+        <td>{{ body }}</td>
+        <td>{{ s.status }}</td>
+        <td>{{ s.createdat.strftime("%Y-%m-%d %H:%M") }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 </section>
+{% else %}
+<section class="card">
+  <p>No solutions {{ 'found for this conflict' if filtered_conflict else 'proposed yet. Generate a schedule to see proposed resolutions' }}.</p>
+</section>
+{% endif %}
+
+<a class="btn btn-ghost" href="{{ url_for('conflicts') }}">
+  Back to Conflicts
+</a>
 {% endblock %}
