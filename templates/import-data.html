@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}Import Data{% endblock %}
+
+{% block extra_css %}
+<style>
+  .import-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .import-card {
+    background: var(--card-bg);
+    border-radius: 10px;
+    box-shadow: 0 6px 18px rgb(0 0 0 / 6%);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .import-card h3 {
+    margin: 0 0 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  .import-card p {
+    color: #6b7280;
+    font-size: 0.9rem;
+    margin: 0 0 1rem;
+    flex: 1;
+  }
+
+  .import-card .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+  }
+
+  .badge-ready { background: #dcfce7; color: #166534; }
+  .badge-soon  { background: #f3f4f6; color: #6b7280; }
+
+  .import-card .tables {
+    font-size: 0.8rem;
+    color: #9ca3af;
+    margin-bottom: 1rem;
+  }
+
+  .format-box {
+    background: #f9fafb;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 1rem;
+    font-size: 0.82rem;
+    line-height: 1.5;
+  }
+
+  .format-box code {
+    font-family: 'Courier New', monospace;
+    font-size: 0.8rem;
+  }
+
+  .upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 1.25rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+
+  .upload-area:hover {
+    border-color: var(--sidebar-active);
+    background: #eff6ff;
+  }
+
+  .upload-area.dragover {
+    border-color: var(--sidebar-active);
+    background: #dbeafe;
+  }
+
+  .upload-area input[type="file"] { display: none; }
+
+  .upload-area .upload-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .upload-area .upload-text {
+    font-size: 0.85rem;
+    color: #6b7280;
+  }
+
+  .upload-area .file-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 0.25rem;
+  }
+
+  .import-btn {
+    display: inline-block;
+    width: 100%;
+    padding: 0.6rem;
+    background: var(--sidebar-active);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-top: 0.75rem;
+    text-align: center;
+  }
+
+  .import-btn:hover { background: #1d4ed8; }
+  .import-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+
+  .result-box {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    display: none;
+  }
+
+  .result-box.success { display: block; background: #dcfce7; color: #166534; }
+  .result-box.error   { display: block; background: #fef2f2; color: #991b1b; }
+
+  .result-box ul {
+    margin: 0.5rem 0 0;
+    padding-left: 1.25rem;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid white;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .page-desc {
+    color: #6b7280;
+    margin: -0.5rem 0 1.5rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>Import Data</h1>
+<p class="page-desc">Upload CSV files to populate the database. Select an import type below.</p>
+
+<div class="import-grid">
+
+  <!-- Lab Rooms (Implemented) -->
+  <div class="import-card" id="card-labrooms">
+    <span class="badge badge-ready">Ready</span>
+    <h3>Lab Rooms &amp; Assignments</h3>
+    <p>Import lab room information and course-to-room assignments. Updates the <strong>labrooms</strong> and <strong>courselabs</strong> tables.</p>
+    <div class="tables">Tables: labrooms, courselabs</div>
+
+    <div class="format-box">
+      <strong>Required CSV columns:</strong><br>
+      <code>Course Code, Title, Room, Capacity, Cap_MAX, Responsible, Comments</code><br><br>
+      <strong>Example row:</strong><br>
+      <code>COEN 316, COMPUTER ARCHITECT., H-859, 14, 16, Ted, "notes"</code><br><br>
+      Room format: <code>H-859</code> or <code>AITS</code> for any computer lab.
+      Each row = one course-room pair. Multiple rows for multiple rooms.
+    </div>
+
+    <div class="upload-area" id="upload-labrooms" onclick="document.getElementById('file-labrooms').click()">
+      <input type="file" id="file-labrooms" accept=".csv">
+      <div class="upload-icon">+</div>
+      <div class="upload-text">Click to select CSV file or drag &amp; drop</div>
+      <div class="file-name" id="filename-labrooms"></div>
+    </div>
+
+    <button class="import-btn" id="btn-labrooms" disabled onclick="importLabRooms()">
+      Import Lab Rooms
+    </button>
+
+    <div class="result-box" id="result-labrooms"></div>
+  </div>
+
+  <!-- Schedules (Coming Soon) -->
+  <div class="import-card">
+    <span class="badge badge-soon">Coming Soon</span>
+    <h3>Course Schedules</h3>
+    <p>Import course schedule data (class times, rooms, instructors) from the Concordia API or CSV. Updates the <strong>scheduleterm</strong> table.</p>
+    <div class="tables">Tables: scheduleterm, section, sessions</div>
+    <button class="import-btn" disabled>Coming Soon</button>
+  </div>
+
+  <!-- Course Catalog (Coming Soon) -->
+  <div class="import-card">
+    <span class="badge badge-soon">Coming Soon</span>
+    <h3>Course Catalog</h3>
+    <p>Import course catalog information (titles, prerequisites, credits). Updates the <strong>catalog</strong> table.</p>
+    <div class="tables">Tables: catalog</div>
+    <button class="import-btn" disabled>Coming Soon</button>
+  </div>
+
+  <!-- Sequence Plans (Coming Soon) -->
+  <div class="import-card">
+    <span class="badge badge-soon">Coming Soon</span>
+    <h3>Sequence Plans</h3>
+    <p>Import degree sequence plans with terms and course mappings. Updates the <strong>sequenceplan</strong>, <strong>sequenceterm</strong>, and <strong>sequencecourse</strong> tables.</p>
+    <div class="tables">Tables: sequenceplan, sequenceterm, sequencecourse</div>
+    <button class="import-btn" disabled>Coming Soon</button>
+  </div>
+
+  <!-- Student Schedules (Coming Soon) -->
+  <div class="import-card">
+    <span class="badge badge-soon">Coming Soon</span>
+    <h3>Student Schedules</h3>
+    <p>Import student schedule studies and their enrolled classes. Updates the <strong>studentschedulestudy</strong> and <strong>studentschedule</strong> tables.</p>
+    <div class="tables">Tables: studentschedulestudy, studentschedule, studentscheduleclass</div>
+    <button class="import-btn" disabled>Coming Soon</button>
+  </div>
+
+  <!-- Buildings (Coming Soon) -->
+  <div class="import-card">
+    <span class="badge badge-soon">Coming Soon</span>
+    <h3>Buildings</h3>
+    <p>Import campus building data (names, addresses, coordinates). Updates the <strong>building</strong> table.</p>
+    <div class="tables">Tables: building</div>
+    <button class="import-btn" disabled>Coming Soon</button>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  /* ---- File upload handling ---- */
+  const fileInput = document.getElementById("file-labrooms");
+  const uploadArea = document.getElementById("upload-labrooms");
+  const filenameEl = document.getElementById("filename-labrooms");
+  const importBtn = document.getElementById("btn-labrooms");
+
+  fileInput.addEventListener("change", () => {
+    if (fileInput.files.length > 0) {
+      filenameEl.textContent = fileInput.files[0].name;
+      importBtn.disabled = false;
+    }
+  });
+
+  /* Drag & drop */
+  uploadArea.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    uploadArea.classList.add("dragover");
+  });
+  uploadArea.addEventListener("dragleave", () => {
+    uploadArea.classList.remove("dragover");
+  });
+  uploadArea.addEventListener("drop", (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove("dragover");
+    if (e.dataTransfer.files.length > 0 && e.dataTransfer.files[0].name.endsWith(".csv")) {
+      fileInput.files = e.dataTransfer.files;
+      filenameEl.textContent = e.dataTransfer.files[0].name;
+      importBtn.disabled = false;
+    }
+  });
+
+  /* ---- Import action ---- */
+  async function importLabRooms() {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const resultEl = document.getElementById("result-labrooms");
+    resultEl.className = "result-box";
+    resultEl.innerHTML = "";
+
+    importBtn.disabled = true;
+    importBtn.innerHTML = '<span class="spinner"></span> Importing...';
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/import/labrooms", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.status === "success") {
+        resultEl.className = "result-box success";
+        let html = `<strong>Import successful!</strong>`;
+        html += `<ul>`;
+        html += `<li>${data.rooms_upserted} lab room(s) upserted</li>`;
+        html += `<li>${data.assignments_upserted} course assignment(s) upserted</li>`;
+        html += `<li>${data.rows_processed} row(s) processed</li>`;
+        if (data.skipped > 0) html += `<li>${data.skipped} row(s) skipped</li>`;
+        html += `</ul>`;
+        resultEl.innerHTML = html;
+      } else {
+        resultEl.className = "result-box error";
+        resultEl.innerHTML = `<strong>Import failed:</strong> ${data.message}`;
+      }
+    } catch (err) {
+      resultEl.className = "result-box error";
+      resultEl.innerHTML = `<strong>Error:</strong> ${err.message}`;
+    } finally {
+      importBtn.disabled = false;
+      importBtn.textContent = "Import Lab Rooms";
+    }
+  }
+</script>
+{% endblock %}

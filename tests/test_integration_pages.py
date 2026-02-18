@@ -31,3 +31,17 @@ def test_dashboard_contains_expected_text(client):
     assert "System Overview" in html
     assert "Scheduler Status" in html
     assert "Recent Activity" in html
+
+
+def test_import_page_returns_200(client):
+    res = client.get("/import")
+    assert res.status_code == 200
+
+
+def test_import_page_contains_expected_content(client):
+    res = client.get("/import")
+    html = res.get_data(as_text=True)
+    assert "Import Data" in html
+    assert "Lab Rooms" in html
+    assert "Course Schedules" in html
+    assert "Coming Soon" in html

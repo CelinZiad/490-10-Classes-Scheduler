@@ -1,4 +1,6 @@
 import os
+import csv
+import io
 import json
 from datetime import date
 from flask import Flask, render_template, jsonify, request, redirect, url_for, send_file
@@ -18,6 +20,7 @@ ROUTE_TEMPLATES = {
     "/solutions": "proposed-solutions.html",
     "/activity": "activity.html",
     "/timetable": "timetable.html",
+    "/import": "import-data.html",
 }
 
 DB_HOST = os.getenv("DB_HOST")
@@ -1006,6 +1009,165 @@ def api_plan_terms(planid):
     )
 
     return jsonify([dict(r) for r in rows])
+
+
+# ---------------------------------------------------------------------------
+# Import Data page + Lab Rooms CSV import
+# ---------------------------------------------------------------------------
+
+@app.get("/import")
+def import_data():
+    return render_template(ROUTE_TEMPLATES["/import"])
+
+
+def _parse_lab_rooms_csv(file_stream):
+    """Parse uploaded CSV and return list of row dicts."""
+    text = file_stream.read().decode("utf-8-sig")
+    reader = csv.reader(io.StringIO(text))
+    header = next(reader, None)
+    if header is None:
+        return []
+    rows = []
+    for line in reader:
+        if len(line) < 7:
+            continue
+        rows.append({
+            "course_code": line[0].strip(),
+            "title": line[1].strip(),
+            "room": line[2].strip(),
+            "capacity": line[3].strip(),
+            "capacity_max": line[4].strip(),
+            "responsible": line[5].strip(),
+            "comments": line[6].strip(),
+        })
+    return rows
+
+
+@app.post("/api/import/labrooms")
+def api_import_labrooms():
+    f = request.files.get("file")
+    if not f or not f.filename.endswith(".csv"):
+        return jsonify({"status": "error", "message": "Please upload a .csv file."}), 400
+
+    rows = _parse_lab_rooms_csv(f.stream)
+    if not rows:
+        return jsonify({"status": "error", "message": "CSV is empty or has no valid rows."}), 400
+
+    rooms_upserted = 0
+    assignments_upserted = 0
+    skipped = 0
+
+    try:
+        for row in rows:
+            room_str = row["room"]
+            course_code = row["course_code"]
+
+            # Parse room: "H-859" → building=H, room=859; "AITS" → building=AITS, room=AITS
+            if "-" in room_str:
+                parts = room_str.split("-", 1)
+                building = parts[0]
+                room_num = parts[1]
+            else:
+                building = room_str
+                room_num = room_str
+
+            # Parse capacity
+            try:
+                cap = int(row["capacity"])
+            except (ValueError, TypeError):
+                cap = 0
+            try:
+                cap_max = int(row["capacity_max"])
+            except (ValueError, TypeError):
+                cap_max = cap
+
+            # Ensure building exists (FK requirement)
+            db.session.execute(
+                db.text("""
+                    INSERT INTO building (campus, building)
+                    VALUES ('SGW', :building)
+                    ON CONFLICT (campus, building) DO NOTHING;
+                """),
+                {"building": building},
+            )
+
+            # Upsert lab room
+            result = db.session.execute(
+                db.text("""
+                    INSERT INTO labrooms (campus, building, room, capacity, capacitymax)
+                    VALUES ('SGW', :building, :room, :capacity, :capacitymax)
+                    ON CONFLICT (campus, building, room)
+                    DO UPDATE SET capacity = EXCLUDED.capacity,
+                                  capacitymax = EXCLUDED.capacitymax
+                    RETURNING labroomid;
+                """),
+                {
+                    "building": building,
+                    "room": room_num,
+                    "capacity": cap,
+                    "capacitymax": cap_max,
+                },
+            )
+            lab_row = result.mappings().first()
+            if lab_row:
+                rooms_upserted += 1
+                labroomid = lab_row["labroomid"]
+            else:
+                skipped += 1
+                continue
+
+            # Parse course code: "COEN 314" → subject=COEN, catalog=314
+            code_parts = course_code.split()
+            if len(code_parts) >= 2:
+                subject = code_parts[0]
+                catalog = code_parts[1]
+            else:
+                subject = course_code
+                catalog = ""
+
+            # Ensure catalog entry exists (FK requirement)
+            db.session.execute(
+                db.text("""
+                    INSERT INTO catalog (id, subject, catalog, title)
+                    VALUES (
+                        (SELECT COALESCE(MAX(id), 0) + 1 FROM catalog),
+                        :subject, :catalog, :title
+                    )
+                    ON CONFLICT (subject, catalog) DO NOTHING;
+                """),
+                {"subject": subject, "catalog": catalog, "title": row["title"]},
+            )
+
+            # Upsert course-lab assignment
+            db.session.execute(
+                db.text("""
+                    INSERT INTO courselabs (labroomid, subject, catalog, comments)
+                    VALUES (:labroomid, :subject, :catalog, :comments)
+                    ON CONFLICT (labroomid, catalog, subject)
+                    DO UPDATE SET comments = EXCLUDED.comments;
+                """),
+                {
+                    "labroomid": labroomid,
+                    "subject": subject,
+                    "catalog": catalog,
+                    "comments": row["comments"],
+                },
+            )
+            assignments_upserted += 1
+
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error("Lab room import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing lab rooms."}), 500
+
+    return jsonify({
+        "status": "success",
+        "rows_processed": len(rows),
+        "rooms_upserted": rooms_upserted,
+        "assignments_upserted": assignments_upserted,
+        "skipped": skipped,
+    })
 
 
 if __name__ == "__main__":
