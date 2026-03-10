@@ -4,7 +4,7 @@ import requests
 import psycopg2
 
 """
-This script is used to import course sequence data from a CSV file into the database.
+This script is used to student schedule study data from a CSV file into the database.
 The CSV must be given as a command line argument to run the script. It has to be the first argument after the script name.
 The format for the CSV file is separated into three parts: the student schedule study, the student schedules, and the schedule courses. Each part has its own header line.
 The header line has to stay unmodified so the script can identify the parts. The header line for the study is:
