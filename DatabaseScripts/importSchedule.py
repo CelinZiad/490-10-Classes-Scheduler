@@ -7,7 +7,7 @@ import psycopg2
 This script is used to import schedule data from a CSV file into the database.
 Format for the CSV file is:
 1st line is for headers only and will be ignored.
-AcYr,FrisYr,Sess,Dept,Sect,Course,Msec,Rel1,Rel2,Cap,MarkCal,Activity,Class Day,Start,Finish,U/G,Disc Date
+AcYr,FrisYr,Sess,Dept,Sect,Course,Msec,Rel1,Rel2,Cap,MarkCal,Activity,Class Day,Start,Finish,U/G,Disc Date,ClassStartDate,ClassEndDate
 """
 
 # PostgreSQL Configuration (REMOTE)
@@ -72,7 +72,7 @@ def import_csv_schedule(csv_file_path):
         reader = csv.reader(file, delimiter=',', quotechar='"')
         next(reader)  # Skip header line
         for row in reader:
-            if len(row) != 17:
+            if len(row) != 19:
                 print(f"Skipping invalid row: {row}")
                 continue
             days = get_course_days(row[12].strip())
@@ -115,6 +115,14 @@ def import_csv_schedule(csv_file_path):
 
             career = 'UGRD' if row[15].strip() == 'U' else 'GRAD'
 
+            department = ""
+            faculty = ""
+            facultydescription = ""
+            if (row[3].strip() == "ECE"):
+                department = 'ELECCOEN'
+                faculty = 'ENCS'
+                facultydescription = 'Gina Cody School of Engineering & Computer Science'
+
             schedule_item = ScheduleItem(
                 subject=row[5].strip()[:4],
                 catalog=row[5].strip()[4:],
@@ -131,12 +139,12 @@ def import_csv_schedule(csv_file_path):
                 waitlistcapacity='',
                 enrollmentcapacity=row[9].strip(),
                 currentenrollment='',
-                departmentcode='ELECCOEN',
-                facultycode='ENCS',
+                departmentcode=department,
+                facultycode=faculty,
                 classstarttime=row[13].strip(),
                 classendtime=row[14].strip(),
-                classstartdate='',
-                classenddate='',
+                classstartdate=row[17].strip(),
+                classenddate=row[18].strip(),
                 mondays=days[0],
                 tuesdays=days[1],
                 wednesdays=days[2],
@@ -144,27 +152,65 @@ def import_csv_schedule(csv_file_path):
                 fridays=days[4],
                 saturdays=days[5],
                 sundays=days[6],
-                facultydescription='',
+                facultydescription=facultydescription,
                 career=career,
-                meetingpatternnumber='',
+                meetingpatternnumber='1',
                 cid=''
             )
             items.append(schedule_item)
             print(schedule_item.__dict__)
     return items
 
-def complete_schedule_item_data(schedule_item):
-    # This function can be used to complete missing data for a schedule item by querying the database or using other logic.
-    # For example, we can query the database to get the class number, building code, room, etc. based on the subject, catalog, and section.
-    pass
+def complete_schedule_item_data(conn, schedule_item : ScheduleItem):
+    try:
+        with conn.cursor() as cursor:
+            sql = f"SELECT classnumber FROM section WHERE subject = '{schedule_item.subject}' AND catalog = '{schedule_item.catalog}' AND section = '{schedule_item.section}' AND term = '{schedule_item.termcode}';"
+            cursor.execute(sql)
+            result = cursor.fetchone()
+            if result:
+                schedule_item.classnumber = result[0]
+            else:
+                print(f"Could not find classnumber for {schedule_item.subject} {schedule_item.catalog} {schedule_item.section} {schedule_item.termcode}, creating new section.")
+                sql = (f"INSERT INTO section (term, session, subject, catalog, component, classnumber, classenrollcapacity, section) VALUES ("
+                    + f"{schedule_item.termcode}, '{schedule_item.session}', '{schedule_item.subject}', '{schedule_item.catalog}', '{schedule_item.componentcode}', "
+                    + f"(SELECT COALESCE(MAX(classnumber), 0) + 1 FROM section), {schedule_item.enrollmentcapacity}, '{schedule_item.section}') RETURNING classnumber;")
+                cursor.execute(sql)
+                schedule_item.classnumber = cursor.fetchone()[0]
+    except Exception as e:
+        print(f"Error occurred while completing schedule item data: {e}")
+        conn.rollback()
+        raise e
+    
+def insert_schedule_data(conn, schedule_item : ScheduleItem):
+    try:
+        with conn.cursor() as cursor:
+            sql = (f"INSERT INTO scheduleterm (subject, \"catalog\", \"section\", componentcode, termcode, "
+                   + f"classnumber, \"session\", enrollmentcapacity, departmentcode, facultycode, "
+                   + f"classstarttime, classendtime, classstartdate, classenddate, "
+                   + f"mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays, "
+                   + f"facultydescription, career, meetingpatternnumber) VALUES ("
+                   + f"'{schedule_item.subject}', '{schedule_item.catalog}', '{schedule_item.section}', '{schedule_item.componentcode}', '{schedule_item.termcode}', "
+                   + f"'{schedule_item.classnumber}', '{schedule_item.session}', '{schedule_item.enrollmentcapacity}', '{schedule_item.departmentcode}', '{schedule_item.facultycode}', "
+                   + f"'{schedule_item.classstarttime}', '{schedule_item.classendtime}', '{schedule_item.classstartdate}', '{schedule_item.classenddate}', "
+                   + f"'{schedule_item.mondays}', '{schedule_item.tuesdays}', '{schedule_item.wednesdays}', '{schedule_item.thursdays}', '{schedule_item.fridays}', '{schedule_item.saturdays}', '{schedule_item.sundays}', "
+                   + f"'{schedule_item.facultydescription}', '{schedule_item.career}', '{schedule_item.meetingpatternnumber}')"
+                   + f"ON CONFLICT (subject, catalog, section, termcode, classnumber, meetingpatternnumber) DO UPDATE SET "
+                   + f"componentcode = EXCLUDED.componentcode, session = EXCLUDED.session, enrollmentcapacity = EXCLUDED.enrollmentcapacity, departmentcode = EXCLUDED.departmentcode, facultycode = EXCLUDED.facultycode, "
+                   + f"classstarttime = EXCLUDED.classstarttime, classendtime = EXCLUDED.classendtime, classstartdate = EXCLUDED.classstartdate, classenddate = EXCLUDED.classenddate, "
+                   + f"mondays = EXCLUDED.mondays, tuesdays = EXCLUDED.tuesdays, wednesdays = EXCLUDED.wednesdays, thursdays = EXCLUDED.thursdays, fridays = EXCLUDED.fridays, saturdays = EXCLUDED.saturdays, sundays = EXCLUDED.sundays,"
+                   + f"facultydescription = EXCLUDED.facultydescription, career = EXCLUDED.career")
+            cursor.execute(sql)
+            print(f"Inserted or updated schedule item for {schedule_item.subject} {schedule_item.catalog} {schedule_item.section} {schedule_item.termcode}")
+    except Exception as e:
+        print(f"Error occurred while inserting schedule item data: {e}")
+        conn.rollback()
+        raise e
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Please provide the path to the CSV file as an argument.")
         sys.exit(1)
     items = import_csv_schedule(sys.argv[1])
-
-
 
     # Need to run this in elevated powershell before. Also VPN.
     # ssh -L 9999:db-teach:5432 [netname]@login.encs.concordia.ca
@@ -176,4 +222,9 @@ if __name__ == "__main__":
             password=DB_PASSWORD
         )
 
+    for item in items:
+        complete_schedule_item_data(conn, item)
+        insert_schedule_data(conn, item)
+
+    conn.commit()
     conn.close()
