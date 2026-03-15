@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Waitlist Management{% endblock %}
+
+{% block content %}
+<h1>Waitlist</h1>
+
+<div class="card source-toggle-card">
+  <div class="source-toggle">
+    <label>Schedule Source:</label>
+    <button id="source-scheduleterm" class="source-btn active">Original Schedule</button>
+    <button id="source-optimized" class="source-btn">Optimized Schedule</button>
+  </div>
+</div>
+
+<div class="card filter-card">
+  <div class="filter-bar">
+    <div class="filter-group">
+      <label for="wl-term-filter">Term</label>
+      <select id="wl-term-filter">
+        <option value="">All Terms</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="wl-subject-filter">Subject</label>
+      <select id="wl-subject-filter">
+        <option value="">All Subjects</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label for="wl-component-filter">Type</label>
+      <select id="wl-component-filter">
+        <option value="">All Types</option>
+      </select>
+    </div>
+    <div class="filter-actions">
+      <button id="wl-apply-filters" class="btn btn-primary">Apply</button>
+      <button id="wl-clear-filters" class="btn btn-ghost">Clear</button>
+    </div>
+  </div>
+</div>
+
+<section class="card">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+    <h2 style="margin:0;">Courses at Waitlist Capacity</h2>
+    <span id="wl-row-count" style="font-size:0.875rem; color:#6b7280;"></span>
+  </div>
+  <div id="waitlist-table-container" style="max-height:520px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:6px;">Loading...</div>
+</section>
+
+<section class="card" style="margin-top:12px;">
+  <h2>Run Waitlist Scheduler</h2>
+  <p>Select a course from the list above or enter one manually.</p>
+  <form id="waitlist-form">
+    <label>Subject</label>
+    <input id="wl-subject" name="subject" placeholder="COEN" style="margin-right:8px;" />
+    <label>Catalog</label>
+    <input id="wl-catalog" name="catalog" placeholder="243" style="margin-right:8px;" />
+    <label>Students</label>
+    <select id="wl-students" name="students" multiple style="width:360px; min-height:120px; display:inline-block;">
+      <option disabled>Select a course first to load students</option>
+    </select>
+    <button id="wl-run" class="btn btn-primary" type="button">Run</button>
+  </form>
+
+  <div id="wl-result" style="margin-top:12px; display:none;"></div>
+
+  <div id="wl-students-panel" style="margin-top:12px; display:none;">
+    <h3>Candidate Students</h3>
+    <div id="wl-students-list" style="max-height:240px; overflow:auto; border:1px solid #e5e7eb; padding:8px;"></div>
+    <p style="margin-top:8px;"><button id="wl-add-selected" class="btn btn-primary" type="button">Add selected to input</button></p>
+  </div>
+</section>
+
+<!-- Simple modal for course selection (used by JS) -->
+<div id="wl-modal" class="modal" style="display:none;">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <button class="modal-close" onclick="document.getElementById('wl-modal').style.display='none'">&times;</button>
+    <div id="wl-modal-body"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/waitlist.js') }}"></script>
+{% endblock %}
