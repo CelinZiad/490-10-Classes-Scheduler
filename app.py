@@ -3,6 +3,7 @@ import csv
 import io
 import json
 from datetime import date
+from typing import Optional
 from flask import Flask, render_template, jsonify, request, redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
 from dotenv import load_dotenv
@@ -46,7 +47,7 @@ algorithmimplemented = True
 
 # --- Solution derivation from conflicts ---
 
-def _semester_label(raw: str, semester_labels: dict | None) -> str:
+def _semester_label(raw: str, semester_labels: Optional[dict]) -> str:
     """Convert 'Semester 3' → 'Fall Year 2 (COEN)' using the labels map."""
     if not semester_labels or not raw.startswith("Semester "):
         return raw
@@ -146,8 +147,8 @@ def derive_solution(conflict_row: dict, semester_labels: dict = None) -> str:
 def logactivity(
     eventtype: str,
     title: str,
-    actorname: str | None = None,
-    metadata: dict | None = None,
+    actorname: Optional[str] = None,
+    metadata: Optional[dict] = None,
 ):
     if metadata is None:
         metadata = {}
@@ -1181,7 +1182,7 @@ def api_filters():
 
     ece_subjects = ("COEN", "ELEC", "COMP", "SOEN", "ENCS", "ENGR")
 
-    def label_from_ymd(ymd: str | None) -> str:
+    def label_from_ymd(ymd: Optional[str]) -> str:
         if not ymd:
             return "Unknown term"
         # ymd like "2025-01-13"
