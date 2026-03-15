@@ -1,7 +1,8 @@
 import sys
+import os
 import csv
-import requests
 import psycopg2
+from dotenv import load_dotenv
 
 """
 This script is used to import schedule data from a CSV file into the database.
@@ -10,12 +11,13 @@ Format for the CSV file is:
 AcYr,FrisYr,Sess,Dept,Sect,Course,Msec,Rel1,Rel2,Cap,MarkCal,Activity,Class Day,Start,Finish,U/G,Disc Date,ClassStartDate,ClassEndDate
 """
 
-# PostgreSQL Configuration (REMOTE)
-DB_HOST = "db-teach"
-DB_PORT = 5432
-DB_NAME = "uvo490_3"
-DB_USER = "uvo490_3"
-DB_PASSWORD = "coolbird18"
+load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", 9999))
+DB_NAME = os.getenv("DB_NAME", "uvo490_3")
+DB_USER = os.getenv("DB_USER", "uvo490_3")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 
 class ScheduleItem:
     def __init__(self, subject, catalog, section, componentcode, termcode, classnumber, session, buildingcode, room, instructionmodecode, locationcode, currentwaitlisttotal, waitlistcapacity, enrollmentcapacity, currentenrollment, departmentcode, facultycode, classstarttime, classendtime, classstartdate, classenddate, mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays, facultydescription, career, meetingpatternnumber,cid):
