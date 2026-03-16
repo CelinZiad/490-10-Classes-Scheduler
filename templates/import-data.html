@@ -201,31 +201,94 @@
     <button class="import-btn" disabled>Coming Soon</button>
   </div>
 
-  <!-- Course Catalog (Coming Soon) -->
-  <div class="import-card">
-    <span class="badge badge-soon">Coming Soon</span>
+  <!-- Course Catalog -->
+  <div class="import-card" id="card-catalog">
+    <span class="badge badge-ready">Ready</span>
     <h3>Course Catalog</h3>
     <p>Import course catalog information (titles, prerequisites, credits). Updates the <strong>catalog</strong> table.</p>
     <div class="tables">Tables: catalog</div>
-    <button class="import-btn" disabled>Coming Soon</button>
+
+    <div class="format-box">
+      <strong>Required CSV columns:</strong><br>
+      <code>Subject,Catalog,Title,Career,ClassUnit,Prerequisites</code><br><br>
+      <strong>Example row:</strong><br>
+      <code>COEN,243,Digital Design,UGRD,3.5,COEN231</code>
+    </div>
+
+    <div class="upload-area" id="upload-catalog" onclick="document.getElementById('file-catalog').click()">
+      <input type="file" id="file-catalog" accept=".csv">
+      <div class="upload-icon">+</div>
+      <div class="upload-text">Click to select CSV file or drag &amp; drop</div>
+      <div class="file-name" id="filename-catalog"></div>
+    </div>
+
+    <button class="import-btn" id="btn-catalog" disabled onclick="doImport('catalog', '/api/import/catalog')">
+      Import Catalog
+    </button>
+
+    <div class="result-box" id="result-catalog"></div>
   </div>
 
-  <!-- Sequence Plans (Coming Soon) -->
-  <div class="import-card">
-    <span class="badge badge-soon">Coming Soon</span>
+  <!-- Sequence Plans -->
+  <div class="import-card" id="card-sequence">
+    <span class="badge badge-ready">Ready</span>
     <h3>Sequence Plans</h3>
     <p>Import degree sequence plans with terms and course mappings. Updates the <strong>sequenceplan</strong>, <strong>sequenceterm</strong>, and <strong>sequencecourse</strong> tables.</p>
     <div class="tables">Tables: sequenceplan, sequenceterm, sequencecourse</div>
-    <button class="import-btn" disabled>Coming Soon</button>
+
+    <div class="format-box">
+      <strong>Multi-section CSV format:</strong><br>
+      <code>Name,Program,EntryTerm,Option,DurationYears</code><br>
+      <code>PLAN1,COEN,fall,COOP,4</code><br>
+      <code>TermNumber,YearNumber,Season,WorkTerm,Notes</code><br>
+      <code>1,1,fall,FALSE,</code><br>
+      <code>TermNumber,Subject,Catalog,Label,</code><br>
+      <code>1,COEN,243,,</code>
+    </div>
+
+    <div class="upload-area" id="upload-sequence" onclick="document.getElementById('file-sequence').click()">
+      <input type="file" id="file-sequence" accept=".csv">
+      <div class="upload-icon">+</div>
+      <div class="upload-text">Click to select CSV file or drag &amp; drop</div>
+      <div class="file-name" id="filename-sequence"></div>
+    </div>
+
+    <button class="import-btn" id="btn-sequence" disabled onclick="doImport('sequence', '/api/import/sequence')">
+      Import Sequence Plan
+    </button>
+
+    <div class="result-box" id="result-sequence"></div>
   </div>
 
-  <!-- Student Schedules (Coming Soon) -->
-  <div class="import-card">
-    <span class="badge badge-soon">Coming Soon</span>
+  <!-- Student Schedules -->
+  <div class="import-card" id="card-studentschedules">
+    <span class="badge badge-ready">Ready</span>
     <h3>Student Schedules</h3>
-    <p>Import student schedule studies and their enrolled classes. Updates the <strong>studentschedulestudy</strong> and <strong>studentschedule</strong> tables.</p>
+    <p>Import student schedule studies and their enrolled classes. Updates the <strong>studentschedulestudy</strong>, <strong>studentschedule</strong>, and <strong>studentscheduleclass</strong> tables.</p>
     <div class="tables">Tables: studentschedulestudy, studentschedule, studentscheduleclass</div>
-    <button class="import-btn" disabled>Coming Soon</button>
+
+    <div class="format-box">
+      <strong>Multi-section CSV format:</strong><br>
+      <code>StudyName,Owner,,,</code><br>
+      <code>MyStudy,admin,,,</code><br>
+      <code>ScheduleName,Notes,,,</code><br>
+      <code>Schedule1,notes here,,,</code><br>
+      <code>ScheduleName,Catalog,Subject,Section,TermNumber</code><br>
+      <code>Schedule1,COEN,243,A,2252</code>
+    </div>
+
+    <div class="upload-area" id="upload-studentschedules" onclick="document.getElementById('file-studentschedules').click()">
+      <input type="file" id="file-studentschedules" accept=".csv">
+      <div class="upload-icon">+</div>
+      <div class="upload-text">Click to select CSV file or drag &amp; drop</div>
+      <div class="file-name" id="filename-studentschedules"></div>
+    </div>
+
+    <button class="import-btn" id="btn-studentschedules" disabled onclick="doImport('studentschedules', '/api/import/studentschedules')">
+      Import Student Schedules
+    </button>
+
+    <div class="result-box" id="result-studentschedules"></div>
   </div>
 
   <!-- Buildings (Coming Soon) -->
@@ -273,17 +336,17 @@
     }
   });
 
-  /* ---- Import action ---- */
+  /* ---- Import action (Lab Rooms - original) ---- */
   async function importLabRooms() {
     const file = fileInput.files[0];
     if (!file) return;
 
     const resultEl = document.getElementById("result-labrooms");
     resultEl.className = "result-box";
-    resultEl.innerHTML = "";
+    resultEl.textContent = "";
 
     importBtn.disabled = true;
-    importBtn.innerHTML = '<span class="spinner"></span> Importing...';
+    importBtn.textContent = "Importing...";
 
     const formData = new FormData();
     formData.append("file", file);
@@ -294,24 +357,82 @@
 
       if (data.status === "success") {
         resultEl.className = "result-box success";
-        let html = `<strong>Import successful!</strong>`;
-        html += `<ul>`;
-        html += `<li>${data.rooms_upserted} lab room(s) upserted</li>`;
-        html += `<li>${data.assignments_upserted} course assignment(s) upserted</li>`;
-        html += `<li>${data.rows_processed} row(s) processed</li>`;
-        if (data.skipped > 0) html += `<li>${data.skipped} row(s) skipped</li>`;
-        html += `</ul>`;
-        resultEl.innerHTML = html;
+        resultEl.textContent = `Import successful! ${data.rooms_upserted} room(s), ${data.assignments_upserted} assignment(s), ${data.rows_processed} row(s) processed.` + (data.skipped > 0 ? ` ${data.skipped} skipped.` : "");
       } else {
         resultEl.className = "result-box error";
-        resultEl.innerHTML = `<strong>Import failed:</strong> ${data.message}`;
+        resultEl.textContent = "Import failed: " + data.message;
       }
     } catch (err) {
       resultEl.className = "result-box error";
-      resultEl.innerHTML = `<strong>Error:</strong> ${err.message}`;
+      resultEl.textContent = "Error: " + err.message;
     } finally {
       importBtn.disabled = false;
       importBtn.textContent = "Import Lab Rooms";
+    }
+  }
+
+  /* ---- Generic import for catalog / sequence / student schedules ---- */
+  function setupCard(key) {
+    const fi = document.getElementById("file-" + key);
+    const ua = document.getElementById("upload-" + key);
+    const fn = document.getElementById("filename-" + key);
+    const btn = document.getElementById("btn-" + key);
+
+    fi.addEventListener("change", () => {
+      if (fi.files.length > 0) { fn.textContent = fi.files[0].name; btn.disabled = false; }
+    });
+    ua.addEventListener("dragover", (e) => { e.preventDefault(); ua.classList.add("dragover"); });
+    ua.addEventListener("dragleave", () => ua.classList.remove("dragover"));
+    ua.addEventListener("drop", (e) => {
+      e.preventDefault(); ua.classList.remove("dragover");
+      if (e.dataTransfer.files.length > 0 && e.dataTransfer.files[0].name.endsWith(".csv")) {
+        fi.files = e.dataTransfer.files;
+        fn.textContent = e.dataTransfer.files[0].name;
+        btn.disabled = false;
+      }
+    });
+  }
+  setupCard("catalog");
+  setupCard("sequence");
+  setupCard("studentschedules");
+
+  async function doImport(key, url) {
+    const fi = document.getElementById("file-" + key);
+    const btn = document.getElementById("btn-" + key);
+    const resultEl = document.getElementById("result-" + key);
+    const file = fi.files[0];
+    if (!file) return;
+
+    resultEl.className = "result-box";
+    resultEl.textContent = "";
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Importing...";
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch(url, { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.status === "success") {
+        resultEl.className = "result-box success";
+        const details = Object.entries(data)
+          .filter(([k]) => k !== "status")
+          .map(([k, v]) => k.replace(/_/g, " ") + ": " + v)
+          .join(", ");
+        resultEl.textContent = "Import successful! " + details;
+      } else {
+        resultEl.className = "result-box error";
+        resultEl.textContent = "Import failed: " + data.message;
+      }
+    } catch (err) {
+      resultEl.className = "result-box error";
+      resultEl.textContent = "Error: " + err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origText;
     }
   }
 </script>

@@ -1358,6 +1358,378 @@ def import_data():
     return render_template(ROUTE_TEMPLATES["/import"])
 
 
+# ---------------------------------------------------------------------------
+#  Catalog import  (CSV: Subject,Catalog,Title,Career,ClassUnit,Prerequisites)
+# ---------------------------------------------------------------------------
+
+def _parse_catalog_csv(file_stream):
+    """Parse a 6-column catalog CSV and return list of row dicts."""
+    text = file_stream.read().decode("utf-8-sig")
+    reader = csv.reader(io.StringIO(text))
+    header = next(reader, None)
+    if header is None:
+        return []
+    rows = []
+    for line in reader:
+        if len(line) < 6:
+            continue
+        rows.append({
+            "subject": line[0].strip(),
+            "catalog": line[1].strip(),
+            "title": line[2].strip(),
+            "career": line[3].strip(),
+            "classunit": line[4].strip(),
+            "prerequisites": line[5].strip(),
+        })
+    return rows
+
+
+@app.post("/api/import/catalog")
+def api_import_catalog():
+    f = request.files.get("file")
+    if not f or not f.filename.endswith(".csv"):
+        return jsonify({"status": "error", "message": "Please upload a .csv file."}), 400
+
+    rows = _parse_catalog_csv(f.stream)
+    if not rows:
+        return jsonify({"status": "error", "message": "CSV is empty or has no valid rows."}), 400
+
+    inserted = 0
+    updated = 0
+    skipped = 0
+
+    try:
+        for row in rows:
+            result = db.session.execute(
+                db.text("SELECT id FROM catalog WHERE subject = :subject AND catalog = :catalog"),
+                {"subject": row["subject"], "catalog": row["catalog"]},
+            )
+            existing = result.mappings().first()
+            if existing:
+                db.session.execute(
+                    db.text("""
+                        UPDATE catalog
+                        SET title = :title, career = :career,
+                            classunit = :classunit, prerequisites = :prerequisites
+                        WHERE subject = :subject AND catalog = :catalog
+                    """),
+                    row,
+                )
+                updated += 1
+            else:
+                db.session.execute(
+                    db.text("""
+                        INSERT INTO catalog (id, subject, catalog, title, career, classunit, prerequisites)
+                        VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM catalog),
+                                :subject, :catalog, :title, :career, :classunit, :prerequisites)
+                    """),
+                    row,
+                )
+                inserted += 1
+
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error("Catalog import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing catalog."}), 500
+
+    return jsonify({
+        "status": "success",
+        "rows_processed": len(rows),
+        "inserted": inserted,
+        "updated": updated,
+        "skipped": skipped,
+    })
+
+
+# ---------------------------------------------------------------------------
+#  Course Sequence import  (multi-section CSV: plan, terms, courses)
+# ---------------------------------------------------------------------------
+
+def _parse_sequence_csv(file_stream):
+    """Parse a multi-section sequence CSV.
+
+    Returns (plan_dict, terms_list, courses_list) or (None, [], []) on error.
+    Sections are separated by header rows detected via the second column.
+    """
+    text = file_stream.read().decode("utf-8-sig")
+    reader = csv.reader(io.StringIO(text))
+    next(reader, None)  # skip first header
+
+    plan = None
+    terms = []
+    courses = []
+    mode = 0  # 0=plan, 1=terms, 2=courses
+
+    for line in reader:
+        if not line or not line[0].strip():
+            continue
+        col1 = line[1].strip() if len(line) > 1 else ""
+        if col1 == "YearNumber":
+            mode = 1
+            continue
+        elif col1 == "Subject":
+            mode = 2
+            continue
+
+        if mode == 0 and len(line) >= 5:
+            plan = {
+                "planname": line[0].strip(),
+                "program": line[1].strip(),
+                "entryterm": line[2].strip(),
+                "option": line[3].strip(),
+                "durationyears": int(line[4].strip()),
+            }
+        elif mode == 1 and len(line) >= 5:
+            terms.append({
+                "termnumber": line[0].strip(),
+                "yearnumber": int(line[1].strip()),
+                "season": line[2].strip(),
+                "workterm": line[3].strip().upper() == "TRUE",
+                "notes": line[4].strip() if len(line) > 4 else "",
+            })
+        elif mode == 2 and len(line) >= 3:
+            courses.append({
+                "termnumber": line[0].strip(),
+                "subject": line[1].strip(),
+                "catalog": line[2].strip(),
+                "label": line[3].strip() if len(line) > 3 else "",
+            })
+
+    return plan, terms, courses
+
+
+@app.post("/api/import/sequence")
+def api_import_sequence():
+    f = request.files.get("file")
+    if not f or not f.filename.endswith(".csv"):
+        return jsonify({"status": "error", "message": "Please upload a .csv file."}), 400
+
+    plan, terms, courses = _parse_sequence_csv(f.stream)
+    if not plan:
+        return jsonify({"status": "error", "message": "CSV is empty or missing the sequence plan row."}), 400
+
+    terms_inserted = 0
+    courses_inserted = 0
+
+    try:
+        # Insert sequence plan
+        result = db.session.execute(
+            db.text("""
+                INSERT INTO sequenceplan (planname, program, entryterm, option, durationyears)
+                VALUES (:planname, :program, :entryterm, :option, :durationyears)
+                RETURNING planid
+            """),
+            plan,
+        )
+        planid = result.mappings().first()["planid"]
+
+        # Insert terms and build termnumber → sequencetermid map
+        term_id_map = {}
+        for t in terms:
+            result = db.session.execute(
+                db.text("""
+                    INSERT INTO sequenceterm (planid, yearnumber, season, workterm, notes)
+                    VALUES (:planid, :yearnumber, :season, :workterm, :notes)
+                    RETURNING sequencetermid
+                """),
+                {**t, "planid": planid},
+            )
+            tid = result.mappings().first()["sequencetermid"]
+            term_id_map[t["termnumber"]] = tid
+            terms_inserted += 1
+
+        # Insert courses linked to their terms
+        for c in courses:
+            seq_term_id = term_id_map.get(c["termnumber"])
+            if seq_term_id is None:
+                continue
+            db.session.execute(
+                db.text("""
+                    INSERT INTO sequencecourse (sequencetermid, subject, catalog, label)
+                    VALUES (:sequencetermid, :subject, :catalog, :label)
+                """),
+                {"sequencetermid": seq_term_id, "subject": c["subject"],
+                 "catalog": c["catalog"], "label": c["label"]},
+            )
+            courses_inserted += 1
+
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error("Sequence import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing sequence."}), 500
+
+    return jsonify({
+        "status": "success",
+        "plan_name": plan["planname"],
+        "terms_inserted": terms_inserted,
+        "courses_inserted": courses_inserted,
+    })
+
+
+# ---------------------------------------------------------------------------
+#  Student Schedules import  (multi-section CSV: study, schedules, classes)
+# ---------------------------------------------------------------------------
+
+def _parse_student_schedules_csv(file_stream):
+    """Parse a multi-section student schedules CSV.
+
+    Returns (study_dict, schedules_list, classes_list).
+    """
+    text = file_stream.read().decode("utf-8-sig")
+    reader = csv.reader(io.StringIO(text))
+    next(reader, None)  # skip first header
+
+    study = None
+    schedules = []
+    classes = []
+    mode = 0  # 0=study, 1=schedules, 2=classes
+
+    for line in reader:
+        if not line or not line[0].strip():
+            continue
+        col1 = line[1].strip() if len(line) > 1 else ""
+        if col1 == "Notes":
+            mode = 1
+            continue
+        elif col1 == "Catalog":
+            mode = 2
+            continue
+
+        if mode == 0 and len(line) >= 2:
+            study = {
+                "studyname": line[0].strip(),
+                "owner": line[1].strip(),
+            }
+        elif mode == 1 and len(line) >= 2:
+            schedules.append({
+                "schedulename": line[0].strip(),
+                "notes": line[1].strip(),
+            })
+        elif mode == 2 and len(line) >= 5:
+            classes.append({
+                "schedulename": line[0].strip(),
+                "subject": line[1].strip(),
+                "catalog": line[2].strip(),
+                "section": line[3].strip(),
+                "termnumber": line[4].strip(),
+            })
+
+    return study, schedules, classes
+
+
+@app.post("/api/import/studentschedules")
+def api_import_student_schedules():
+    f = request.files.get("file")
+    if not f or not f.filename.endswith(".csv"):
+        return jsonify({"status": "error", "message": "Please upload a .csv file."}), 400
+
+    study, schedules, classes = _parse_student_schedules_csv(f.stream)
+    if not study:
+        return jsonify({"status": "error", "message": "CSV is empty or missing the study row."}), 400
+
+    schedules_inserted = 0
+    classes_inserted = 0
+    classes_skipped = 0
+
+    try:
+        # Check if study already exists → replace its schedules
+        result = db.session.execute(
+            db.text("""
+                SELECT studyid FROM studentschedulestudy
+                WHERE studyname = :studyname AND owner = :owner
+            """),
+            study,
+        )
+        existing = result.mappings().first()
+        if existing:
+            studyid = existing["studyid"]
+            db.session.execute(
+                db.text("DELETE FROM studentschedule WHERE studyid = :studyid"),
+                {"studyid": studyid},
+            )
+        else:
+            result = db.session.execute(
+                db.text("""
+                    INSERT INTO studentschedulestudy (studyname, owner)
+                    VALUES (:studyname, :owner) RETURNING studyid
+                """),
+                study,
+            )
+            studyid = result.mappings().first()["studyid"]
+
+        # Insert schedules and build name → id map
+        schedule_id_map = {}
+        for s in schedules:
+            result = db.session.execute(
+                db.text("""
+                    INSERT INTO studentschedule (schedulename, notes, studyid)
+                    VALUES (:schedulename, :notes, :studyid) RETURNING studentscheduleid
+                """),
+                {**s, "studyid": studyid},
+            )
+            sid = result.mappings().first()["studentscheduleid"]
+            schedule_id_map[s["schedulename"]] = sid
+            schedules_inserted += 1
+
+        # Insert classes linked to their schedules
+        for c in classes:
+            sched_id = schedule_id_map.get(c["schedulename"])
+            if sched_id is None:
+                classes_skipped += 1
+                continue
+
+            # Look up classnumber and cid from scheduleterm
+            result = db.session.execute(
+                db.text("""
+                    SELECT classnumber, cid FROM scheduleterm
+                    WHERE subject = :subject AND catalog = :catalog
+                      AND section = :section AND termcode = :termnumber
+                    ORDER BY meetingpatternnumber ASC LIMIT 1
+                """),
+                c,
+            )
+            row = result.mappings().first()
+            if not row:
+                classes_skipped += 1
+                continue
+
+            db.session.execute(
+                db.text("""
+                    INSERT INTO studentscheduleclass
+                        (studentscheduleid, classnumber, term, section, cid)
+                    VALUES (:studentscheduleid, :classnumber, :term, :section, :cid)
+                """),
+                {
+                    "studentscheduleid": sched_id,
+                    "classnumber": row["classnumber"],
+                    "term": c["termnumber"],
+                    "section": c["section"],
+                    "cid": row["cid"],
+                },
+            )
+            classes_inserted += 1
+
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error("Student schedules import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing student schedules."}), 500
+
+    return jsonify({
+        "status": "success",
+        "study_name": study["studyname"],
+        "schedules_inserted": schedules_inserted,
+        "classes_inserted": classes_inserted,
+        "classes_skipped": classes_skipped,
+    })
+
+
+# ---------------------------------------------------------------------------
+#  Lab Rooms import
+# ---------------------------------------------------------------------------
+
 def _parse_lab_rooms_csv(file_stream):
     """Parse uploaded CSV and return list of row dicts."""
     text = file_stream.read().decode("utf-8-sig")
