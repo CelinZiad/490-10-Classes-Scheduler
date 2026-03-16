@@ -196,13 +196,36 @@
     <div class="result-box" id="result-labrooms"></div>
   </div>
 
-  <!-- Schedules (Coming Soon) -->
+  <!-- Schedules (Implemented) -->
   <div class="import-card">
-    <span class="badge badge-soon">Coming Soon</span>
+    <span class="badge badge-ready">Ready</span>
     <h3>Course Schedules</h3>
     <p>Import course schedule data (class times, rooms, instructors) from the Concordia API or CSV. Updates the <strong>scheduleterm</strong> table.</p>
     <div class="tables">Tables: scheduleterm, section, sessions</div>
-    <button class="import-btn" disabled>Coming Soon</button>
+
+    <div class="format-box">
+      <strong>Required CSV columns:</strong><br>
+      <code>AcYr, FrisYr, Sess, Dept, Sect, Course, Msec, Rel1, Rel2, Cap, MarkCal, Activity, Class Day, Start, Finish, U/G, Disc Date, ClassStartDate, ClassEndDate</code><br><br>
+      <strong>Example row:</strong><br>
+      <code>2025,2025-2026,Winter,ECE,COEN99236/4-K 2,COEN99236,,K,2,80,1.2 attibute: 0.15,LEC-Lecture,M-W----,8:45,10:00,U,2026-03-23,2026-01-12,2026-05-01</code><br><br>
+    </div>
+
+    <div class="upload-area" id="upload-schedules" onclick="document.getElementById('file-schedules').click()">
+      <input type="file" id="file-schedules" accept=".csv">
+      <div class="upload-icon">+</div>
+      <div class="upload-text">Click to select CSV file or drag &amp; drop</div>
+      <div class="file-name" id="filename-schedules"></div>
+    </div>
+
+    <button class="import-btn" id="btn-schedules" disabled onclick="importSchedules()">
+      Import Course Schedules
+    </button>
+
+    <button class="import-btn" id="btn-template-schedules" onclick="window.location.href='/static/csv/schedules_template.csv'">
+      Download CSV Template
+    </button>
+
+    <div class="result-box" id="result-schedules"></div>
   </div>
 
   <!-- Course Catalog (Implemented) -->
@@ -308,6 +331,12 @@
   const importBtnCatalog = document.getElementById("btn-catalog");
   setupElements(fileInputCatalog, uploadAreaCatalog, filenameElCatalog, importBtnCatalog);
 
+  const fileInputSchedules = document.getElementById("file-schedules");
+  const uploadAreaSchedules = document.getElementById("upload-schedules");
+  const filenameElSchedules = document.getElementById("filename-schedules");
+  const importBtnSchedules = document.getElementById("btn-schedules");
+  setupElements(fileInputSchedules, uploadAreaSchedules, filenameElSchedules, importBtnSchedules);
+
   /* ---- Import action ---- */
   async function importLabRooms() {
     const file = fileInputLabrooms.files[0];
@@ -351,7 +380,44 @@
   }
 
   async function importSchedules() {
+    const file = fileInputSchedules.files[0];
+    if (!file) return;
 
+    const resultEl = document.getElementById("result-schedules");
+    resultEl.className = "result-box";
+    resultEl.innerHTML = "";
+
+    importBtnSchedules.disabled = true;
+    importBtnSchedules.innerHTML = '<span class="spinner"></span> Importing...';
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/import/schedules", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.status === "success") {
+        resultEl.className = "result-box success";
+        let html = `<strong>Import successful!</strong>`;
+        html += `<ul>`;
+        html += `<li>${data.sections_added} section(s) inserted</li>`;
+        html += `<li>${data.schedules_upserted} schedule(s) upserted</li>`;
+        html += `<li>${data.rows_processed} row(s) processed</li>`;
+        if (data.skipped > 0) html += `<li>${data.skipped} row(s) skipped</li>`;
+        html += `</ul>`;
+        resultEl.innerHTML = html;
+      } else {
+        resultEl.className = "result-box error";
+        resultEl.innerHTML = `<strong>Import failed:</strong> ${data.message}`;
+      }
+    } catch (err) {
+      resultEl.className = "result-box error";
+      resultEl.innerHTML = `<strong>Error:</strong> ${err.message}`;
+    } finally {
+      importBtnSchedules.disabled = false;
+      importBtnSchedules.textContent = "Import Schedules";
+    }
   }
 
   async function importCatalog() {

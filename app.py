@@ -1593,8 +1593,8 @@ def import_catalog():
         db.session.commit()
     except Exception as e:
         db.session.rollback()
-        app.logger.error("Lab room import failed: %s", e)
-        return jsonify({"status": "error", "message": "A database error occurred while importing lab rooms."}), 500
+        app.logger.error("Catalog import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing catalog courses."}), 500
     
     return jsonify({
         "status": "success",
@@ -1603,6 +1603,227 @@ def import_catalog():
         "courses_updated": courses_updated,
         "skipped": skipped
     })
+
+def _get_course_days(class_day_string):
+    if len(class_day_string) != 7:
+        print(f"Invalid class day string: {class_day_string}")
+        return None
+    days = []
+    for index, char in enumerate(class_day_string):
+        if char == '-':
+            days.append(False)
+        else:
+            days.append(True)
+    return days
+
+def _parse_schedules_csv(file_stream):
+    """Parse uploaded CSV and return list of row dicts."""
+    text = file_stream.read().decode("utf-8-sig")
+    reader = csv.reader(io.StringIO(text))
+    header = next(reader, None)
+    if header is None:
+        return "No header found", []
+    rows = []
+    i = 1
+    for row in reader:
+        if len(row) != 19:
+            return f"Expected 19 columns per row, row {i} invalid", []
+        days = _get_course_days(row[12].strip())
+        if days is None:
+            return f"Invalid class day string in row {i}", []
+        
+        section = ""
+        if (row[6].strip() != ""):
+            section = row[6].strip()
+        else:
+            section = row[7].strip()
+
+        # 1st, 3rd, 4th digit of year + (1 (summer), 2(fall), 3(fall/winter), 4(winter), 5(spring, CCCE), 6(winter, CCCE))
+        if (row[2].strip() == "Winter"):
+            year = int(row[0].strip()) - 1
+            year_str = str(year)
+            session = '13W'
+            termcode = year_str[0] + year_str[2] + year_str[3] + '4'
+        elif (row[2].strip() == "Summer"):
+            if (row[6].strip() == 'COEN390' or row[6].strip() == 'ELEC390'):
+                year = int(row[0].strip())
+                year_str = str(year)
+                session = '13W'
+                termcode = year_str[0] + year_str[2] + year_str[3] + '1'
+            else:
+                year = int(row[0].strip())
+                year_str = str(year)
+                if (int(row[16].strip().split('-')[1]) <= 6):
+                    session = '6H1'
+                else:
+                    session = '6H2'
+                termcode = year_str[0] + year_str[2] + year_str[3] + '1'
+        else: # Fall
+            year = int(row[0].strip())
+            year_str = str(year)
+            session = '13W'
+            termcode = year_str[0] + year_str[2] + year_str[3] + '2'
+
+        career = 'UGRD' if row[15].strip() == 'U' else 'GRAD'
+
+        department = ""
+        faculty = ""
+        facultydescription = ""
+        if (row[3].strip() == "ECE"):
+            department = 'ELECCOEN'
+            faculty = 'ENCS'
+            facultydescription = 'Gina Cody School of Engineering & Computer Science'
+
+        rows.append({
+            "subject": row[5].strip()[:4],
+            "catalog": row[5].strip()[4:],
+            "section": section,
+            "componentcode": row[11].strip().split("-")[0],
+            "termcode": termcode,
+            "classnumber": '',
+            "session": session,
+            "buildingcode": '',
+            "room": '',
+            "instructionmodecode": '',
+            "locationcode": '',
+            "currentwaitlisttotal": '',
+            "waitlistcapacity": '',
+            "enrollmentcapacity": row[9].strip(),
+            "currentenrollment": '',
+            "departmentcode": department,
+            "facultycode": faculty,
+            "classstarttime": row[13].strip(),
+            "classendtime": row[14].strip(),
+            "classstartdate": row[17].strip(),
+            "classenddate": row[18].strip(),
+            "mondays": days[0],
+            "tuesdays": days[1],
+            "wednesdays": days[2],
+            "thursdays": days[3],
+            "fridays": days[4],
+            "saturdays": days[5],
+            "sundays": days[6],
+            "facultydescription": facultydescription,
+            "career": career,
+            "meetingpatternnumber": '1',
+            "cid": ''
+        })
+        i += 1
+    return "success", rows
+
+@app.post("/api/import/schedules")
+def import_schedules():
+    f = request.files.get("file")
+    if not f or not f.filename.endswith(".csv"):
+        return jsonify({"status": "error", "message": "Please upload a .csv file."}), 400
+
+    message, rows = _parse_schedules_csv(f.stream)
+    if message != "success":
+        return jsonify({"status": "error", "message": message}), 400
+
+    schedules_upserted = 0
+    sections_added = 0
+    skipped = 0
+
+    try:
+        for row in rows:
+            # Complete schedule data
+            result = db.session.execute(
+                db.text(f"""
+                        SELECT classnumber FROM section WHERE 
+                        subject = :subject AND catalog = :catalog AND 
+                        section = :section AND term = :term              
+                """),
+                {
+                    "subject": row["subject"],
+                    "catalog": row["catalog"],
+                    "section": row["section"],
+                    "term": row["termcode"]
+                }
+            ).mappings().first()
+            if result:
+                row["classnumber"] = result["classnumber"]
+            else:
+                result = db.session.execute(
+                    db.text(f"""
+                            INSERT INTO section (term, session, subject, catalog, component, classnumber, classenrollcapacity, section)
+                            VALUES (:term, :session, :subject, :catalog, :componentcode, 
+                            (SELECT COALESCE(MAX(classnumber), 0) + 1 FROM section), :enrollmentcapacity, :section)
+                            RETURNING classnumber;
+                    """),
+                    {
+                        "term": row["termcode"],
+                        "session": row["session"],
+                        "subject": row["subject"],
+                        "catalog": row["catalog"],
+                        "componentcode": row["componentcode"],
+                        "enrollmentcapacity": row["enrollmentcapacity"],
+                        "section": row["section"]
+                    }
+                ).mappings().first()
+                row["classnumber"] = result["classnumber"]
+                sections_added += 1
+            
+            # Upsert schedule
+            db.session.execute(
+                db.text(f"""
+                    INSERT INTO scheduleterm (subject, "catalog", "section", componentcode, termcode,
+                    classnumber, "session", enrollmentcapacity, departmentcode, facultycode,
+                    classstarttime, classendtime, classstartdate, classenddate,
+                    mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays,
+                    facultydescription, career, meetingpatternnumber)
+                    VALUES (:subject, :catalog, :section, :componentcode, :termcode,
+                    :classnumber, :session, :enrollmentcapacity, :departmentcode, :facultycode,
+                    :classstarttime, :classendtime, :classstartdate, :classenddate,
+                    :mondays, :tuesdays, :wednesdays, :thursdays, :fridays, :saturdays, :sundays,
+                    :facultydescription, :career, '1')
+                    ON CONFLICT (subject, "catalog", section, termcode, classnumber, meetingpatternnumber)
+                    DO UPDATE SET componentcode = EXCLUDED.componentcode, session = EXCLUDED.session, enrollmentcapacity = EXCLUDED.enrollmentcapacity, departmentcode = EXCLUDED.departmentcode, facultycode = EXCLUDED.facultycode,
+                    classstarttime = EXCLUDED.classstarttime, classendtime = EXCLUDED.classendtime, classstartdate = EXCLUDED.classstartdate, classenddate = EXCLUDED.classenddate,
+                    mondays = EXCLUDED.mondays, tuesdays = EXCLUDED.tuesdays, wednesdays = EXCLUDED.wednesdays, thursdays = EXCLUDED.thursdays, fridays = EXCLUDED.fridays, saturdays = EXCLUDED.saturdays, sundays = EXCLUDED.sundays,
+                    facultydescription = EXCLUDED.facultydescription, career = EXCLUDED.career;
+                """),
+                {
+                    "subject": row["subject"],
+                    "catalog": row["catalog"],
+                    "section": row["section"],
+                    "componentcode": row["componentcode"],
+                    "termcode": row["termcode"],
+                    "classnumber": row["classnumber"],
+                    "session": row["session"],
+                    "enrollmentcapacity": row["enrollmentcapacity"],
+                    "departmentcode": row["departmentcode"],
+                    "facultycode": row["facultycode"],
+                    "classstarttime": row["classstarttime"],
+                    "classendtime": row["classendtime"],
+                    "classstartdate": row["classstartdate"],
+                    "classenddate": row["classenddate"],
+                    "mondays": row["mondays"],
+                    "tuesdays": row["tuesdays"],
+                    "wednesdays": row["wednesdays"],
+                    "thursdays": row["thursdays"],
+                    "fridays": row["fridays"],
+                    "saturdays": row["saturdays"],
+                    "sundays": row["sundays"],
+                    "facultydescription": row["facultydescription"],
+                    "career": row["career"]
+                }
+            )
+            schedules_upserted += 1
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error("Schedule import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing schedules."}), 500
+
+    return jsonify({
+        "status": "success",
+        "rows_processed": len(rows),
+        "schedules_upserted": schedules_upserted,
+        "sections_added": sections_added,
+        "skipped": skipped
+    })
+
 
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=5000)
