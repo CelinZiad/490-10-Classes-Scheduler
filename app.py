@@ -1824,6 +1824,156 @@ def import_schedules():
         "skipped": skipped
     })
 
+def _parse_sequence_plan_csv(file_stream):
+    """Parse uploaded CSV and return list of row dicts."""
+    text = file_stream.read().decode("utf-8-sig")
+    reader = csv.reader(io.StringIO(text))
+    header = next(reader, None)
+    if header is None:
+        return "No header found", [], [], []
+    elif header[0].strip() != "Name":
+        return "Expected 'Name' in first column of header", [], [], []
+
+    plan = {}
+    terms = []
+    courses = []
+    i = 1
+    mode = 0 # 0 = expect plan header, 1 = sequence terms, 2 = sequence courses
+    for row in reader:
+        if len(row) < 5:
+            return f"Expected 5 columns per row, row {i} invalid", [], [], []
+        if (row[1].strip() == "YearNumber"):
+            mode = 1 # SequenceTerm
+            continue
+        elif (row[1].strip() == "Subject"):
+            mode = 2 # SequenceCourse
+            continue
+        if mode == 0:
+            plan["planname"] = row[0].strip()
+            plan["program"] = row[1].strip()
+            plan["entryterm"] = row[2].strip()
+            plan["option"] = row[3].strip()
+            plan["durationyears"] = row[4].strip()
+        elif mode == 1:
+            terms.append({
+                "termnumber": row[0].strip(),
+                "yearnumber": row[1].strip(),
+                "season": row[2].strip(),
+                "workterm": row[3].strip(),
+                "notes": row[4].strip()
+            })
+        elif mode == 2:
+            courses.append({
+                "termnumber": row[0].strip(),
+                "subject": row[1].strip(),
+                "catalog": row[2].strip(),
+                "label": row[4].strip()
+            })
+        
+        i += 1
+    
+    return "success", plan, terms, courses
+
+@app.post("/api/import/sequenceplans")
+def import_sequence_plans():
+    f = request.files.get("file")
+    if not f or not f.filename.endswith(".csv"):
+        return jsonify({"status": "error", "message": "Please upload a .csv file."}), 400
+
+    message, plan, terms, courses = _parse_sequence_plan_csv(f.stream)
+    if message != "success":
+        return jsonify({"status": "error", "message": message}), 400
+    
+    try:
+        # Check if plan name already exists
+        result = db.session.execute(
+            db.text("""
+                SELECT planid FROM sequenceplan WHERE planname = :planname;
+            """),
+            {"planname": plan["planname"]}
+        ).mappings().first()
+        if result:
+            return jsonify({"status": "error", "message": "A sequence plan with this name already exists."}), 400
+
+        # Insert sequence plan and get generated planid
+        result = db.session.execute(
+            db.text("""
+                INSERT INTO sequenceplan (planname, program, entryterm, option, durationyears)
+                VALUES (:planname, :program, :entryterm, :option, :durationyears)
+                RETURNING planid;
+            """),
+            {
+                "planname": plan["planname"],
+                "program": plan["program"],
+                "entryterm": plan["entryterm"],
+                "option": plan["option"],
+                "durationyears": plan["durationyears"]
+            }
+        ).mappings().first()
+        if not result:
+            db.session.rollback()
+            return jsonify({"status": "error", "message": "Failed to create sequence plan."}), 500
+        
+        planid = result["planid"]
+
+        for term in terms:
+            result = db.session.execute(
+                db.text("""
+                    INSERT INTO sequenceterm (planid, yearnumber, season, workterm, notes)
+                    VALUES (:planid, :yearnumber, :season, :workterm, :notes)
+                    returning sequencetermid;
+                """),
+                {
+                    "planid": planid,
+                    "yearnumber": term["yearnumber"],
+                    "season": term["season"],
+                    "workterm": term["workterm"],
+                    "notes": term["notes"]
+                }
+            ).mappings().first()
+            if not result:
+                db.session.rollback()
+                return jsonify({"status": "error", "message": "Failed to create sequence term."}), 500
+            
+            term["sequencetermid"] = result["sequencetermid"]
+        
+        for course in courses:
+            # Find matching sequencetermid based on termnumber
+            for term in terms:
+                if term["termnumber"] == course["termnumber"]:
+                    course["sequencetermid"] = term["sequencetermid"]
+                    break
+            
+            if "sequencetermid" not in course:
+                db.session.rollback()
+                return jsonify({"status": "error", "message": f"No matching sequence term for course {course['subject']} {course['catalog']}."}), 400
+            
+            db.session.execute(
+                db.text("""
+                    INSERT INTO sequencecourse (sequencetermid, subject, catalog, label)
+                    VALUES (:sequencetermid, :subject, :catalog, :label)
+                """),
+                {
+                    "sequencetermid": course["sequencetermid"],
+                    "subject": course["subject"],
+                    "catalog": course["catalog"],
+                    "label": course["label"]
+                }
+            )
+
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error("Sequence plan import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing sequence plan."}), 500
+    
+    return jsonify({
+        "status": "success",
+        "planid": planid,
+        "sequenceterms_added": len(terms),
+        "sequencecourses_added": len(courses)
+    })
 
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=5000)

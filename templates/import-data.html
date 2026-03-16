@@ -260,13 +260,44 @@
     <div class="result-box" id="result-catalog"></div>
   </div>
 
-  <!-- Sequence Plans (Coming Soon) -->
+  <!-- Sequence Plans (Implemented) -->
   <div class="import-card">
-    <span class="badge badge-soon">Coming Soon</span>
+    <span class="badge badge-ready">Ready</span>
     <h3>Sequence Plans</h3>
     <p>Import degree sequence plans with terms and course mappings. Updates the <strong>sequenceplan</strong>, <strong>sequenceterm</strong>, and <strong>sequencecourse</strong> tables.</p>
     <div class="tables">Tables: sequenceplan, sequenceterm, sequencecourse</div>
-    <button class="import-btn" disabled>Coming Soon</button>
+
+    <div class="format-box">
+      <strong>Required CSV columns (Sequence Parameters):</strong><br>
+      <code>Name, Program, EntryTerm, Option, DurationYears</code><br><br>
+      <strong>Example row:</strong><br>
+      <code>TESTIMPORT,COEN,fall,COOP,4</code><br><br>
+      <strong>Required CSV columns (Sequence Terms):</strong><br>
+      <code>TermNumber, YearNumber, Season, WorkTerm, Notes</code><br><br>
+      <strong>Example row:</strong><br>
+      <code>1,1,fall,FALSE,</code><br><br>
+      <strong>Required CSV columns (Sequence Courses):</strong><br>
+      <code>TermNumber, Subject, Catalog, Label,</code><br><br>
+      <strong>Example row:</strong><br>
+      <code>1,COEN,243,,</code><br><br>
+    </div>
+
+    <div class="upload-area" id="upload-sequenceplans" onclick="document.getElementById('file-sequenceplans').click()">
+      <input type="file" id="file-sequenceplans" accept=".csv">
+      <div class="upload-icon">+</div>
+      <div class="upload-text">Click to select CSV file or drag &amp; drop</div>
+      <div class="file-name" id="filename-sequenceplans"></div>
+    </div>
+
+    <button class="import-btn" id="btn-sequenceplans" disabled onclick="importSequencePlans()">
+      Import Sequence Plans
+    </button>
+
+    <button class="import-btn" id="btn-template-sequenceplans" onclick="window.location.href='/static/csv/sequence_template.csv'">
+      Download CSV Template
+    </button>
+
+    <div class="result-box" id="result-sequenceplans"></div>
   </div>
 
   <!-- Student Schedules (Coming Soon) -->
@@ -336,6 +367,12 @@
   const filenameElSchedules = document.getElementById("filename-schedules");
   const importBtnSchedules = document.getElementById("btn-schedules");
   setupElements(fileInputSchedules, uploadAreaSchedules, filenameElSchedules, importBtnSchedules);
+
+  const fileInputSequencePlans = document.getElementById("file-sequenceplans");
+  const uploadAreaSequencePlans = document.getElementById("upload-sequenceplans");
+  const filenameElSequencePlans = document.getElementById("filename-sequenceplans");
+  const importBtnSequencePlans = document.getElementById("btn-sequenceplans");
+  setupElements(fileInputSequencePlans, uploadAreaSequencePlans, filenameElSequencePlans, importBtnSequencePlans);
 
   /* ---- Import action ---- */
   async function importLabRooms() {
@@ -462,7 +499,43 @@
   }
 
   async function importSequencePlans() {
+    const file = fileInputSequencePlans.files[0];
+    if (!file) return;
 
+    const resultEl = document.getElementById("result-sequenceplans");
+    resultEl.className = "result-box";
+    resultEl.innerHTML = "";
+
+    importBtnSequencePlans.disabled = true;
+    importBtnSequencePlans.innerHTML = '<span class="spinner"></span> Importing...';
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/import/sequenceplans", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.status === "success") {
+        resultEl.className = "result-box success";
+        let html = `<strong>Import successful!</strong>`;
+        html += `<ul>`;
+        html += `<li>Inserted plan ID: ${data.planid}</li>`;
+        html += `<li>${data.sequenceterms_added} sequence term(s) inserted</li>`;
+        html += `<li>${data.sequencecourses_added} sequence course(s) inserted</li>`;
+        html += `</ul>`;
+        resultEl.innerHTML = html;
+      } else {
+        resultEl.className = "result-box error";
+        resultEl.innerHTML = `<strong>Import failed:</strong> ${data.message}`;
+      }
+    } catch (err) {
+      resultEl.className = "result-box error";
+      resultEl.innerHTML = `<strong>Error:</strong> ${err.message}`;
+    } finally {
+      importBtnSequencePlans.disabled = false;
+      importBtnSequencePlans.textContent = "Import Sequence Plans";
+    }
   }
 
   async function importStudentSchedules() {
