@@ -1507,6 +1507,102 @@ def api_import_labrooms():
         "skipped": skipped,
     })
 
+def _parse_catalog_csv(file_stream):
+    """Parse uploaded CSV and return list of row dicts."""
+    text = file_stream.read().decode("utf-8-sig")
+    reader = csv.reader(io.StringIO(text))
+    header = next(reader, None)
+    if header is None:
+        return "No header found", []
+    rows = []
+    for row in reader:
+        if len(row) != 6:
+            return "Expected 6 columns per row", []
+        rows.append({
+            "subject": row[0].strip(),
+            "catalog": row[1].strip(),
+            "title": row[2].strip(),
+            "career": row[3].strip(),
+            "classunit": row[4].strip(),
+            "prerequisites": row[5].strip()
+        })
+    return "success", rows
+
+@app.post("/api/import/catalog")
+def import_catalog():
+    f = request.files.get("file")
+    if not f or not f.filename.endswith(".csv"):
+        return jsonify({"status": "error", "message": "Please upload a .csv file."}), 400
+
+    message, rows = _parse_catalog_csv(f.stream)
+    if message != "success":
+        return jsonify({"status": "error", "message": message}), 400
+
+    courses_added = 0
+    courses_updated = 0
+    skipped = 0
+
+    try:
+        for row in rows:
+            subject = row["subject"]
+            catalog = row["catalog"]
+            title = row["title"]
+            career = row["career"]
+            classunit = row["classunit"]
+            prerequisites = row["prerequisites"]
+
+            result = db.session.execute(
+                db.text(f"""SELECT id FROM catalog WHERE subject = :subject AND catalog = :catalog;"""), 
+                        {"subject": subject, "catalog": catalog}).mappings().first()
+            
+            if result:
+                result = db.session.execute(
+                    db.text(f"""
+                    UPDATE catalog SET title = :title, career = :career, classunit = :classunit, prerequisites = :prerequisites
+                    WHERE subject = :subject AND catalog = :catalog;
+                    """),
+                    {
+                        "title": title,
+                        "career": career,
+                        "classunit": classunit,
+                        "prerequisites": prerequisites,
+                        "subject": subject,
+                        "catalog": catalog
+                    }
+                )
+                courses_updated += 1
+            else:
+                db.session.execute(
+                    db.text(f"""
+                        INSERT INTO catalog (id, subject, catalog, title, career, classunit, prerequisites)
+                        VALUES (
+                            (SELECT COALESCE(MAX(id), 0) + 1 FROM catalog),
+                            :subject, :catalog, :title, :career, :classunit, :prerequisites
+                        );
+                    """),
+                    {
+                        "subject": subject,
+                        "catalog": catalog,
+                        "title": title,
+                        "career": career,
+                        "classunit": classunit,
+                        "prerequisites": prerequisites,
+                    },
+                )
+                courses_added += 1
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error("Lab room import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing lab rooms."}), 500
+    
+    return jsonify({
+        "status": "success",
+        "rows_processed": len(rows),
+        "courses_added": courses_added,
+        "courses_updated": courses_updated,
+        "skipped": skipped
+    })
 
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=5000)

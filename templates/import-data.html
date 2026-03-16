@@ -203,11 +203,30 @@
 
   <!-- Course Catalog (Coming Soon) -->
   <div class="import-card">
-    <span class="badge badge-soon">Coming Soon</span>
+    <span class="badge badge-ready">Ready</span>
     <h3>Course Catalog</h3>
     <p>Import course catalog information (titles, prerequisites, credits). Updates the <strong>catalog</strong> table.</p>
     <div class="tables">Tables: catalog</div>
-    <button class="import-btn" disabled>Coming Soon</button>
+
+    <div class="format-box">
+      <strong>Required CSV columns:</strong><br>
+      <code>Subject, Catalog, Title, Career, ClassUnit, Prerequisites</code><br><br>
+      <strong>Example row:</strong><br>
+      <code>COEN,99234,TestImport,UGRD,4.5,COEN314</code><br><br>
+    </div>
+
+    <div class="upload-area" id="upload-catalog" onclick="document.getElementById('file-catalog').click()">
+      <input type="file" id="file-catalog" accept=".csv">
+      <div class="upload-icon">+</div>
+      <div class="upload-text">Click to select CSV file or drag &amp; drop</div>
+      <div class="file-name" id="filename-catalog"></div>
+    </div>
+
+    <button class="import-btn" id="btn-catalog" disabled onclick="importCatalog()">
+      Import Course Catalog
+    </button>
+
+    <div class="result-box" id="result-catalog"></div>
   </div>
 
   <!-- Sequence Plans (Coming Soon) -->
@@ -243,47 +262,55 @@
 {% block extra_js %}
 <script>
   /* ---- File upload handling ---- */
-  const fileInput = document.getElementById("file-labrooms");
-  const uploadArea = document.getElementById("upload-labrooms");
-  const filenameEl = document.getElementById("filename-labrooms");
-  const importBtn = document.getElementById("btn-labrooms");
+  const setupElements = (fileInput, uploadArea, filenameEl, importBtn) => {
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files.length > 0) {
+        filenameEl.textContent = fileInput.files[0].name;
+        importBtn.disabled = false;
+      }
+    });
 
-  fileInput.addEventListener("change", () => {
-    if (fileInput.files.length > 0) {
-      filenameEl.textContent = fileInput.files[0].name;
-      importBtn.disabled = false;
-    }
-  });
+    uploadArea.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      uploadArea.classList.add("dragover");
+    });
+    uploadArea.addEventListener("dragleave", () => {
+      uploadArea.classList.remove("dragover");
+    });
+    uploadArea.addEventListener("drop", (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove("dragover");
+      if (e.dataTransfer.files.length > 0 && e.dataTransfer.files[0].name.endsWith(".csv")) {
+        fileInput.files = e.dataTransfer.files;
+        filenameEl.textContent = e.dataTransfer.files[0].name;
+        importBtn.disabled = false;
+      }
+    });
+  };
 
-  /* Drag & drop */
-  uploadArea.addEventListener("dragover", (e) => {
-    e.preventDefault();
-    uploadArea.classList.add("dragover");
-  });
-  uploadArea.addEventListener("dragleave", () => {
-    uploadArea.classList.remove("dragover");
-  });
-  uploadArea.addEventListener("drop", (e) => {
-    e.preventDefault();
-    uploadArea.classList.remove("dragover");
-    if (e.dataTransfer.files.length > 0 && e.dataTransfer.files[0].name.endsWith(".csv")) {
-      fileInput.files = e.dataTransfer.files;
-      filenameEl.textContent = e.dataTransfer.files[0].name;
-      importBtn.disabled = false;
-    }
-  });
+  const fileInputLabrooms = document.getElementById("file-labrooms");
+  const uploadAreaLabrooms = document.getElementById("upload-labrooms");
+  const filenameElLabrooms = document.getElementById("filename-labrooms");
+  const importBtnLabrooms = document.getElementById("btn-labrooms");
+  setupElements(fileInputLabrooms, uploadAreaLabrooms, filenameElLabrooms, importBtnLabrooms);
+
+  const fileInputCatalog = document.getElementById("file-catalog");
+  const uploadAreaCatalog = document.getElementById("upload-catalog");
+  const filenameElCatalog = document.getElementById("filename-catalog");
+  const importBtnCatalog = document.getElementById("btn-catalog");
+  setupElements(fileInputCatalog, uploadAreaCatalog, filenameElCatalog, importBtnCatalog);
 
   /* ---- Import action ---- */
   async function importLabRooms() {
-    const file = fileInput.files[0];
+    const file = fileInputLabrooms.files[0];
     if (!file) return;
 
     const resultEl = document.getElementById("result-labrooms");
     resultEl.className = "result-box";
     resultEl.innerHTML = "";
 
-    importBtn.disabled = true;
-    importBtn.innerHTML = '<span class="spinner"></span> Importing...';
+    importBtnLabrooms.disabled = true;
+    importBtnLabrooms.innerHTML = '<span class="spinner"></span> Importing...';
 
     const formData = new FormData();
     formData.append("file", file);
@@ -310,9 +337,62 @@
       resultEl.className = "result-box error";
       resultEl.innerHTML = `<strong>Error:</strong> ${err.message}`;
     } finally {
-      importBtn.disabled = false;
-      importBtn.textContent = "Import Lab Rooms";
+      importBtnLabrooms.disabled = false;
+      importBtnLabrooms.textContent = "Import Lab Rooms";
     }
+  }
+
+  async function importSchedules() {
+
+  }
+
+  async function importCatalog() {
+    const file = fileInputCatalog.files[0];
+    if (!file) return;
+
+    const resultEl = document.getElementById("result-catalog");
+    resultEl.className = "result-box";
+    resultEl.innerHTML = "";
+
+    importBtnCatalog.disabled = true;
+    importBtnCatalog.innerHTML = '<span class="spinner"></span> Importing...';
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/import/catalog", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.status === "success") {
+        resultEl.className = "result-box success";
+        let html = `<strong>Import successful!</strong>`;
+        html += `<ul>`;
+        html += `<li>${data.courses_added} course(s) inserted</li>`;
+        html += `<li>${data.courses_updated} course(s) updated</li>`;
+        html += `<li>${data.rows_processed} row(s) processed</li>`;
+        if (data.skipped > 0) html += `<li>${data.skipped} row(s) skipped</li>`;
+        html += `</ul>`;
+        resultEl.innerHTML = html;
+      } else {
+        resultEl.className = "result-box error";
+        resultEl.innerHTML = `<strong>Import failed:</strong> ${data.message}`;
+      }
+    } catch (err) {
+      resultEl.className = "result-box error";
+      resultEl.innerHTML = `<strong>Error:</strong> ${err.message}`;
+    } finally {
+      importBtnCatalog.disabled = false;
+      importBtnCatalog.textContent = "Import Catalog";
+    }
+  }
+
+  async function importSequencePlans() {
+
+  }
+
+  async function importStudentSchedules() {
+
   }
 </script>
 {% endblock %}
