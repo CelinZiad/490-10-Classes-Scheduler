@@ -1036,7 +1036,8 @@ def api_events():
 
     query = f"""
         SELECT DISTINCT ON (st.subject, st.catalog, st.section,
-                            st.componentcode, st.classnumber)
+                            st.componentcode, st.classnumber,
+                            st.meetingpatternnumber)
             st.subject, st.catalog, st.section, st.componentcode,
             st.classnumber, st.buildingcode, st.room,
             st.classstarttime, st.classendtime,
@@ -1044,6 +1045,7 @@ def api_events():
             st.fridays, st.saturdays, st.sundays,
             st.termcode, st.currentenrollment, st.enrollmentcapacity,
             st.currentwaitlisttotal, st.waitlistcapacity,
+            st.meetingpatternnumber,
             c.title AS coursetitle
         FROM {source_table} st
         LEFT JOIN catalog c
@@ -1106,8 +1108,9 @@ def api_events():
 
     query += """
         ORDER BY st.subject, st.catalog, st.section,
-                 st.componentcode, st.classnumber
-        LIMIT 500
+                 st.componentcode, st.classnumber,
+                 st.meetingpatternnumber
+        LIMIT 2000
     """
 
     try:
@@ -1141,7 +1144,7 @@ def api_events():
 
         events.append(
             {
-                "id": f"{row['subject']}-{row['catalog']}-{row['section']}-{row['componentcode']}-{row['classnumber']}",
+                "id": f"{row['subject']}-{row['catalog']}-{row['section']}-{row['componentcode']}-{row['classnumber']}-{row['meetingpatternnumber']}",
                 "title": f"{row['subject']} {row['catalog']}",
                 "daysOfWeek": days_of_week,
                 "startTime": str(row["classstarttime"]),
