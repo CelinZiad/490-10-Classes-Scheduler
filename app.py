@@ -1039,7 +1039,9 @@ def api_events():
                             st.componentcode, st.classnumber,
                             st.meetingpatternnumber)
             st.subject, st.catalog, st.section, st.componentcode,
-            st.classnumber, st.buildingcode, st.room,
+            st.classnumber,
+            COALESCE(NULLIF(st.buildingcode, ''), lr.building) AS buildingcode,
+            COALESCE(NULLIF(st.room, ''), lr.room) AS room,
             st.classstarttime, st.classendtime,
             st.mondays, st.tuesdays, st.wednesdays, st.thursdays,
             st.fridays, st.saturdays, st.sundays,
@@ -1052,6 +1054,11 @@ def api_events():
           ON c.subject = st.subject
          AND c.catalog = st.catalog
          AND c.career  = 'UGRD'
+        LEFT JOIN courselabs cl
+          ON cl.subject = st.subject
+         AND cl.catalog = st.catalog
+        LEFT JOIN labrooms lr
+          ON lr.labroomid = cl.labroomid
         WHERE st.classstarttime IS NOT NULL
           AND st.classendtime   IS NOT NULL
           AND st.classstarttime != '00:00:00'
