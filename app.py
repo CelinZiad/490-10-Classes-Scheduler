@@ -1606,7 +1606,6 @@ def import_catalog():
 
 def _get_course_days(class_day_string):
     if len(class_day_string) != 7:
-        print(f"Invalid class day string: {class_day_string}")
         return None
     days = []
     for index, char in enumerate(class_day_string):
