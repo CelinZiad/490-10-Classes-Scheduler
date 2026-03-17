@@ -1975,5 +1975,193 @@ def import_sequence_plans():
         "sequencecourses_added": len(courses)
     })
 
+def _parse_student_schedules_csv(file_stream):
+    """Parse uploaded CSV and return list of row dicts."""
+    text = file_stream.read().decode("utf-8-sig")
+    reader = csv.reader(io.StringIO(text))
+    header = next(reader, None)
+    if header is None:
+        return "No header found", [], [], []
+    elif header[0].strip() != "StudyName":
+        return "Expected 'StudyName' in first column of header", [], [], []
+    
+    study = {}
+    schedules = []
+    classes = []
+    i = 1
+    mode = 0 # 0 = expect study header, 1 = schedules, 2 = classes
+    for row in reader:
+        if (len(row) != 5):
+            return f"Expected 5 columns per row, row {i} invalid", [], [], []
+        if (row[1].strip() == "Notes"):
+            mode = 1 # Schedules
+            continue
+        elif (row[1].strip() == "Subject"):
+            mode = 2 # Classes
+            continue
+
+        if mode == 0:
+            study["studyname"] = row[0].strip()
+            study["owner"] = row[1].strip()
+        elif mode == 1:
+            schedules.append({
+                "schedulename": row[0].strip(),
+                "notes": row[1].strip()
+            })
+        elif mode == 2:
+            classes.append({
+                "schedulename": row[0].strip(),
+                "subject": row[1].strip(),
+                "catalog": row[2].strip(),
+                "section": row[3].strip(),
+                "termnumber": row[4].strip()
+            })
+        i += 1
+    
+    return "success", study, schedules, classes
+
+
+@app.post("/api/import/student")
+def import_student_schedules():
+    f = request.files.get("file")
+    if not f or not f.filename.endswith(".csv"):
+        return jsonify({"status": "error", "message": "Please upload a .csv file."}), 400
+
+    message, study, schedules, classes = _parse_student_schedules_csv(f.stream)
+    if message != "success":
+        return jsonify({"status": "error", "message": message}), 400
+    
+    created_or_updated = "Created"
+    studyid = None
+    schedules_added = 0
+    classes_added = 0
+
+    try:
+        # Create or reset study records
+        result = db.session.execute(
+            db.text("""
+                    SELECT studyid from studentschedulestudy
+                    WHERE studyname = :studyname AND owner = :owner;
+            """),
+            {
+                "studyname": study["studyname"],
+                "owner": study["owner"]
+            }
+        ).mappings().first()
+
+        if result:
+            studyid = result["studyid"]
+            created_or_updated = "Updated"
+            db.session.execute(
+                db.text("""
+                    DELETE FROM studentschedule
+                    WHERE studyid = :studyid;
+                """),
+                {"studyid": studyid}
+            )
+        else:
+            result = db.session.execute(
+                db.text("""
+                    INSERT INTO studentschedulestudy (studyname, owner)
+                    VALUES (:studyname, :owner)
+                    RETURNING studyid;
+                """),
+                {
+                    "studyname": study["studyname"],
+                    "owner": study["owner"]
+                }
+            ).mappings().first()
+
+            if not result:
+                db.session.rollback()
+                return jsonify({"status": "error", "message": "Failed to create student schedule study."}), 500
+            
+            studyid = result["studyid"]
+
+        for schedule in schedules:
+            result = db.session.execute(
+                db.text("""
+                    INSERT INTO studentschedule (studyid, schedulename, notes)
+                    VALUES (:studyid, :schedulename, :notes)
+                    RETURNING studentscheduleid;
+                """),
+                {
+                    "studyid": studyid,
+                    "schedulename": schedule["schedulename"],
+                    "notes": schedule["notes"]
+                }
+            ).mappings().first()
+
+            if not result:
+                db.session.rollback()
+                return jsonify({"status": "error", "message": "Failed to create student schedule."}), 500
+            
+            schedule["studentscheduleid"] = result["studentscheduleid"]
+            schedules_added += 1
+
+        for course in classes:
+            # Find matching studentscheduleid based on schedulename
+            for schedule in schedules:
+                if schedule["schedulename"] == course["schedulename"]:
+                    course["studentscheduleid"] = schedule["studentscheduleid"]
+                    break
+            
+            if "studentscheduleid" not in course:
+                db.session.rollback()
+                return jsonify({"status": "error", "message": f"No matching student schedule for course {course['subject']} {course['catalog']}."}), 400
+            
+            result = db.session.execute(
+                db.text("""
+                    SELECT classnumber, cid FROM scheduleterm
+                    WHERE subject = :subject AND catalog = :catalog 
+                    AND section = :section AND termcode = :termcode
+                    ORDER BY meetingpatternnumber ASC LIMIT 1;
+                """),
+                {
+                    "subject": course["subject"],
+                    "catalog": course["catalog"],
+                    "section": course["section"],
+                    "termcode": course["termnumber"]
+                }
+            ).mappings().first()
+
+            if not result:
+                db.session.rollback()
+                return jsonify({"status": "error", "message": f"No matching course found for {course['subject']} {course['catalog']} {course['section']} in term {course['termnumber']}."}), 400
+
+            classnumber = result["classnumber"]
+            cid = result["cid"]
+
+            db.session.execute(
+                db.text("""
+                    INSERT INTO studentscheduleclass (studentscheduleid, classnumber, term, section, cid)
+                    VALUES (:studentscheduleid, :classnumber, :termcode, :section, :cid);
+                """),
+                {
+                    "studentscheduleid": course["studentscheduleid"],
+                    "classnumber": classnumber,
+                    "termcode": course["termnumber"],
+                    "section": course["section"],
+                    "cid": cid
+                }
+            )
+
+            classes_added += 1
+
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error("Sequence plan import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing sequence plan."}), 500
+    
+    return jsonify({
+        "status": "success",
+        "studyid": studyid,
+        "created_or_updated": created_or_updated,
+        "schedules_added": schedules_added,
+        "classes_added": classes_added
+    })
+
 if __name__ == "__main__":
     app.run(debug=True, host="127.0.0.1", port=5000)
