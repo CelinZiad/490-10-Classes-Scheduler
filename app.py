@@ -2152,8 +2152,8 @@ def import_student_schedules():
 
     except Exception as e:
         db.session.rollback()
-        app.logger.error("Sequence plan import failed: %s", e)
-        return jsonify({"status": "error", "message": "A database error occurred while importing sequence plan."}), 500
+        app.logger.error("Student schedule import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing student schedule."}), 500
     
     return jsonify({
         "status": "success",
@@ -2161,6 +2161,82 @@ def import_student_schedules():
         "created_or_updated": created_or_updated,
         "schedules_added": schedules_added,
         "classes_added": classes_added
+    })
+
+def _parse_buildings_csv(file_stream):
+    """Parse uploaded CSV and return list of row dicts."""
+    text = file_stream.read().decode("utf-8-sig")
+    reader = csv.reader(io.StringIO(text))
+    header = next(reader, None)
+    if header is None:
+        return "No header found", []
+    elif header[0].strip() != "Campus":
+        return "Expected 'Campus' in first column of header", []
+    
+    rows = []
+    i = 1
+    for line in reader:
+        if len(line) != 6:
+            return f"Expected 6 columns per row, row {i} invalid", []
+        
+        if (line[0].strip() != "SGW" and line[0].strip() != "LOY"):
+            return f"Only SGW and LOY campus are supported, row {i} invalid", []
+
+        rows.append({
+            "campus": line[0].strip(),
+            "building": line[1].strip(),
+            "buildingname": line[2].strip(),
+            "address": line[3].strip(),
+            "latitude": line[4].strip(),
+            "longitude": line[5].strip()
+        })
+
+    return "success", rows
+
+@app.post("/api/import/buildings")
+def import_buildings():
+    f = request.files.get("file")
+    if not f or not f.filename.endswith(".csv"):
+        return jsonify({"status": "error", "message": "Please upload a .csv file."}), 400
+
+    message, buildings = _parse_buildings_csv(f.stream)
+    if message != "success":
+        return jsonify({"status": "error", "message": message}), 400
+    
+    buildings_upserted = 0
+    try:
+        for building in buildings:
+            db.session.execute(
+                db.text("""
+                    INSERT INTO building (campus, building, buildingname, address, latitude, longitude)
+                    VALUES (:campus, :building, :buildingname, :address, :latitude, :longitude)
+                    ON CONFLICT (campus, building) DO UPDATE SET
+                        buildingname = EXCLUDED.buildingname,
+                        address = EXCLUDED.address,
+                        latitude = EXCLUDED.latitude,
+                        longitude = EXCLUDED.longitude;
+                """),
+                {
+                    "campus": building["campus"],
+                    "building": building["building"],
+                    "buildingname": building["buildingname"],
+                    "address": building["address"],
+                    "latitude": building["latitude"],
+                    "longitude": building["longitude"]
+                }
+            )
+            buildings_upserted += 1
+
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error("Buildings import failed: %s", e)
+        return jsonify({"status": "error", "message": "A database error occurred while importing buildings."}), 500
+    
+    return jsonify({
+        "status": "success",
+        "buildings_upserted": buildings_upserted
     })
 
 if __name__ == "__main__":

@@ -342,11 +342,34 @@
 
   <!-- Buildings (Coming Soon) -->
   <div class="import-card">
-    <span class="badge badge-soon">Coming Soon</span>
+    <span class="badge badge-ready">Ready</span>
     <h3>Buildings</h3>
     <p>Import campus building data (names, addresses, coordinates). Updates the <strong>building</strong> table.</p>
     <div class="tables">Tables: building</div>
-    <button class="import-btn" disabled>Coming Soon</button>
+    
+    <div class="format-box">
+      <strong>Required CSV columns:</strong><br>
+      <code>Campus, Building, BuildingName, Address, Latitude, Longitude</code><br><br>
+      <strong>Example row:</strong><br>
+      <code>SGW, EV, EV Building, 1515 Ste-Catherine W, 45.495376, -73.577997</code><br><br>
+    </div>
+
+    <div class="upload-area" id="upload-buildings" onclick="document.getElementById('file-buildings').click()">
+      <input type="file" id="file-buildings" accept=".csv">
+      <div class="upload-icon">+</div>
+      <div class="upload-text">Click to select CSV file or drag &amp; drop</div>
+      <div class="file-name" id="filename-buildings"></div>
+    </div>
+
+    <button class="import-btn" id="btn-buildings" disabled onclick="importBuildings()">
+      Import Buildings
+    </button>
+
+    <button class="import-btn" id="btn-template-buildings" onclick="window.location.href='/static/csv/buildings_template.csv'">
+      Download CSV Template
+    </button>
+
+    <div class="result-box" id="result-buildings"></div>
   </div>
 
 </div>
@@ -410,6 +433,12 @@
   const filenameElStudent = document.getElementById("filename-student");
   const importBtnStudent = document.getElementById("btn-student");
   setupElements(fileInputStudent, uploadAreaStudent, filenameElStudent, importBtnStudent);
+
+  const fileInputBuildings = document.getElementById("file-buildings");
+  const uploadAreaBuildings = document.getElementById("upload-buildings");
+  const filenameElBuildings = document.getElementById("filename-buildings");
+  const importBtnBuildings = document.getElementById("btn-buildings");
+  setupElements(fileInputBuildings, uploadAreaBuildings, filenameElBuildings, importBtnBuildings);
 
   /* ---- Import action ---- */
   async function importLabRooms() {
@@ -612,6 +641,84 @@
     } finally {
       importBtnStudent.disabled = false;
       importBtnStudent.textContent = "Import Student Schedules";
+    }
+  }
+
+  async function importSequencePlans() {
+    const file = fileInputSequencePlans.files[0];
+    if (!file) return;
+
+    const resultEl = document.getElementById("result-sequenceplans");
+    resultEl.className = "result-box";
+    resultEl.innerHTML = "";
+
+    importBtnSequencePlans.disabled = true;
+    importBtnSequencePlans.innerHTML = '<span class="spinner"></span> Importing...';
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/import/sequenceplans", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.status === "success") {
+        resultEl.className = "result-box success";
+        let html = `<strong>Import successful!</strong>`;
+        html += `<ul>`;
+        html += `<li>Inserted plan ID: ${data.planid}</li>`;
+        html += `<li>${data.sequenceterms_added} sequence term(s) inserted</li>`;
+        html += `<li>${data.sequencecourses_added} sequence course(s) inserted</li>`;
+        html += `</ul>`;
+        resultEl.innerHTML = html;
+      } else {
+        resultEl.className = "result-box error";
+        resultEl.innerHTML = `<strong>Import failed:</strong> ${data.message}`;
+      }
+    } catch (err) {
+      resultEl.className = "result-box error";
+      resultEl.innerHTML = `<strong>Error:</strong> ${err.message}`;
+    } finally {
+      importBtnSequencePlans.disabled = false;
+      importBtnSequencePlans.textContent = "Import Sequence Plans";
+    }
+  }
+
+  async function importBuildings() {
+    const file = fileInputBuildings.files[0];
+    if (!file) return;
+
+    const resultEl = document.getElementById("result-buildings");
+    resultEl.className = "result-box";
+    resultEl.innerHTML = "";
+
+    importBtnBuildings.disabled = true;
+    importBtnBuildings.innerHTML = '<span class="spinner"></span> Importing...';
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/import/buildings", { method: "POST", body: formData });
+      const data = await res.json();
+
+      if (data.status === "success") {
+        resultEl.className = "result-box success";
+        let html = `<strong>Import successful!</strong>`;
+        html += `<ul>`;
+        html += `<li>${data.buildings_upserted} buildings(s) upserted</li>`;
+        html += `</ul>`;
+        resultEl.innerHTML = html;
+      } else {
+        resultEl.className = "result-box error";
+        resultEl.innerHTML = `<strong>Import failed:</strong> ${data.message}`;
+      }
+    } catch (err) {
+      resultEl.className = "result-box error";
+      resultEl.innerHTML = `<strong>Error:</strong> ${err.message}`;
+    } finally {
+      importBtnBuildings.disabled = false;
+      importBtnBuildings.textContent = "Import Buildings";
     }
   }
 </script>
