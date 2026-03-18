@@ -32,10 +32,13 @@ _DAY_TOKEN_TO_ENUM = {
 
 
 def parse_day_pattern(raw: str) -> Tuple[Day, ...]:
-    """Parse day patterns like 'MoWe' -> (Day.MO, Day.WE), 'TuTh' -> (Day.TU, Day.TH)."""
+    """Parse day patterns like 'MoWe' -> (Day.MO, Day.WE), 'TuTh' -> (Day.TU, Day.TH).
+    
+    Returns an empty tuple for empty input (e.g. online courses with no scheduled days).
+    """
     s = (raw or "").strip()
     if not s:
-        raise ValueError("day_of_week is empty")
+        return ()
 
     s = re.sub(r"[\s,/;-]+", "", s)
 
