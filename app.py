@@ -1091,6 +1091,8 @@ def api_events():
     # TERM CODE FILTER
     # When a semester (termid) is selected, auto-detect the correct termcode
     # from the season so we only show the latest year's schedule data.
+    # We find the MAX termcode that has data for the courses in the selected
+    # sequence term AND matches the season's month range.
     if termid and source != "optimized":
         season = db.session.execute(
             db.text("SELECT season FROM sequenceterm WHERE sequencetermid = :tid"),
@@ -1102,11 +1104,15 @@ def api_events():
             m1, m2 = month_ranges[season]
             latest_term = db.session.execute(
                 db.text("""
-                    SELECT MAX(termcode) FROM scheduleterm
-                    WHERE EXTRACT(MONTH FROM classstartdate) BETWEEN :m1 AND :m2
-                      AND classstartdate > '2000-01-01'
+                    SELECT MAX(sch.termcode)
+                    FROM scheduleterm sch
+                    JOIN sequencecourse sc
+                      ON sc.subject = sch.subject AND sc.catalog = sch.catalog
+                    WHERE sc.sequencetermid = :tid
+                      AND EXTRACT(MONTH FROM sch.classstartdate) BETWEEN :m1 AND :m2
+                      AND sch.classstartdate > '2000-01-01'
                 """),
-                {"m1": m1, "m2": m2},
+                {"tid": termid, "m1": m1, "m2": m2},
             ).scalar()
 
             if latest_term:
@@ -1292,11 +1298,15 @@ def api_filters():
             m1, m2 = month_ranges[season]
             latest_term = db.session.execute(
                 db.text("""
-                    SELECT MAX(termcode) FROM scheduleterm
-                    WHERE EXTRACT(MONTH FROM classstartdate) BETWEEN :m1 AND :m2
-                      AND classstartdate > '2000-01-01'
+                    SELECT MAX(sch.termcode)
+                    FROM scheduleterm sch
+                    JOIN sequencecourse sc
+                      ON sc.subject = sch.subject AND sc.catalog = sch.catalog
+                    WHERE sc.sequencetermid = :tid
+                      AND EXTRACT(MONTH FROM sch.classstartdate) BETWEEN :m1 AND :m2
+                      AND sch.classstartdate > '2000-01-01'
                 """),
-                {"m1": m1, "m2": m2},
+                {"tid": termid, "m1": m1, "m2": m2},
             ).scalar()
             if latest_term:
                 term_where = " AND sch.termcode = :term"
