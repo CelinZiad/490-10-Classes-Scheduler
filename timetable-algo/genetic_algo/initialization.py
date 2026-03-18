@@ -60,6 +60,30 @@ def insert_tut_into_timetable(course):
             else:
                 tut.start = random.choice(tut_100_start)    
             tut.end = tut.start + 100
+        elif course.weekly_tut_freq == 2 and course.tut_duration == 100:
+            d1 = random.choice(day_of_week_tut)
+            non_adjacent = [d for d in day_of_week_tut if abs(d - d1) > 1]
+            if not non_adjacent:
+                non_adjacent = [d for d in day_of_week_tut if d != d1]
+            d2 = random.choice(non_adjacent)
+            tut.day = [d1, d1 + 7, d2, d2 + 7]
+            lecture_days = set()
+            for day in course.lecture.day:
+                lecture_days.update(day.value)
+            if d1 in lecture_days or d2 in lecture_days:
+                diff = -1
+                attempts = 0
+                while 0 >= diff and attempts < 120:
+                    tut_start = random.choice(tut_100_start)
+                    if tut_start > course.lecture.start:
+                        diff = tut_start - course.lecture.end
+                    elif course.lecture.start > tut_start:
+                        diff = course.lecture.end - 100 - tut_start
+                    attempts += 1
+                tut.start = tut_start
+            else:
+                tut.start = random.choice(tut_100_start)
+            tut.end = tut.start + 100
 
 
 def get_lab_days_for_frequency(biweekly_lab_freq: int, base_day: int) -> List[int]:
@@ -174,6 +198,51 @@ def insert_lab_into_timetable(course, room_timetable: Optional[Dict] = None):
                 else:
                     lab.start = random.choice(tut_100_start)    
                 lab.end = lab.start + 100
+            elif course.biweekly_lab_freq == 2 and course.lab_duration == 165:
+                d = random.choice(day_of_week_lab)
+                lab.day = get_lab_days_for_frequency(2, d)
+                if any(d in day.value for day in course.lecture.day):
+                    diff = -1
+                    attempts = 0
+                    while 0 >= diff and attempts < 120:
+                        lab_start = random.choice(lab_165_start)
+                        if lab_start > course.lecture.start:
+                            diff = lab_start - course.lecture.end
+                        elif course.lecture.start > lab_start:
+                            diff = course.lecture.end - 165 - lab_start
+                        attempts += 1
+                    lab.start = lab_start
+                else:
+                    lab.start = random.choice(lab_165_start)
+                lab.end = lab.start + 165
+            elif course.biweekly_lab_freq == 2 and course.lab_duration == 100:
+                d = random.choice(day_of_week_lab)
+                lab.day = get_lab_days_for_frequency(2, d)
+                if any(d in day.value for day in course.lecture.day):
+                    diff = -1
+                    attempts = 0
+                    while 0 >= diff and attempts < 120:
+                        lab_start = random.choice(tut_100_start)
+                        if lab_start > course.lecture.start:
+                            diff = lab_start - course.lecture.end
+                        elif course.lecture.start > lab_start:
+                            diff = course.lecture.end - 100 - lab_start
+                        attempts += 1
+                    lab.start = lab_start
+                else:
+                    lab.start = random.choice(tut_100_start)
+                lab.end = lab.start + 100
+            else:
+                # General fallback for any other duration/frequency combination
+                d = random.choice(day_of_week_lab)
+                lab.day = get_lab_days_for_frequency(course.biweekly_lab_freq, d)
+                if course.lab_duration == 165:
+                    lab.start = random.choice(lab_165_start)
+                elif course.lab_duration == 100:
+                    lab.start = random.choice(tut_100_start)
+                else:
+                    lab.start = random.choice(lab_165_start)
+                lab.end = lab.start + course.lab_duration
 
 
 def build_room_timetable_for_schedule(schedule, room_assignments):
