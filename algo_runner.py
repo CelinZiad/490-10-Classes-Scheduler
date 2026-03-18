@@ -40,7 +40,7 @@ def load_conflicts_from_csv() -> list[dict]:
     return _read_csv_file(get_conflicts_csv_path())
 
 
-def run_algorithm() -> dict:
+def run_algorithm(target_season=None, academic_year=None) -> dict:
     """Run the genetic algorithm and return structured results."""
     # Save original state
     orig_dir = os.getcwd()
@@ -57,15 +57,17 @@ def run_algorithm() -> dict:
         # Import algo modules (inside function to avoid import at app startup)
         from main import read_courses_from_csv, initialize_population, run_one_generation
         from config import (
-            POPULATION_SIZE, MUTATION_COUNT,
-            LIMIT_POPULATION_GENERATION, LIMIT_FITTEST_UNCHANGED_GENERATION,
-            FITNESS_RATIO_THRESHOLD, TARGET_SEASON, ACADEMIC_YEAR,
+            POPULATION_SIZE,
+            MUTATION_COUNT,
+            LIMIT_POPULATION_GENERATION,
+            LIMIT_FITTEST_UNCHANGED_GENERATION,
+            FITNESS_RATIO_THRESHOLD,
+            TARGET_SEASON,
+            ACADEMIC_YEAR,
         )
         from fitness import fitness_function
         from termination import should_terminate
-        from room_management import (
-            load_room_assignments, create_room_timetables, validate_room_timetables,
-        )
+        from room_management import load_room_assignments
         from helper.export_utils import export_fittest_individual
         from helper.conflict_export import export_conflicts_csv
         from helper.sequence_loader import Sequence
@@ -73,19 +75,39 @@ def run_algorithm() -> dict:
         from helper.db_sequence_extractor import extract_and_generate_sequences
         from helper.db_course_extractor import extract_and_generate_course_data
 
+        target_season = target_season if target_season is not None else TARGET_SEASON
+        academic_year = academic_year if academic_year is not None else ACADEMIC_YEAR
+
+        season_names = {
+            1: "Summer",
+            2: "Fall",
+            3: "Fall/Winter",
+            4: "Winter",
+        }
+        season_name = season_names.get(target_season, "Term")
+
+        print(f"[ALGO] Running for {season_name} {academic_year}")
+
         start_time = time.time()
 
         # Step 1: Extract data from DB into CSVs
         extract_and_generate_sequences(
-            "Sequences.csv", target_season=TARGET_SEASON, show_summary=False,
+            "Sequences.csv",
+            target_season=target_season,
+            show_summary=False,
         )
         extract_and_generate_room_data("Room_data.csv", show_summary=False)
         extract_and_generate_course_data(
-            "Data.csv", year=ACADEMIC_YEAR, season_code=TARGET_SEASON, show_summary=False,
+            "Data.csv",
+            year=academic_year,
+            season_code=target_season,
+            show_summary=False,
         )
 
         # Step 2: Read courses, init population
         courses = read_courses_from_csv("Data.csv")
+        print(f"[ALGO] Loaded {len(courses)} courses for {season_name} {academic_year}")
+
         if not courses:
             return {
                 "status": "failed",
@@ -96,19 +118,18 @@ def run_algorithm() -> dict:
                 "conflicts": [],
                 "num_conflicts": 0,
                 "num_courses": 0,
+                "semester_labels": {},
             }
 
         room_assignments = load_room_assignments("Room_data.csv")
         population = initialize_population(courses, POPULATION_SIZE, room_assignments)
-        seq = Sequence("Sequences.csv", season_filter=TARGET_SEASON)
+        seq = Sequence("Sequences.csv", season_filter=target_season)
 
         # Build semester labels mapping index → "Fall Year X (Program)"
-        season_names = {1: "Summer", 2: "Fall", 3: "Fall/Winter", 4: "Winter"}
-        season_name = season_names.get(TARGET_SEASON, "Term")
         semester_labels = {}
         sem_idx = 0
         for plan in seq.manager.get_all_plans():
-            for term in plan.get_terms_for_season(TARGET_SEASON):
+            for term in plan.get_terms_for_season(target_season):
                 sem_idx += 1
                 semester_labels[str(sem_idx)] = (
                     f"{season_name} Year {term.yearnumber} ({plan.program})"
@@ -121,12 +142,17 @@ def run_algorithm() -> dict:
         ]
         fitness_history = [max(fitness_scores)]
         current_generation = 0
+        best_fitness = max(fitness_scores)
 
         # Step 4: Evolution loop
         while True:
             current_generation += 1
             population, fitness_scores = run_one_generation(
-                population, fitness_scores, seq, room_assignments, num_offspring=2,
+                population,
+                fitness_scores,
+                seq,
+                room_assignments,
+                num_offspring=2,
             )
             best_fitness = max(fitness_scores)
             fitness_history.append(best_fitness)
@@ -163,17 +189,27 @@ def run_algorithm() -> dict:
         # Step 6: Export to optimized_schedule DB table
         try:
             from helper.scheduleterm_export import export_to_scheduleterm_format
+
             export_to_scheduleterm_format(
                 schedule=best_individual,
                 room_assignments=room_assignments,
-                year=ACADEMIC_YEAR,
-                season=TARGET_SEASON,
+                year=academic_year,
+                season=target_season,
             )
             db_exported = True
-        except Exception:
+        except Exception as e:
+            print(f"[ALGO] DB export failed: {e}")
             db_exported = False
 
         duration = round(time.time() - start_time, 1)
+
+        print(
+            f"[ALGO] Finished {season_name} {academic_year} | "
+            f"fitness={round(best_fitness, 4)} | "
+            f"generations={current_generation} | "
+            f"conflicts={num_conflicts if isinstance(num_conflicts, int) else 0} | "
+            f"duration={duration}s"
+        )
 
         return {
             "status": "success",
@@ -190,6 +226,7 @@ def run_algorithm() -> dict:
         }
 
     except Exception as e:
+        print(f"[ALGO] Failed: {e}")
         return {
             "status": "failed",
             "best_fitness": 0,
@@ -204,3 +241,4 @@ def run_algorithm() -> dict:
     finally:
         os.chdir(orig_dir)
         sys.path[:] = orig_path
+        

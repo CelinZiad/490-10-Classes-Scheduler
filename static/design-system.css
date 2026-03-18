@@ -174,3 +174,75 @@ body {
 }
 
 .export-menu a:hover { background: var(--app-bg); }
+
+/* --- Scheduler run form --- */
+
+.scheduler-run-form {
+  margin-top: 12px;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.scheduler-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.scheduler-form-group label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.scheduler-run-form input,
+.scheduler-run-form select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background: white;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.scheduler-run-form input:focus,
+.scheduler-run-form select:focus {
+  outline: none;
+  border-color: var(--sidebar-active);
+  box-shadow: 0 0 0 2px rgb(37 99 235 / 10%);
+}
+
+.scheduler-form-actions {
+  display: flex;
+  align-items: flex-end;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (width <= 768px) {
+  .scheduler-run-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .scheduler-form-actions {
+    width: 100%;
+  }
+
+  .scheduler-form-actions .btn {
+    width: 100%;
+    text-align: center;
+  }
+}

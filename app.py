@@ -172,7 +172,18 @@ def logactivity(
 
 @app.get("/")
 def dashboard():
-    # scheduler status
+    from pathlib import Path
+    import sys
+
+    PROJECT_ROOT = Path(__file__).resolve().parent
+    ALGO_DIR = PROJECT_ROOT / "timetable-algo"
+    GENETIC_DIR = ALGO_DIR / "genetic_algo"
+
+    if str(GENETIC_DIR) not in sys.path:
+        sys.path.insert(0, str(GENETIC_DIR))
+
+    import config
+
     if not algorithmimplemented:
         scheduler_status = {
             "state": "NOT_IMPLEMENTED",
@@ -189,11 +200,11 @@ def dashboard():
         db.session.execute(
             db.text(
                 """
-            select createdat, actorname, title
-            from activitylog
-            order by createdat desc
-            limit 3;
-        """
+                select createdat, actorname, title
+                from activitylog
+                order by createdat desc
+                limit 3;
+                """
             )
         )
         .mappings()
@@ -204,20 +215,36 @@ def dashboard():
         ROUTE_TEMPLATES["/"],
         scheduler_status=scheduler_status,
         recentactivity=recentactivity,
+        default_target_season=config.TARGET_SEASON,
+        default_academic_year=config.ACADEMIC_YEAR,
     )
 
 
 # Generate Schedule trigger (button on dashboard)
 @app.post("/schedulerrun")
 def postschedulerrun():
-    schedulename = request.form.get("schedulename", "schedule-draft")
+    schedulename = request.form.get("schedulename", "schedule-draft").strip() or "schedule-draft"
+
+    try:
+        season = int(request.form.get("season", 2))
+    except (TypeError, ValueError):
+        season = 2
+
+    try:
+        academic_year = int(request.form.get("academic_year", 2026))
+    except (TypeError, ValueError):
+        academic_year = 2026
 
     # always log that someone pressed the button
     logactivity(
         eventtype="schedulerrunrequested",
         title=f'Schedule run requested: "{schedulename}"',
         actorname="admin",
-        metadata={"schedulename": schedulename},
+        metadata={
+            "schedulename": schedulename,
+            "season": season,
+            "academic_year": academic_year,
+        },
     )
 
     # no algo -> log blocked, do not create schedulerun row
@@ -233,7 +260,10 @@ def postschedulerrun():
     # Run the genetic algorithm
     from algo_runner import run_algorithm
 
-    result = run_algorithm()
+    result = run_algorithm(
+        target_season=season,
+        academic_year=academic_year,
+    )
 
     # Log the schedule run
     run_status = "generated" if result["status"] == "success" else "failed"
@@ -259,6 +289,8 @@ def postschedulerrun():
             actorname="system",
             metadata={
                 "schedulename": schedulename,
+                "season": season,
+                "academic_year": academic_year,
                 "best_fitness": result["best_fitness"],
                 "generations": result["generations"],
                 "termination_reason": result.get("termination_reason", ""),
@@ -274,14 +306,16 @@ def postschedulerrun():
                 f'{result.get("termination_reason", "unknown error")}'
             ),
             actorname="system",
-            metadata={"schedulename": schedulename},
+            metadata={
+                "schedulename": schedulename,
+                "season": season,
+                "academic_year": academic_year,
+            },
         )
 
     semester_labels = result.get("semester_labels", {})
 
-    # Insert conflicts and linked solutions into DB
     if result["conflicts"]:
-        # Ensure solution table has conflictid column (one-time migration)
         try:
             db.session.execute(db.text(
                 "ALTER TABLE solution ADD COLUMN IF NOT EXISTS "
@@ -291,7 +325,6 @@ def postschedulerrun():
         except Exception:
             db.session.rollback()
 
-        # Clear previous active conflicts and proposed solutions
         db.session.execute(
             db.text("delete from solution where status = 'proposed';")
         )
@@ -305,35 +338,32 @@ def postschedulerrun():
             ctype = row.get("Conflict_Type", "Unknown")
             detail = conflict_detail(row, semester_labels=semester_labels)
 
-            # Store conflict data as JSON for rich frontend display
             conflict_data = json.dumps({
                 "type": ctype,
                 "course": row.get("Course", ""),
                 "detail": detail,
             })
 
-            # Insert conflict and get its ID back
             conflict_row = db.session.execute(
                 db.text(
                     """
                     insert into conflict (status, description)
                     values ('active', :description)
                     returning conflictid;
-                """
+                    """
                 ),
                 {"description": conflict_data},
             ).mappings().first()
 
             conflict_id = conflict_row["conflictid"] if conflict_row else None
 
-            # Insert linked solution
             desc = derive_solution(row, semester_labels=semester_labels)
             db.session.execute(
                 db.text(
                     """
                     insert into solution (status, description, conflictid)
                     values ('proposed', :description, :conflictid);
-                """
+                    """
                 ),
                 {"description": f"[{ctype}] {desc}", "conflictid": conflict_id},
             )
@@ -357,7 +387,6 @@ def postschedulerrun():
             )
 
     return redirect(url_for("dashboard"))
-
 
 # view all activity + filter by date
 @app.get("/activity")

@@ -21,17 +21,42 @@
     <p>Status is not available.</p>
   {% endif %}
 
-  <form method="POST" action="{{ url_for('postschedulerrun') }}"
-        style="margin-top: 12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
-    <label for="schedulename" class="sr-only">Schedule name</label>
-    <input
-      id="schedulename"
-      type="text"
-      name="schedulename"
-      placeholder="e.g., fall-2026-draft-3"
-      style="padding:0.5rem; border:1px solid #e5e7eb; border-radius:6px;"
-    >
-    <button class="btn btn-primary" type="submit">Generate Schedule</button>
+  <form method="POST" action="{{ url_for('postschedulerrun') }}" class="scheduler-run-form">
+    <div class="scheduler-form-group">
+      <label for="schedulename">Schedule Name</label>
+      <input
+        id="schedulename"
+        type="text"
+        name="schedulename"
+        placeholder="e.g. fall-2026-draft-3"
+      >
+    </div>
+
+    <div class="scheduler-form-group">
+      <label for="season">Season</label>
+      <select id="season" name="season">
+        <option value="1" {% if default_target_season == 1 %}selected{% endif %}>Summer</option>
+        <option value="2" {% if default_target_season == 2 %}selected{% endif %}>Fall</option>
+        <option value="3" {% if default_target_season == 3 %}selected{% endif %}>Fall + Winter</option>
+        <option value="4" {% if default_target_season == 4 %}selected{% endif %}>Winter</option>
+      </select>
+    </div>
+
+    <div class="scheduler-form-group">
+      <label for="academic_year">Academic Year</label>
+      <input
+        id="academic_year"
+        type="number"
+        name="academic_year"
+        min="2000"
+        max="2100"
+        value="{{ default_academic_year }}"
+      >
+    </div>
+
+    <div class="scheduler-form-actions">
+      <button class="btn btn-primary" type="submit">Generate Schedule</button>
+    </div>
   </form>
 </section>
 

@@ -21,5 +21,6 @@ DB_NAME = os.environ.get("DB_NAME", "uvo490_3")
 DB_USER = os.environ.get("DB_USER", "uvo490_3")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
 
+# Default values used when no form override is provided
 TARGET_SEASON = 2  # 1=Summer, 2=Fall, 3=Fall+Winter, 4=Winter
 ACADEMIC_YEAR = 2026
