@@ -1,21 +1,5 @@
 # scheduleterm_export.py
-"""
-Export optimised timetable to the ``optimized_schedule`` database table and to a
-CSV file, producing one row per meeting‑pattern for labs (6 rows per lab section
-for biweekly semesters, 6 for weekly summer 6H sessions) and one row each for
-lectures and tutorials with semester‑spanning dates.
 
-For summer (season 1) the export handles all three session types (13W, 6H1, 6H2)
-in a single run.  Each course's session code is carried over from the previous
-year's ``scheduleterm`` data, so 13W courses get 4‑month dates, 6H1 courses get
-May–June dates, and 6H2 courses get July–August dates — all in one output.
-
-Season codes understood by config.TARGET_SEASON:
-    1 = Summer   (sessions 13W / 6H1 / 6H2)
-    2 = Fall
-    3 = Fall+Winter
-    4 = Winter
-"""
 from typing import List, Dict, Tuple, Optional
 from datetime import date
 import csv
@@ -36,25 +20,22 @@ EXCLUDED_COURSES = {
     ('COEN', '390'), ('COEN', '490')
 }
 
-# COEN 390 is a cross-listed duplicate of ELEC 390.  It is excluded from the
-# GA but must reappear in exports with ELEC 390's optimised times and COEN 390's
-# own classnumber values from the previous-year scheduleterm.
+
 CROSS_LISTED = {
     # (source_subject, catalog): (clone_subject, catalog)
     ('ELEC', '390'): ('COEN', '390'),
 }
 
 # Courses that are copied verbatim from the previous year's scheduleterm
-# (all components, all meeting patterns) without GA optimisation.
-# Only applied for fall (season 2) and winter (season 4).
+
 PASSTHROUGH_COURSES = {
     ('ELEC', '490'), ('COEN', '490'),
 }
 
 
-# ---------------------------------------------------------------------------
+
 # Small helpers
-# ---------------------------------------------------------------------------
+
 
 def should_exclude_course(subject: str, catalog: str) -> bool:
     return (subject, catalog) in EXCLUDED_COURSES
@@ -151,9 +132,9 @@ def extract_day_numbers(day_enum) -> List[int]:
     return [day_enum] if isinstance(day_enum, int) else []
 
 
-# ---------------------------------------------------------------------------
+
 # SemesterDates cache — avoids rebuilding for every course
-# ---------------------------------------------------------------------------
+
 
 _semester_cache: Dict[Tuple[int, int, str], SemesterDates] = {}
 
@@ -179,9 +160,9 @@ def _resolve_course_session(season: int, prev_session: str) -> str:
     return get_session_code(season)
 
 
-# ---------------------------------------------------------------------------
-# Previous-year cache (for carrying over classnumber, session, etc.)
-# ---------------------------------------------------------------------------
+
+# Previous-year cache 
+
 
 def get_previous_year_data(subject, catalog, section, componentcode, cache):
     key = (subject, catalog, section, componentcode)
@@ -222,9 +203,9 @@ def build_previous_year_cache(previous_termcode: str) -> Dict:
         }
         cache[key] = val
 
-        # Base-section key: (ELEC, 275, C, TUT)
+        
         # The GA uses the first character of the section as class_nbr.
-        # This ensures lookup by base section finds the correct session metadata.
+        
         base_sec = r['section'][0] if r['section'] else r['section']
         base_key = (r['subject'], r['catalog'], base_sec, r['componentcode'])
         if base_key not in cache:
@@ -237,9 +218,9 @@ def build_previous_year_cache(previous_termcode: str) -> Dict:
     return cache
 
 
-# ---------------------------------------------------------------------------
+
 # DB table creation
-# ---------------------------------------------------------------------------
+
 
 def create_scheduleterm_table():
     conn = get_connection()
@@ -296,9 +277,9 @@ def create_scheduleterm_table():
         conn.close()
 
 
-# ---------------------------------------------------------------------------
-# Insert lectures (carried over from previous year, meeting pattern 1 only)
-# ---------------------------------------------------------------------------
+
+# Insert lectures 
+
 
 def insert_lecture_records(termcode: str, year: int, season: int,
                            previous_termcode: str,
@@ -398,9 +379,9 @@ def insert_lecture_records(termcode: str, year: int, season: int,
         conn.close()
 
 
-# ---------------------------------------------------------------------------
-# Insert optimised tutorials + labs (labs get 6 meeting-pattern rows each)
-# ---------------------------------------------------------------------------
+
+# Insert optimised tutorials + labs 
+
 
 def insert_optimized_components(schedule: List[Course], room_assignments,
                                  termcode: str, year: int, season: int,
@@ -446,7 +427,7 @@ def insert_optimized_components(schedule: List[Course], room_assignments,
             section = course.class_nbr
             source_key = (course.subject, course.catalog_nbr)
 
-            # --- Tutorials (1 row per tutorial, meeting pattern 1) ---------
+            # --- Tutorials ---
             if course.tutorial:
                 prev_tut = get_previous_year_data(
                     course.subject, course.catalog_nbr, section, 'TUT',
@@ -502,7 +483,7 @@ def insert_optimized_components(schedule: List[Course], room_assignments,
                         cur.execute(insert_sql, clone_params)
                         count += 1
 
-            # --- Labs (6 meeting-pattern rows per lab section) -------------
+            # --- Labs ---
             if course.lab:
                 prev_lab = get_previous_year_data(
                     course.subject, course.catalog_nbr, section, 'LAB',
@@ -576,9 +557,9 @@ def insert_optimized_components(schedule: List[Course], room_assignments,
         conn.close()
 
 
-# ---------------------------------------------------------------------------
-# CSV export (mirror of the DB export)
-# ---------------------------------------------------------------------------
+
+# CSV export 
+
 
 def _build_csv_rows_for_schedule(schedule: List[Course], room_assignments,
                                   termcode: str, year: int, season: int,
@@ -664,7 +645,7 @@ def _build_csv_rows_for_schedule(schedule: List[Course], room_assignments,
             clone_row['classnumber'] = clone_cn
             rows.append(clone_row)
 
-    # --- Optimised tutorials and labs --------------------------------------
+    # --- Optimised tutorials and labs ---
     for course in schedule:
         if should_exclude_course(course.subject, course.catalog_nbr):
             continue
@@ -841,9 +822,9 @@ def export_csv(rows: List[Dict], output_path: str):
         writer.writerows(rows)
 
 
-# ---------------------------------------------------------------------------
-# Pass-through courses (copied verbatim from previous year's scheduleterm)
-# ---------------------------------------------------------------------------
+
+# Pass-through courses 
+
 
 def _build_passthrough_filter() -> str:
     """Build a SQL OR clause for PASSTHROUGH_COURSES."""
@@ -855,15 +836,7 @@ def _build_passthrough_filter() -> str:
 
 def insert_passthrough_records(termcode: str, year: int, season: int,
                                 previous_termcode: str) -> int:
-    """Copy all rows for pass-through courses from the previous year's
-    scheduleterm into optimized_schedule with updated termcode and dates.
 
-    All components (LEC, TUT, LAB) and all meeting patterns are copied.
-    Only called for fall (season 2) and winter (season 4).
-
-    Some pass-through courses (e.g. ELEC 490, COEN 490) are registered
-    under the Fall+Winter term (season 3), so we also query that termcode.
-    """
     if season not in (2, 4):
         return 0
 
@@ -1043,34 +1016,14 @@ def _build_passthrough_csv_rows(termcode: str, year: int, season: int,
     return rows
 
 
-# ---------------------------------------------------------------------------
+
 # Public entry point
-# ---------------------------------------------------------------------------
+
 
 def export_to_scheduleterm_format(schedule: List[Course], room_assignments,
                                    year: int, season: int,
                                    csv_output_path: str = None) -> bool:
-    """Export complete timetable in scheduleterm format to DB + optional CSV.
 
-    For summer (season 1), all session types (13W, 6H1, 6H2) are handled
-    automatically — each course gets dates based on its previous-year session.
-
-    For fall (season 2) and winter (season 4), pass-through courses (ELEC 490,
-    COEN 490) are copied verbatim from the previous year's scheduleterm.
-
-    Parameters
-    ----------
-    schedule : list of Course
-        The best individual from the GA.
-    room_assignments : list or dict
-        Room assignment data.
-    year : int
-        Academic year (e.g. 2026).
-    season : int
-        Season code (1=Summer, 2=Fall, 3=Fall+Winter, 4=Winter).
-    csv_output_path : str, optional
-        If given, also write a CSV file with the same rows.
-    """
     try:
         termcode = build_termcode(year, season)
         previous_year = year - 1
