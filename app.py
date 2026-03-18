@@ -1036,8 +1036,11 @@ def api_events():
 
     query = f"""
         SELECT DISTINCT ON (st.subject, st.catalog, st.section,
-                            st.componentcode, st.classnumber,
-                            st.meetingpatternnumber)
+                            st.componentcode,
+                            st.classstarttime, st.classendtime,
+                            st.mondays, st.tuesdays, st.wednesdays,
+                            st.thursdays, st.fridays, st.saturdays,
+                            st.sundays)
             st.subject, st.catalog, st.section, st.componentcode,
             st.classnumber,
             COALESCE(NULLIF(st.buildingcode, ''), lr.building) AS buildingcode,
@@ -1143,8 +1146,11 @@ def api_events():
 
     query += """
         ORDER BY st.subject, st.catalog, st.section,
-                 st.componentcode, st.classnumber,
-                 st.meetingpatternnumber
+                 st.componentcode,
+                 st.classstarttime, st.classendtime,
+                 st.mondays, st.tuesdays, st.wednesdays,
+                 st.thursdays, st.fridays, st.saturdays,
+                 st.sundays
         LIMIT 2000
     """
 
