@@ -59,11 +59,11 @@ def fetch_sequence_courses() -> List[Dict]:
 
 
 def season_to_number(season: str) -> int:
-    """Convert season name to number (2=fall, 4=winter, 6=summer)."""
+    """Convert season name to number (1=summer, 2=fall, 4=winter)."""
     season_map = {
+        'summer': 1,
         'fall': 2,
-        'winter': 4,
-        'summer': 6
+        'winter': 4
     }
     return season_map.get(season.lower(), 0)
 
