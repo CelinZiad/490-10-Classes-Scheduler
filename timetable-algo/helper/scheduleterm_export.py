@@ -1,89 +1,195 @@
 # scheduleterm_export.py
-from typing import List, Dict, Tuple
+"""
+Export optimised timetable to the ``optimized_schedule`` database table and to a
+CSV file, producing one row per meeting‑pattern for labs (6 rows per lab section
+for biweekly semesters, 6 for weekly summer 6H sessions) and one row each for
+lectures and tutorials with semester‑spanning dates.
+
+For summer (season 1) the export handles all three session types (13W, 6H1, 6H2)
+in a single run.  Each course's session code is carried over from the previous
+year's ``scheduleterm`` data, so 13W courses get 4‑month dates, 6H1 courses get
+May–June dates, and 6H2 courses get July–August dates — all in one output.
+
+Season codes understood by config.TARGET_SEASON:
+    1 = Summer   (sessions 13W / 6H1 / 6H2)
+    2 = Fall
+    3 = Fall+Winter
+    4 = Winter
+"""
+from typing import List, Dict, Tuple, Optional
 from datetime import date
+import csv
 from .db import get_connection, fetch_all
 from genetic_algo.course import Course
+from .academic_calendar import (
+    SemesterDates,
+    get_lec_tut_dates,
+    compute_lab_meeting_dates,
+    get_session_code,
+    format_date,
+)
 
 
 EXCLUDED_COURSES = {
     ('ELEC', '430'), ('ELEC', '434'), ('ELEC', '436'), ('ELEC', '438'),
-    ('ELEC', '446'), ('ELEC', '443'), ('ELEC', '498')
+    ('ELEC', '446'), ('ELEC', '443'), ('ELEC', '490'), ('ELEC', '498'),
+    ('COEN', '390'), ('COEN', '490')
+}
+
+# COEN 390 is a cross-listed duplicate of ELEC 390.  It is excluded from the
+# GA but must reappear in exports with ELEC 390's optimised times and COEN 390's
+# own classnumber values from the previous-year scheduleterm.
+CROSS_LISTED = {
+    # (source_subject, catalog): (clone_subject, catalog)
+    ('ELEC', '390'): ('COEN', '390'),
+}
+
+# Courses that are copied verbatim from the previous year's scheduleterm
+# (all components, all meeting patterns) without GA optimisation.
+# Only applied for fall (season 2) and winter (season 4).
+PASSTHROUGH_COURSES = {
+    ('ELEC', '490'), ('COEN', '490'),
 }
 
 
+# ---------------------------------------------------------------------------
+# Small helpers
+# ---------------------------------------------------------------------------
+
 def should_exclude_course(subject: str, catalog: str) -> bool:
-    """Check if course should be excluded from scheduling."""
     return (subject, catalog) in EXCLUDED_COURSES
 
 
 def build_termcode(year: int, season: int) -> str:
-    """Build termcode from year and season (Format: 2 + YY + S)."""
     year_suffix = str(year)[-2:]
     return f"2{year_suffix}{season}"
 
 
-def get_session_code(season: int, previous_session: str = None) -> str:
-    """Get session code based on season."""
-    if season == 2 or season == 4:
-        return "13W"
-    elif season == 3:
-        return "26W"
-    elif season == 1:
-        return previous_session if previous_session else "13W"
-    return "13W"
+def _build_cross_list_classnumber_map(previous_termcode: str) -> Dict:
+    """Build a map from (subject, catalog, section, componentcode) -> classnumber
+    for the clone side of every CROSS_LISTED pair.
+
+    This lets us stamp COEN 390 rows with the correct classnumber values from
+    the scheduleterm table.
+    """
+    clone_subjects = set()
+    for (_, _), (clone_subj, clone_cat) in CROSS_LISTED.items():
+        clone_subjects.add((clone_subj, clone_cat))
+
+    if not clone_subjects:
+        return {}
+
+    sql = """
+        SELECT subject, catalog, section, componentcode, classnumber
+        FROM scheduleterm
+        WHERE termcode = %s
+          AND departmentcode = 'ELECCOEN'
+          AND meetingpatternnumber = 1
+    """
+    records = fetch_all(sql, (previous_termcode,))
+
+    mapping: Dict = {}
+    for r in records:
+        key = (r['subject'], r['catalog'])
+        if key in clone_subjects:
+            full_key = (r['subject'], r['catalog'], r['section'], r['componentcode'])
+            mapping[full_key] = r['classnumber']
+            alt_key = (r['subject'], r['catalog'], r['componentcode'])
+            if alt_key not in mapping:
+                mapping[alt_key] = r['classnumber']
+    return mapping
 
 
-def get_class_dates(season: int, componentcode: str, session: str = None, 
-                   day_numbers: List[int] = None) -> Tuple[str, str]:
-    """Get class start and end dates based on season, component, and days."""
-    if componentcode in ('LEC', 'TUT'):
-        if season == 2:
-            return ('2026-09-08', '2026-12-07')
-        elif season == 4:
-            return ('2027-01-11', '2027-04-12')
-        elif season == 3:
-            return ('2026-09-08', '2027-04-12')
-        elif season == 1 and session == '13W':
-            return ('2026-05-11', '2026-08-12')
-    
-    elif componentcode == 'LAB' and day_numbers:
-        has_week1 = any(d in [1, 2, 3, 4, 5] for d in day_numbers)
-        has_week2 = any(d in [8, 9, 10, 11, 12] for d in day_numbers)
-        
-        if season == 2:
-            if has_week1 and not has_week2:
-                return ('2026-09-20', '2026-09-26')
-            elif has_week2 and not has_week1:
-                return ('2026-09-27', '2026-10-03')
-            elif has_week1 and has_week2:
-                return ('2026-09-20', '2026-10-03')
-        
-        elif season == 4:
-            if has_week1 and not has_week2:
-                return ('2027-01-24', '2027-01-30')
-            elif has_week2 and not has_week1:
-                return ('2027-01-31', '2027-02-06')
-            elif has_week1 and has_week2:
-                return ('2027-01-24', '2027-02-06')
-        
-        elif season == 3:
-            return ('', '')
-    
-    return ('', '')
+def minutes_to_time(minutes: int) -> str:
+    hours = minutes // 60
+    mins = minutes % 60
+    return f"{hours:02d}:{mins:02d}:00"
 
 
-def get_previous_year_data(subject: str, catalog: str, section: str, 
-                           componentcode: str, previous_year_cache: Dict) -> Dict:
-    """Get data from previous academic year cache."""
+def day_number_to_day_columns(day_num: int) -> Dict[str, bool]:
+    day_map = {
+        1: 'mondays', 2: 'tuesdays', 3: 'wednesdays', 4: 'thursdays', 5: 'fridays',
+        8: 'mondays', 9: 'tuesdays', 10: 'wednesdays', 11: 'thursdays', 12: 'fridays'
+    }
+    result = {
+        'mondays': False, 'tuesdays': False, 'wednesdays': False,
+        'thursdays': False, 'fridays': False, 'saturdays': False, 'sundays': False
+    }
+    day_col = day_map.get(day_num)
+    if day_col:
+        result[day_col] = True
+    return result
+
+
+def combine_day_columns(day_numbers: List[int]) -> Dict[str, bool]:
+    result = {
+        'mondays': False, 'tuesdays': False, 'wednesdays': False,
+        'thursdays': False, 'fridays': False, 'saturdays': False, 'sundays': False
+    }
+    for day_num in day_numbers:
+        dc = day_number_to_day_columns(day_num)
+        for day, value in dc.items():
+            if value:
+                result[day] = True
+    return result
+
+
+def extract_day_numbers(day_enum) -> List[int]:
+    if isinstance(day_enum, int):
+        return [day_enum]
+    day_str = str(day_enum)
+    if 'Week1' in day_str or 'Week2' in day_str:
+        day_map = {
+            'Week1Monday': 1, 'Week1Tuesday': 2, 'Week1Wednesday': 3,
+            'Week1Thursday': 4, 'Week1Friday': 5,
+            'Week2Monday': 8, 'Week2Tuesday': 9, 'Week2Wednesday': 10,
+            'Week2Thursday': 11, 'Week2Friday': 12
+        }
+        for key, val in day_map.items():
+            if key in day_str:
+                return [val]
+    return [day_enum] if isinstance(day_enum, int) else []
+
+
+# ---------------------------------------------------------------------------
+# SemesterDates cache — avoids rebuilding for every course
+# ---------------------------------------------------------------------------
+
+_semester_cache: Dict[Tuple[int, int, str], SemesterDates] = {}
+
+
+def _get_semester_dates(year: int, season: int, session: str) -> SemesterDates:
+    """Return a cached SemesterDates for the given (year, season, session)."""
+    key = (year, season, session)
+    if key not in _semester_cache:
+        _semester_cache[key] = SemesterDates(year, season, session)
+    return _semester_cache[key]
+
+
+def _resolve_course_session(season: int, prev_session: str) -> str:
+    """Determine the session code for a course.
+
+    For summer (season 1) the previous year's session is carried forward
+    (13W, 6H1, or 6H2).  For other seasons the session is deterministic.
+    """
+    if season == 1:
+        if prev_session in ('13W', '6H1', '6H2'):
+            return prev_session
+        return '13W'  # default summer
+    return get_session_code(season)
+
+
+# ---------------------------------------------------------------------------
+# Previous-year cache (for carrying over classnumber, session, etc.)
+# ---------------------------------------------------------------------------
+
+def get_previous_year_data(subject, catalog, section, componentcode, cache):
     key = (subject, catalog, section, componentcode)
-    
-    if key in previous_year_cache:
-        return previous_year_cache[key]
-    
-    alt_key = (subject, catalog, componentcode)
-    if alt_key in previous_year_cache:
-        return previous_year_cache[alt_key]
-    
+    if key in cache:
+        return cache[key]
+    alt = (subject, catalog, componentcode)
+    if alt in cache:
+        return cache[alt]
     return {
         'classnumber': None,
         'session': '13W',
@@ -94,7 +200,6 @@ def get_previous_year_data(subject: str, catalog: str, section: str,
 
 
 def build_previous_year_cache(previous_termcode: str) -> Dict:
-    """Build a cache of previous year's schedule data."""
     sql = """
         SELECT subject, catalog, section, componentcode, classnumber,
                session, instructionmodecode, locationcode, career
@@ -103,36 +208,45 @@ def build_previous_year_cache(previous_termcode: str) -> Dict:
           AND departmentcode = 'ELECCOEN'
           AND meetingpatternnumber = 1
     """
-    
     records = fetch_all(sql, (previous_termcode,))
-    
     cache = {}
-    for record in records:
-        key = (record['subject'], record['catalog'], record['section'], record['componentcode'])
-        cache[key] = {
-            'classnumber': record['classnumber'],
-            'session': record.get('session', '13W'),
-            'instructionmodecode': record.get('instructionmodecode', 'P'),
-            'locationcode': record.get('locationcode', 'SGW'),
-            'career': record.get('career', 'UGRD')
+    for r in records:
+        # Full section key: (ELEC, 275, CDDE, TUT)
+        key = (r['subject'], r['catalog'], r['section'], r['componentcode'])
+        val = {
+            'classnumber': r['classnumber'],
+            'session': r.get('session', '13W'),
+            'instructionmodecode': r.get('instructionmodecode', 'P'),
+            'locationcode': r.get('locationcode', 'SGW'),
+            'career': r.get('career', 'UGRD')
         }
-        
-        alt_key = (record['subject'], record['catalog'], record['componentcode'])
-        if alt_key not in cache:
-            cache[alt_key] = cache[key]
-    
+        cache[key] = val
+
+        # Base-section key: (ELEC, 275, C, TUT)
+        # The GA uses the first character of the section as class_nbr.
+        # This ensures lookup by base section finds the correct session metadata.
+        base_sec = r['section'][0] if r['section'] else r['section']
+        base_key = (r['subject'], r['catalog'], base_sec, r['componentcode'])
+        if base_key not in cache:
+            cache[base_key] = val
+
+        # Subject+catalog+component fallback: (ELEC, 275, TUT)
+        alt = (r['subject'], r['catalog'], r['componentcode'])
+        if alt not in cache:
+            cache[alt] = val
     return cache
 
 
+# ---------------------------------------------------------------------------
+# DB table creation
+# ---------------------------------------------------------------------------
+
 def create_scheduleterm_table():
-    """Create optimized_schedule table with full scheduleterm structure."""
     conn = get_connection()
-    cursor = conn.cursor()
-    
+    cur = conn.cursor()
     try:
-        cursor.execute("DROP TABLE IF EXISTS optimized_schedule CASCADE")
-        
-        cursor.execute("""
+        cur.execute("DROP TABLE IF EXISTS optimized_schedule CASCADE")
+        cur.execute("""
             CREATE TABLE optimized_schedule (
                 id SERIAL PRIMARY KEY,
                 subject VARCHAR(10),
@@ -168,92 +282,29 @@ def create_scheduleterm_table():
                 meetingpatternnumber INTEGER DEFAULT 1
             )
         """)
-        
-        cursor.execute("CREATE INDEX idx_opt_subject_catalog ON optimized_schedule(subject, catalog)")
-        cursor.execute("CREATE INDEX idx_opt_section ON optimized_schedule(section)")
-        cursor.execute("CREATE INDEX idx_opt_component ON optimized_schedule(componentcode)")
-        cursor.execute("CREATE INDEX idx_opt_termcode ON optimized_schedule(termcode)")
-        
+        cur.execute("CREATE INDEX idx_opt_subject_catalog ON optimized_schedule(subject, catalog)")
+        cur.execute("CREATE INDEX idx_opt_section ON optimized_schedule(section)")
+        cur.execute("CREATE INDEX idx_opt_component ON optimized_schedule(componentcode)")
+        cur.execute("CREATE INDEX idx_opt_termcode ON optimized_schedule(termcode)")
         conn.commit()
         return True
-        
     except Exception:
         conn.rollback()
         return False
-        
     finally:
-        cursor.close()
+        cur.close()
         conn.close()
 
 
-def minutes_to_time(minutes: int) -> str:
-    """Convert minutes since midnight to HH:MM:SS format."""
-    hours = minutes // 60
-    mins = minutes % 60
-    return f"{hours:02d}:{mins:02d}:00"
+# ---------------------------------------------------------------------------
+# Insert lectures (carried over from previous year, meeting pattern 1 only)
+# ---------------------------------------------------------------------------
 
-
-def day_number_to_day_columns(day_num: int) -> Dict[str, bool]:
-    """Convert day number to boolean day columns (1-5 Week 1, 8-12 Week 2)."""
-    day_map = {
-        1: 'mondays', 2: 'tuesdays', 3: 'wednesdays', 4: 'thursdays', 5: 'fridays',
-        8: 'mondays', 9: 'tuesdays', 10: 'wednesdays', 11: 'thursdays', 12: 'fridays'
-    }
-    
-    result = {
-        'mondays': False, 'tuesdays': False, 'wednesdays': False,
-        'thursdays': False, 'fridays': False, 'saturdays': False, 'sundays': False
-    }
-    
-    day_col = day_map.get(day_num)
-    if day_col:
-        result[day_col] = True
-    
-    return result
-
-
-def combine_day_columns(day_numbers: List[int]) -> Dict[str, bool]:
-    """Combine multiple day numbers into single set of day columns."""
-    result = {
-        'mondays': False, 'tuesdays': False, 'wednesdays': False,
-        'thursdays': False, 'fridays': False, 'saturdays': False, 'sundays': False
-    }
-    
-    for day_num in day_numbers:
-        day_cols = day_number_to_day_columns(day_num)
-        for day, value in day_cols.items():
-            if value:
-                result[day] = True
-    
-    return result
-
-
-def extract_day_numbers(day_enum):
-    """Extract day numbers from Day enum."""
-    if isinstance(day_enum, int):
-        return [day_enum]
-    
-    day_str = str(day_enum)
-    
-    if 'Week1' in day_str or 'Week2' in day_str:
-        day_map = {
-            'Week1Monday': 1, 'Week1Tuesday': 2, 'Week1Wednesday': 3,
-            'Week1Thursday': 4, 'Week1Friday': 5,
-            'Week2Monday': 8, 'Week2Tuesday': 9, 'Week2Wednesday': 10,
-            'Week2Thursday': 11, 'Week2Friday': 12
-        }
-        for key, val in day_map.items():
-            if key in day_str:
-                return [val]
-    
-    return [day_enum] if isinstance(day_enum, int) else []
-
-
-def insert_lecture_records(termcode: str, season: int, previous_termcode: str) -> int:
-    """Insert lecture records from previous year into optimized_schedule."""
+def insert_lecture_records(termcode: str, year: int, season: int,
+                           previous_termcode: str,
+                           cross_list_map: Dict = None) -> int:
     conn = get_connection()
-    cursor = conn.cursor()
-    
+    cur = conn.cursor()
     try:
         sql = """
             SELECT subject, catalog, section, componentcode, classnumber,
@@ -267,20 +318,603 @@ def insert_lecture_records(termcode: str, season: int, previous_termcode: str) -
               AND departmentcode = 'ELECCOEN'
               AND componentcode = 'LEC'
               AND meetingpatternnumber = 1
-              AND classstarttime != '00:00:00'
+              AND classstartdate != '0001-01-01'
         """
-        
         lectures = fetch_all(sql, (previous_termcode,))
-        
         count = 0
-        session_code = get_session_code(season)
-        start_date, end_date = get_class_dates(season, 'LEC', session_code)
-        
+        cross_list_map = cross_list_map or {}
+
+        insert_sql = """
+            INSERT INTO optimized_schedule
+            (subject, catalog, section, componentcode, termcode, classnumber,
+             session, buildingcode, room, instructionmodecode, locationcode,
+             currentwaitlisttotal, waitlistcapacity, enrollmentcapacity, currentenrollment,
+             departmentcode, facultycode, classstarttime, classendtime,
+             classstartdate, classenddate,
+             mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays,
+             facultydescription, career, meetingpatternnumber)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                    %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        """
+
         for lec in lectures:
             if should_exclude_course(lec['subject'], lec['catalog']):
                 continue
-            
-            cursor.execute("""
+
+            # Per-course session resolution (matters for summer)
+            lec_session = lec.get('session', '13W') or '13W'
+            session_code = _resolve_course_session(season, lec_session)
+            sem = _get_semester_dates(year, season, session_code)
+            start_d, end_d = get_lec_tut_dates(sem)
+
+            params = (
+                lec['subject'], lec['catalog'], lec['section'], 'LEC', termcode,
+                lec['classnumber'], session_code, lec['buildingcode'], lec['room'],
+                lec['instructionmodecode'], lec['locationcode'],
+                lec['currentwaitlisttotal'], lec['waitlistcapacity'],
+                lec['enrollmentcapacity'], lec['currentenrollment'],
+                lec['departmentcode'], lec['facultycode'],
+                lec['classstarttime'], lec['classendtime'],
+                format_date(start_d), format_date(end_d),
+                lec['mondays'], lec['tuesdays'], lec['wednesdays'],
+                lec['thursdays'], lec['fridays'], lec['saturdays'], lec['sundays'],
+                lec['facultydescription'], lec['career'], 1
+            )
+            cur.execute(insert_sql, params)
+            count += 1
+
+            # Duplicate for cross-listed courses (e.g. ELEC 390 -> COEN 390)
+            source_key = (lec['subject'], lec['catalog'])
+            if source_key in CROSS_LISTED:
+                clone_subj, clone_cat = CROSS_LISTED[source_key]
+                clone_cn_key = (clone_subj, clone_cat, lec['section'], 'LEC')
+                clone_cn_alt = (clone_subj, clone_cat, 'LEC')
+                clone_classnumber = cross_list_map.get(
+                    clone_cn_key, cross_list_map.get(clone_cn_alt, lec['classnumber']))
+
+                clone_params = (
+                    clone_subj, clone_cat, lec['section'], 'LEC', termcode,
+                    clone_classnumber, session_code, lec['buildingcode'], lec['room'],
+                    lec['instructionmodecode'], lec['locationcode'],
+                    lec['currentwaitlisttotal'], lec['waitlistcapacity'],
+                    lec['enrollmentcapacity'], lec['currentenrollment'],
+                    lec['departmentcode'], lec['facultycode'],
+                    lec['classstarttime'], lec['classendtime'],
+                    format_date(start_d), format_date(end_d),
+                    lec['mondays'], lec['tuesdays'], lec['wednesdays'],
+                    lec['thursdays'], lec['fridays'], lec['saturdays'], lec['sundays'],
+                    lec['facultydescription'], lec['career'], 1
+                )
+                cur.execute(insert_sql, clone_params)
+                count += 1
+
+        conn.commit()
+        return count
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Insert optimised tutorials + labs (labs get 6 meeting-pattern rows each)
+# ---------------------------------------------------------------------------
+
+def insert_optimized_components(schedule: List[Course], room_assignments,
+                                 termcode: str, year: int, season: int,
+                                 previous_year_cache: Dict,
+                                 cross_list_map: Dict = None) -> int:
+    """Insert tutorials (1 row each) and labs (6 rows each) into the DB."""
+    conn = get_connection()
+    cur = conn.cursor()
+    cross_list_map = cross_list_map or {}
+
+    insert_sql = """
+        INSERT INTO optimized_schedule
+        (subject, catalog, section, componentcode, termcode, classnumber,
+         session, buildingcode, room, instructionmodecode, locationcode,
+         currentwaitlisttotal, waitlistcapacity, enrollmentcapacity, currentenrollment,
+         departmentcode, facultycode, classstarttime, classendtime,
+         classstartdate, classenddate,
+         mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays,
+         facultydescription, career, meetingpatternnumber)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+    """
+
+    try:
+        count = 0
+
+        for course in schedule:
+            if should_exclude_course(course.subject, course.catalog_nbr):
+                continue
+
+            # Resolve room assignment
+            building, room = '', ''
+            if isinstance(room_assignments, list):
+                for a in room_assignments:
+                    if (a.subject.strip().upper() == course.subject.upper()
+                            and course.catalog_nbr in a.catalog_nbrs):
+                        building, room = a.bldg, a.room
+                        break
+            elif isinstance(room_assignments, dict):
+                building, room = room_assignments.get(
+                    (course.subject, course.catalog_nbr), ('', ''))
+
+            section = course.class_nbr
+            source_key = (course.subject, course.catalog_nbr)
+
+            # --- Tutorials (1 row per tutorial, meeting pattern 1) ---------
+            if course.tutorial:
+                prev_tut = get_previous_year_data(
+                    course.subject, course.catalog_nbr, section, 'TUT',
+                    previous_year_cache)
+                session = _resolve_course_session(season, prev_tut['session'])
+                sem = _get_semester_dates(year, season, session)
+                start_d, end_d = get_lec_tut_dates(sem)
+                career = 'GRAD' if course.catalog_nbr.startswith('6') else 'UGRD'
+                instr_mode = prev_tut['instructionmodecode']
+                location = 'SGW' if instr_mode == 'P' else 'ONL'
+
+                for tut in course.tutorial:
+                    if tut is None or not tut.day:
+                        continue
+                    all_days = []
+                    for de in tut.day:
+                        all_days.extend(extract_day_numbers(de))
+                    day_cols = combine_day_columns(all_days)
+
+                    params = (
+                        course.subject, course.catalog_nbr, section, 'TUT', termcode,
+                        prev_tut['classnumber'], session, '', '', instr_mode, location,
+                        0, 0, 0, 0, 'ELECCOEN', 'ENCS',
+                        minutes_to_time(tut.start), minutes_to_time(tut.end),
+                        format_date(start_d), format_date(end_d),
+                        day_cols['mondays'], day_cols['tuesdays'], day_cols['wednesdays'],
+                        day_cols['thursdays'], day_cols['fridays'], day_cols['saturdays'],
+                        day_cols['sundays'],
+                        'Gina Cody School of Engineering & Computer Science', career, 1
+                    )
+                    cur.execute(insert_sql, params)
+                    count += 1
+
+                    # Duplicate for cross-listed course
+                    if source_key in CROSS_LISTED:
+                        clone_subj, clone_cat = CROSS_LISTED[source_key]
+                        clone_cn_key = (clone_subj, clone_cat, section, 'TUT')
+                        clone_cn_alt = (clone_subj, clone_cat, 'TUT')
+                        clone_cn = cross_list_map.get(
+                            clone_cn_key, cross_list_map.get(
+                                clone_cn_alt, prev_tut['classnumber']))
+                        clone_params = (
+                            clone_subj, clone_cat, section, 'TUT', termcode,
+                            clone_cn, session, '', '', instr_mode, location,
+                            0, 0, 0, 0, 'ELECCOEN', 'ENCS',
+                            minutes_to_time(tut.start), minutes_to_time(tut.end),
+                            format_date(start_d), format_date(end_d),
+                            day_cols['mondays'], day_cols['tuesdays'], day_cols['wednesdays'],
+                            day_cols['thursdays'], day_cols['fridays'], day_cols['saturdays'],
+                            day_cols['sundays'],
+                            'Gina Cody School of Engineering & Computer Science', career, 1
+                        )
+                        cur.execute(insert_sql, clone_params)
+                        count += 1
+
+            # --- Labs (6 meeting-pattern rows per lab section) -------------
+            if course.lab:
+                prev_lab = get_previous_year_data(
+                    course.subject, course.catalog_nbr, section, 'LAB',
+                    previous_year_cache)
+                session = _resolve_course_session(season, prev_lab['session'])
+                sem = _get_semester_dates(year, season, session)
+                career = 'GRAD' if course.catalog_nbr.startswith('6') else 'UGRD'
+                instr_mode = prev_lab['instructionmodecode']
+                location = 'SGW' if instr_mode == 'P' else 'ONL'
+                bldg_code = building if building else ''
+
+                for lab in course.lab:
+                    if lab is None or not lab.day:
+                        continue
+
+                    all_days = []
+                    for de in lab.day:
+                        all_days.extend(extract_day_numbers(de))
+
+                    day_cols = combine_day_columns(all_days)
+
+                    # Compute the 6 meeting dates using the course's own session
+                    meeting_dates = compute_lab_meeting_dates(sem, all_days, 6)
+
+                    for mpn, (mp_start, mp_end) in enumerate(meeting_dates, start=1):
+                        params = (
+                            course.subject, course.catalog_nbr, section, 'LAB', termcode,
+                            prev_lab['classnumber'], session, bldg_code, room,
+                            instr_mode, location,
+                            0, 0, 16, 0, 'ELECCOEN', 'ENCS',
+                            minutes_to_time(lab.start), minutes_to_time(lab.end),
+                            format_date(mp_start), format_date(mp_end),
+                            day_cols['mondays'], day_cols['tuesdays'], day_cols['wednesdays'],
+                            day_cols['thursdays'], day_cols['fridays'], day_cols['saturdays'],
+                            day_cols['sundays'],
+                            'Gina Cody School of Engineering & Computer Science', career, mpn
+                        )
+                        cur.execute(insert_sql, params)
+                        count += 1
+
+                        # Duplicate for cross-listed course
+                        if source_key in CROSS_LISTED:
+                            clone_subj, clone_cat = CROSS_LISTED[source_key]
+                            clone_cn_key = (clone_subj, clone_cat, section, 'LAB')
+                            clone_cn_alt = (clone_subj, clone_cat, 'LAB')
+                            clone_cn = cross_list_map.get(
+                                clone_cn_key, cross_list_map.get(
+                                    clone_cn_alt, prev_lab['classnumber']))
+                            clone_params = (
+                                clone_subj, clone_cat, section, 'LAB', termcode,
+                                clone_cn, session, bldg_code, room,
+                                instr_mode, location,
+                                0, 0, 16, 0, 'ELECCOEN', 'ENCS',
+                                minutes_to_time(lab.start), minutes_to_time(lab.end),
+                                format_date(mp_start), format_date(mp_end),
+                                day_cols['mondays'], day_cols['tuesdays'], day_cols['wednesdays'],
+                                day_cols['thursdays'], day_cols['fridays'], day_cols['saturdays'],
+                                day_cols['sundays'],
+                                'Gina Cody School of Engineering & Computer Science', career, mpn
+                            )
+                            cur.execute(insert_sql, clone_params)
+                            count += 1
+
+        conn.commit()
+        return count
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        cur.close()
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# CSV export (mirror of the DB export)
+# ---------------------------------------------------------------------------
+
+def _build_csv_rows_for_schedule(schedule: List[Course], room_assignments,
+                                  termcode: str, year: int, season: int,
+                                  previous_year_cache: Dict,
+                                  previous_termcode: str,
+                                  cross_list_map: Dict = None) -> List[Dict]:
+    """Build all CSV rows (lectures from prev year + optimised tuts/labs)."""
+    rows: List[Dict] = []
+    cross_list_map = cross_list_map or {}
+
+    # --- Lectures from previous year ---------------------------------------
+    sql = """
+        SELECT subject, catalog, section, componentcode, classnumber,
+               session, buildingcode, room, instructionmodecode, locationcode,
+               currentwaitlisttotal, waitlistcapacity, enrollmentcapacity, currentenrollment,
+               departmentcode, facultycode, classstarttime, classendtime,
+               mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays,
+               facultydescription, career
+        FROM scheduleterm
+        WHERE termcode = %s
+          AND departmentcode = 'ELECCOEN'
+          AND componentcode = 'LEC'
+          AND meetingpatternnumber = 1
+          AND classstartdate != '0001-01-01'
+    """
+    lectures = fetch_all(sql, (previous_termcode,))
+
+    for lec in lectures:
+        if should_exclude_course(lec['subject'], lec['catalog']):
+            continue
+
+        lec_session = lec.get('session', '13W') or '13W'
+        session_code = _resolve_course_session(season, lec_session)
+        sem = _get_semester_dates(year, season, session_code)
+        start_d, end_d = get_lec_tut_dates(sem)
+
+        row = {
+            'subject': lec['subject'],
+            'catalog': lec['catalog'],
+            'section': lec['section'],
+            'componentcode': 'LEC',
+            'termcode': termcode,
+            'classnumber': lec['classnumber'],
+            'session': session_code,
+            'buildingcode': lec['buildingcode'] or '',
+            'room': lec['room'] or '',
+            'instructionmodecode': lec['instructionmodecode'] or 'P',
+            'locationcode': lec['locationcode'] or 'SGW',
+            'currentwaitlisttotal': lec['currentwaitlisttotal'] or 0,
+            'waitlistcapacity': lec['waitlistcapacity'] or 0,
+            'enrollmentcapacity': lec['enrollmentcapacity'] or 0,
+            'currentenrollment': lec['currentenrollment'] or 0,
+            'departmentcode': lec['departmentcode'] or 'ELECCOEN',
+            'facultycode': lec['facultycode'] or 'ENCS',
+            'classstarttime': str(lec['classstarttime']) if lec['classstarttime'] else '00:00:00',
+            'classendtime': str(lec['classendtime']) if lec['classendtime'] else '00:00:00',
+            'classstartdate': format_date(start_d) or '',
+            'classenddate': format_date(end_d) or '',
+            'mondays': lec['mondays'],
+            'tuesdays': lec['tuesdays'],
+            'wednesdays': lec['wednesdays'],
+            'thursdays': lec['thursdays'],
+            'fridays': lec['fridays'],
+            'saturdays': lec['saturdays'],
+            'sundays': lec['sundays'],
+            'facultydescription': lec['facultydescription'] or '',
+            'career': lec['career'] or 'UGRD',
+            'meetingpatternnumber': 1,
+        }
+        rows.append(row)
+
+        # Duplicate for cross-listed courses
+        source_key = (lec['subject'], lec['catalog'])
+        if source_key in CROSS_LISTED:
+            clone_subj, clone_cat = CROSS_LISTED[source_key]
+            clone_cn_key = (clone_subj, clone_cat, lec['section'], 'LEC')
+            clone_cn_alt = (clone_subj, clone_cat, 'LEC')
+            clone_cn = cross_list_map.get(
+                clone_cn_key, cross_list_map.get(clone_cn_alt, lec['classnumber']))
+            clone_row = dict(row)
+            clone_row['subject'] = clone_subj
+            clone_row['catalog'] = clone_cat
+            clone_row['classnumber'] = clone_cn
+            rows.append(clone_row)
+
+    # --- Optimised tutorials and labs --------------------------------------
+    for course in schedule:
+        if should_exclude_course(course.subject, course.catalog_nbr):
+            continue
+
+        building, room = '', ''
+        if isinstance(room_assignments, list):
+            for a in room_assignments:
+                if (a.subject.strip().upper() == course.subject.upper()
+                        and course.catalog_nbr in a.catalog_nbrs):
+                    building, room = a.bldg, a.room
+                    break
+        elif isinstance(room_assignments, dict):
+            building, room = room_assignments.get(
+                (course.subject, course.catalog_nbr), ('', ''))
+
+        section = course.class_nbr
+        source_key = (course.subject, course.catalog_nbr)
+
+        # Tutorials
+        if course.tutorial:
+            prev_tut = get_previous_year_data(
+                course.subject, course.catalog_nbr, section, 'TUT',
+                previous_year_cache)
+            session = _resolve_course_session(season, prev_tut['session'])
+            sem = _get_semester_dates(year, season, session)
+            tut_start, tut_end = get_lec_tut_dates(sem)
+            career = 'GRAD' if course.catalog_nbr.startswith('6') else 'UGRD'
+            instr_mode = prev_tut['instructionmodecode']
+            location = 'SGW' if instr_mode == 'P' else 'ONL'
+
+            for tut in course.tutorial:
+                if tut is None or not tut.day:
+                    continue
+                all_days = []
+                for de in tut.day:
+                    all_days.extend(extract_day_numbers(de))
+                day_cols = combine_day_columns(all_days)
+
+                row = {
+                    'subject': course.subject,
+                    'catalog': course.catalog_nbr,
+                    'section': section,
+                    'componentcode': 'TUT',
+                    'termcode': termcode,
+                    'classnumber': prev_tut['classnumber'] or '',
+                    'session': session,
+                    'buildingcode': '',
+                    'room': '',
+                    'instructionmodecode': instr_mode,
+                    'locationcode': location,
+                    'currentwaitlisttotal': 0,
+                    'waitlistcapacity': 0,
+                    'enrollmentcapacity': 0,
+                    'currentenrollment': 0,
+                    'departmentcode': 'ELECCOEN',
+                    'facultycode': 'ENCS',
+                    'classstarttime': minutes_to_time(tut.start),
+                    'classendtime': minutes_to_time(tut.end),
+                    'classstartdate': format_date(tut_start) or '',
+                    'classenddate': format_date(tut_end) or '',
+                    **day_cols,
+                    'facultydescription': 'Gina Cody School of Engineering & Computer Science',
+                    'career': career,
+                    'meetingpatternnumber': 1,
+                }
+                rows.append(row)
+
+                # Duplicate for cross-listed course
+                if source_key in CROSS_LISTED:
+                    clone_subj, clone_cat = CROSS_LISTED[source_key]
+                    clone_cn_key = (clone_subj, clone_cat, section, 'TUT')
+                    clone_cn_alt = (clone_subj, clone_cat, 'TUT')
+                    clone_cn = cross_list_map.get(
+                        clone_cn_key, cross_list_map.get(
+                            clone_cn_alt, prev_tut['classnumber'] or ''))
+                    clone_row = dict(row)
+                    clone_row['subject'] = clone_subj
+                    clone_row['catalog'] = clone_cat
+                    clone_row['classnumber'] = clone_cn
+                    rows.append(clone_row)
+
+        # Labs — 6 rows per lab section
+        if course.lab:
+            prev_lab = get_previous_year_data(
+                course.subject, course.catalog_nbr, section, 'LAB',
+                previous_year_cache)
+            session = _resolve_course_session(season, prev_lab['session'])
+            sem = _get_semester_dates(year, season, session)
+            career = 'GRAD' if course.catalog_nbr.startswith('6') else 'UGRD'
+            instr_mode = prev_lab['instructionmodecode']
+            location = 'SGW' if instr_mode == 'P' else 'ONL'
+            bldg_code = building if building else ''
+
+            for lab in course.lab:
+                if lab is None or not lab.day:
+                    continue
+                all_days = []
+                for de in lab.day:
+                    all_days.extend(extract_day_numbers(de))
+                day_cols = combine_day_columns(all_days)
+
+                meeting_dates = compute_lab_meeting_dates(sem, all_days, 6)
+
+                for mpn, (mp_start, mp_end) in enumerate(meeting_dates, start=1):
+                    row = {
+                        'subject': course.subject,
+                        'catalog': course.catalog_nbr,
+                        'section': section,
+                        'componentcode': 'LAB',
+                        'termcode': termcode,
+                        'classnumber': prev_lab['classnumber'] or '',
+                        'session': session,
+                        'buildingcode': bldg_code,
+                        'room': room,
+                        'instructionmodecode': instr_mode,
+                        'locationcode': location,
+                        'currentwaitlisttotal': 0,
+                        'waitlistcapacity': 0,
+                        'enrollmentcapacity': 16,
+                        'currentenrollment': 0,
+                        'departmentcode': 'ELECCOEN',
+                        'facultycode': 'ENCS',
+                        'classstarttime': minutes_to_time(lab.start),
+                        'classendtime': minutes_to_time(lab.end),
+                        'classstartdate': format_date(mp_start) or '',
+                        'classenddate': format_date(mp_end) or '',
+                        **day_cols,
+                        'facultydescription': 'Gina Cody School of Engineering & Computer Science',
+                        'career': career,
+                        'meetingpatternnumber': mpn,
+                    }
+                    rows.append(row)
+
+                    # Duplicate for cross-listed course
+                    if source_key in CROSS_LISTED:
+                        clone_subj, clone_cat = CROSS_LISTED[source_key]
+                        clone_cn_key = (clone_subj, clone_cat, section, 'LAB')
+                        clone_cn_alt = (clone_subj, clone_cat, 'LAB')
+                        clone_cn = cross_list_map.get(
+                            clone_cn_key, cross_list_map.get(
+                                clone_cn_alt, prev_lab['classnumber'] or ''))
+                        clone_row = dict(row)
+                        clone_row['subject'] = clone_subj
+                        clone_row['catalog'] = clone_cat
+                        clone_row['classnumber'] = clone_cn
+                        rows.append(clone_row)
+
+    return rows
+
+
+def _csv_fieldnames() -> List[str]:
+    return [
+        'subject', 'catalog', 'section', 'componentcode', 'termcode',
+        'classnumber', 'session', 'buildingcode', 'room',
+        'instructionmodecode', 'locationcode',
+        'currentwaitlisttotal', 'waitlistcapacity',
+        'enrollmentcapacity', 'currentenrollment',
+        'departmentcode', 'facultycode',
+        'classstarttime', 'classendtime',
+        'classstartdate', 'classenddate',
+        'mondays', 'tuesdays', 'wednesdays', 'thursdays',
+        'fridays', 'saturdays', 'sundays',
+        'facultydescription', 'career', 'meetingpatternnumber',
+    ]
+
+
+def export_csv(rows: List[Dict], output_path: str):
+    """Write rows to CSV."""
+    if not rows:
+        return
+    with open(output_path, 'w', newline='', encoding='utf-8-sig') as f:
+        writer = csv.DictWriter(f, fieldnames=_csv_fieldnames())
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+# ---------------------------------------------------------------------------
+# Pass-through courses (copied verbatim from previous year's scheduleterm)
+# ---------------------------------------------------------------------------
+
+def _build_passthrough_filter() -> str:
+    """Build a SQL OR clause for PASSTHROUGH_COURSES."""
+    clauses = []
+    for subj, cat in PASSTHROUGH_COURSES:
+        clauses.append(f"(subject = '{subj}' AND catalog = '{cat}')")
+    return ' OR '.join(clauses)
+
+
+def insert_passthrough_records(termcode: str, year: int, season: int,
+                                previous_termcode: str) -> int:
+    """Copy all rows for pass-through courses from the previous year's
+    scheduleterm into optimized_schedule with updated termcode and dates.
+
+    All components (LEC, TUT, LAB) and all meeting patterns are copied.
+    Only called for fall (season 2) and winter (season 4).
+
+    Some pass-through courses (e.g. ELEC 490, COEN 490) are registered
+    under the Fall+Winter term (season 3), so we also query that termcode.
+    """
+    if season not in (2, 4):
+        return 0
+
+    filter_clause = _build_passthrough_filter()
+    if not filter_clause:
+        return 0
+
+    # Also look in the Fall+Winter termcode (season 3) for 8-month courses
+    previous_year = year - 1
+    fw_termcode = build_termcode(previous_year, 3)
+
+    sql = f"""
+        SELECT subject, catalog, section, componentcode, classnumber,
+               session, buildingcode, room, instructionmodecode, locationcode,
+               currentwaitlisttotal, waitlistcapacity, enrollmentcapacity, currentenrollment,
+               departmentcode, facultycode, classstarttime, classendtime,
+               mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays,
+               facultydescription, career, meetingpatternnumber
+        FROM scheduleterm
+        WHERE termcode IN (%s, %s)
+          AND departmentcode = 'ELECCOEN'
+          AND classstartdate != '0001-01-01'
+          AND ({filter_clause})
+        ORDER BY subject, catalog, classnumber, componentcode, meetingpatternnumber
+    """
+    records = fetch_all(sql, (previous_termcode, fw_termcode))
+    if not records:
+        return 0
+
+    conn = get_connection()
+    cur = conn.cursor()
+
+    # Pass-through courses are Fall+Winter (8-month): session 26W,
+    # classstartdate from fall semester, classenddate from winter semester.
+    session_code = '26W'
+    fall_sem = _get_semester_dates(year, 2, '13W')
+    winter_sem = _get_semester_dates(year + 1, 4, '13W')
+    fall_start, _ = get_lec_tut_dates(fall_sem)
+    _, winter_end = get_lec_tut_dates(winter_sem)
+
+    try:
+        count = 0
+        for r in records:
+            if r['componentcode'] == 'LAB' and r['meetingpatternnumber'] > 1:
+                start_d = r.get('classstartdate')
+                end_d = r.get('classenddate')
+            else:
+                start_d = fall_start
+                end_d = winter_end
+
+            cur.execute("""
                 INSERT INTO optimized_schedule
                 (subject, catalog, section, componentcode, termcode, classnumber,
                  session, buildingcode, room, instructionmodecode, locationcode,
@@ -289,188 +923,187 @@ def insert_lecture_records(termcode: str, season: int, previous_termcode: str) -
                  classstartdate, classenddate,
                  mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays,
                  facultydescription, career, meetingpatternnumber)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                        %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,
+                        %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             """, (
-                lec['subject'], lec['catalog'], lec['section'], 'LEC', termcode,
-                lec['classnumber'], session_code, lec['buildingcode'], lec['room'],
-                lec['instructionmodecode'], lec['locationcode'],
-                lec['currentwaitlisttotal'], lec['waitlistcapacity'],
-                lec['enrollmentcapacity'], lec['currentenrollment'],
-                lec['departmentcode'], lec['facultycode'],
-                lec['classstarttime'], lec['classendtime'],
-                start_date if start_date else None, end_date if end_date else None,
-                lec['mondays'], lec['tuesdays'], lec['wednesdays'],
-                lec['thursdays'], lec['fridays'], lec['saturdays'], lec['sundays'],
-                lec['facultydescription'], lec['career'], 1
+                r['subject'], r['catalog'], r['section'], r['componentcode'],
+                termcode, r['classnumber'], session_code,
+                r['buildingcode'] or '', r['room'] or '',
+                r['instructionmodecode'] or 'P', r['locationcode'] or 'SGW',
+                r['currentwaitlisttotal'] or 0, r['waitlistcapacity'] or 0,
+                r['enrollmentcapacity'] or 0, r['currentenrollment'] or 0,
+                r['departmentcode'] or 'ELECCOEN', r['facultycode'] or 'ENCS',
+                r['classstarttime'], r['classendtime'],
+                format_date(start_d) if isinstance(start_d, date) else (start_d or ''),
+                format_date(end_d) if isinstance(end_d, date) else (end_d or ''),
+                r['mondays'], r['tuesdays'], r['wednesdays'],
+                r['thursdays'], r['fridays'], r['saturdays'], r['sundays'],
+                r['facultydescription'] or '', r['career'] or 'UGRD',
+                r['meetingpatternnumber']
             ))
             count += 1
-        
+
         conn.commit()
         return count
-        
     except Exception:
         conn.rollback()
         raise
-        
     finally:
-        cursor.close()
+        cur.close()
         conn.close()
 
 
-def insert_optimized_components(schedule: List[Course], room_assignments,
-                                termcode: str, season: int, previous_year_cache: Dict) -> int:
-    """Insert optimized tutorials and labs into optimized_schedule."""
-    conn = get_connection()
-    cursor = conn.cursor()
-    
-    try:
-        count = 0
-        tutorial_count = 0
-        lab_count = 0
-        
-        for course in schedule:
-            if should_exclude_course(course.subject, course.catalog_nbr):
-                continue
-            
-            building = ''
-            room = ''
-            if isinstance(room_assignments, list):
-                for assignment in room_assignments:
-                    if (assignment.subject.strip().upper() == course.subject.upper() and 
-                        course.catalog_nbr in assignment.catalog_nbrs):
-                        building = assignment.bldg
-                        room = assignment.room
-                        break
-            elif isinstance(room_assignments, dict):
-                key = (course.subject, course.catalog_nbr)
-                building, room = room_assignments.get(key, ('', ''))
-            
-            section = course.class_nbr
-            
-            if course.tutorial:
-                prev_tut = get_previous_year_data(
-                    course.subject, course.catalog_nbr, section, 'TUT', previous_year_cache
-                )
-                
-                session = get_session_code(season, prev_tut['session'])
-                start_date, end_date = get_class_dates(season, 'TUT', session)
-                career = 'GRAD' if course.catalog_nbr.startswith('6') else 'UGRD'
-                instruction_mode = prev_tut['instructionmodecode']
-                location = 'SGW' if instruction_mode == 'P' else 'ONL'
-                
-                for tut_idx, tut in enumerate(course.tutorial):
-                    if tut is None or not tut.day:
-                        continue
-                    all_day_numbers = []
-                    for day_enum in tut.day:
-                        all_day_numbers.extend(extract_day_numbers(day_enum))
-                    
-                    day_cols = combine_day_columns(all_day_numbers)
-                    
-                    cursor.execute("""
-                        INSERT INTO optimized_schedule
-                        (subject, catalog, section, componentcode, termcode, classnumber,
-                         session, buildingcode, room, instructionmodecode, locationcode,
-                         currentwaitlisttotal, waitlistcapacity, enrollmentcapacity, currentenrollment,
-                         departmentcode, facultycode, classstarttime, classendtime,
-                         classstartdate, classenddate,
-                         mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays,
-                         facultydescription, career, meetingpatternnumber)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        course.subject, course.catalog_nbr, section, 'TUT', termcode,
-                        prev_tut['classnumber'], session, '', '', instruction_mode, location,
-                        0, 0, 0, 0, 'ELECCOEN', 'ENCS',
-                        minutes_to_time(tut.start), minutes_to_time(tut.end),
-                        start_date if start_date else None, end_date if end_date else None,
-                        day_cols['mondays'], day_cols['tuesdays'], day_cols['wednesdays'],
-                        day_cols['thursdays'], day_cols['fridays'], day_cols['saturdays'],
-                        day_cols['sundays'],
-                        'Gina Cody School of Engineering & Computer Science', career, 1
-                    ))
-                    count += 1
-                    tutorial_count += 1
-            
-            if course.lab:
-                prev_lab = get_previous_year_data(
-                    course.subject, course.catalog_nbr, section, 'LAB', previous_year_cache
-                )
-                
-                session = get_session_code(season, prev_lab['session'])
-                career = 'GRAD' if course.catalog_nbr.startswith('6') else 'UGRD'
-                instruction_mode = prev_lab['instructionmodecode']
-                location = 'SGW' if instruction_mode == 'P' else 'ONL'
-                buildingcode = building if building else ''
+def _build_passthrough_csv_rows(termcode: str, year: int, season: int,
+                                 previous_termcode: str) -> List[Dict]:
+    """Build CSV rows for pass-through courses.
 
-                for lab_idx, lab in enumerate(course.lab):
-                    if lab is None or not lab.day:
-                        continue
-                    all_day_numbers = []
-                    for day_enum in lab.day:
-                        all_day_numbers.extend(extract_day_numbers(day_enum))
-                    
-                    start_date, end_date = get_class_dates(season, 'LAB', session, all_day_numbers)
-                    day_cols = combine_day_columns(all_day_numbers)
-                    
-                    cursor.execute("""
-                        INSERT INTO optimized_schedule
-                        (subject, catalog, section, componentcode, termcode, classnumber,
-                         session, buildingcode, room, instructionmodecode, locationcode,
-                         currentwaitlisttotal, waitlistcapacity, enrollmentcapacity, currentenrollment,
-                         departmentcode, facultycode, classstarttime, classendtime,
-                         classstartdate, classenddate,
-                         mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays,
-                         facultydescription, career, meetingpatternnumber)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                                %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                    """, (
-                        course.subject, course.catalog_nbr, section, 'LAB', termcode,
-                        prev_lab['classnumber'], session, buildingcode, room,
-                        instruction_mode, location,
-                        0, 0, 16, 0,
-                        'ELECCOEN', 'ENCS',
-                        minutes_to_time(lab.start), minutes_to_time(lab.end),
-                        start_date if start_date else None, end_date if end_date else None,
-                        day_cols['mondays'], day_cols['tuesdays'], day_cols['wednesdays'],
-                        day_cols['thursdays'], day_cols['fridays'], day_cols['saturdays'],
-                        day_cols['sundays'],
-                        'Gina Cody School of Engineering & Computer Science', career, 1
-                    ))
-                    count += 1
-                    lab_count += 1
-        
-        conn.commit()
-        return count
-        
-    except Exception:
-        conn.rollback()
-        raise
-        
-    finally:
-        cursor.close()
-        conn.close()
+    Only called for fall (season 2) and winter (season 4).
+    Also queries the Fall+Winter termcode (season 3) for 8-month courses.
+    """
+    if season not in (2, 4):
+        return []
 
+    filter_clause = _build_passthrough_filter()
+    if not filter_clause:
+        return []
+
+    previous_year = year - 1
+    fw_termcode = build_termcode(previous_year, 3)
+
+    sql = f"""
+        SELECT subject, catalog, section, componentcode, classnumber,
+               session, buildingcode, room, instructionmodecode, locationcode,
+               currentwaitlisttotal, waitlistcapacity, enrollmentcapacity, currentenrollment,
+               departmentcode, facultycode, classstarttime, classendtime,
+               classstartdate, classenddate,
+               mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays,
+               facultydescription, career, meetingpatternnumber
+        FROM scheduleterm
+        WHERE termcode IN (%s, %s)
+          AND departmentcode = 'ELECCOEN'
+          AND classstartdate != '0001-01-01'
+          AND ({filter_clause})
+        ORDER BY subject, catalog, classnumber, componentcode, meetingpatternnumber
+    """
+    records = fetch_all(sql, (previous_termcode, fw_termcode))
+
+    # Pass-through courses are Fall+Winter (8-month): session 26W,
+    # classstartdate from fall semester, classenddate from winter semester.
+    session_code = '26W'
+    fall_sem = _get_semester_dates(year, 2, '13W')
+    winter_sem = _get_semester_dates(year + 1, 4, '13W')
+    fall_start, _ = get_lec_tut_dates(fall_sem)
+    _, winter_end = get_lec_tut_dates(winter_sem)
+
+    rows: List[Dict] = []
+    for r in records:
+        if r['componentcode'] == 'LAB' and r['meetingpatternnumber'] > 1:
+            start_d = r.get('classstartdate')
+            end_d = r.get('classenddate')
+            start_str = format_date(start_d) if isinstance(start_d, date) else (str(start_d) if start_d else '')
+            end_str = format_date(end_d) if isinstance(end_d, date) else (str(end_d) if end_d else '')
+        else:
+            start_str = format_date(fall_start) or ''
+            end_str = format_date(winter_end) or ''
+
+        rows.append({
+            'subject': r['subject'],
+            'catalog': r['catalog'],
+            'section': r['section'],
+            'componentcode': r['componentcode'],
+            'termcode': termcode,
+            'classnumber': r['classnumber'],
+            'session': session_code,
+            'buildingcode': r['buildingcode'] or '',
+            'room': r['room'] or '',
+            'instructionmodecode': r['instructionmodecode'] or 'P',
+            'locationcode': r['locationcode'] or 'SGW',
+            'currentwaitlisttotal': r['currentwaitlisttotal'] or 0,
+            'waitlistcapacity': r['waitlistcapacity'] or 0,
+            'enrollmentcapacity': r['enrollmentcapacity'] or 0,
+            'currentenrollment': r['currentenrollment'] or 0,
+            'departmentcode': r['departmentcode'] or 'ELECCOEN',
+            'facultycode': r['facultycode'] or 'ENCS',
+            'classstarttime': str(r['classstarttime']) if r['classstarttime'] else '00:00:00',
+            'classendtime': str(r['classendtime']) if r['classendtime'] else '00:00:00',
+            'classstartdate': start_str,
+            'classenddate': end_str,
+            'mondays': r['mondays'],
+            'tuesdays': r['tuesdays'],
+            'wednesdays': r['wednesdays'],
+            'thursdays': r['thursdays'],
+            'fridays': r['fridays'],
+            'saturdays': r['saturdays'],
+            'sundays': r['sundays'],
+            'facultydescription': r['facultydescription'] or '',
+            'career': r['career'] or 'UGRD',
+            'meetingpatternnumber': r['meetingpatternnumber'],
+        })
+
+    return rows
+
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
 
 def export_to_scheduleterm_format(schedule: List[Course], room_assignments,
-                                   year: int, season: int) -> bool:
-    """Export complete timetable in scheduleterm format."""
+                                   year: int, season: int,
+                                   csv_output_path: str = None) -> bool:
+    """Export complete timetable in scheduleterm format to DB + optional CSV.
+
+    For summer (season 1), all session types (13W, 6H1, 6H2) are handled
+    automatically — each course gets dates based on its previous-year session.
+
+    For fall (season 2) and winter (season 4), pass-through courses (ELEC 490,
+    COEN 490) are copied verbatim from the previous year's scheduleterm.
+
+    Parameters
+    ----------
+    schedule : list of Course
+        The best individual from the GA.
+    room_assignments : list or dict
+        Room assignment data.
+    year : int
+        Academic year (e.g. 2026).
+    season : int
+        Season code (1=Summer, 2=Fall, 3=Fall+Winter, 4=Winter).
+    csv_output_path : str, optional
+        If given, also write a CSV file with the same rows.
+    """
     try:
         termcode = build_termcode(year, season)
         previous_year = year - 1
         previous_termcode = build_termcode(previous_year, season)
-        
+
         previous_year_cache = build_previous_year_cache(previous_termcode)
-        
+        cross_list_map = _build_cross_list_classnumber_map(previous_termcode)
+
         if not create_scheduleterm_table():
             return False
-        
-        insert_lecture_records(termcode, season, previous_termcode)
-        insert_optimized_components(schedule, room_assignments, termcode, season, previous_year_cache)
-        
+
+        insert_lecture_records(termcode, year, season, previous_termcode,
+                              cross_list_map)
+        insert_optimized_components(
+            schedule, room_assignments, termcode, year, season,
+            previous_year_cache, cross_list_map)
+
+        # Pass-through courses (fall/winter only)
+        insert_passthrough_records(termcode, year, season, previous_termcode)
+
+        # CSV export
+        if csv_output_path:
+            csv_rows = _build_csv_rows_for_schedule(
+                schedule, room_assignments, termcode, year, season,
+                previous_year_cache, previous_termcode, cross_list_map)
+            # Append pass-through rows
+            csv_rows.extend(
+                _build_passthrough_csv_rows(termcode, year, season,
+                                            previous_termcode))
+            export_csv(csv_rows, csv_output_path)
+
         return True
-        
+
     except Exception:
         return False
 
