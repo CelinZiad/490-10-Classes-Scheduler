@@ -1088,9 +1088,31 @@ def api_events():
 
         query += ")"
 
-    # DIRECT FILTERS
-    # Skip term filter for optimized schedule (it's already term-specific)
-    if term and source != "optimized":
+    # TERM CODE FILTER
+    # When a semester (termid) is selected, auto-detect the correct termcode
+    # from the season so we only show the latest year's schedule data.
+    if termid and source != "optimized":
+        season = db.session.execute(
+            db.text("SELECT season FROM sequenceterm WHERE sequencetermid = :tid"),
+            {"tid": termid},
+        ).scalar()
+
+        if season in ("fall", "winter", "summer"):
+            month_ranges = {"fall": (9, 12), "winter": (1, 4), "summer": (5, 8)}
+            m1, m2 = month_ranges[season]
+            latest_term = db.session.execute(
+                db.text("""
+                    SELECT MAX(termcode) FROM scheduleterm
+                    WHERE EXTRACT(MONTH FROM classstartdate) BETWEEN :m1 AND :m2
+                      AND classstartdate > '2000-01-01'
+                """),
+                {"m1": m1, "m2": m2},
+            ).scalar()
+
+            if latest_term:
+                query += " AND st.termcode = :auto_term"
+                params["auto_term"] = latest_term
+    elif term and source != "optimized":
         query += " AND st.termcode = :term"
         params["term"] = term
 
@@ -1256,9 +1278,30 @@ def api_filters():
         if r["termcode"] is not None
     ]
 
-    # Apply selected term filter to other dropdowns
+    # Apply term filter to other dropdowns.
+    # When a semester is selected, auto-detect the correct termcode from season.
     term_where = ""
-    if term:
+    if termid:
+        season = db.session.execute(
+            db.text("SELECT season FROM sequenceterm WHERE sequencetermid = :tid"),
+            {"tid": termid},
+        ).scalar()
+
+        if season in ("fall", "winter", "summer"):
+            month_ranges = {"fall": (9, 12), "winter": (1, 4), "summer": (5, 8)}
+            m1, m2 = month_ranges[season]
+            latest_term = db.session.execute(
+                db.text("""
+                    SELECT MAX(termcode) FROM scheduleterm
+                    WHERE EXTRACT(MONTH FROM classstartdate) BETWEEN :m1 AND :m2
+                      AND classstartdate > '2000-01-01'
+                """),
+                {"m1": m1, "m2": m2},
+            ).scalar()
+            if latest_term:
+                term_where = " AND sch.termcode = :term"
+                params["term"] = latest_term
+    elif term:
         term_where = " AND sch.termcode = :term"
         params["term"] = term
 
