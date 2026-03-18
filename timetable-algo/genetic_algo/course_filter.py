@@ -1,5 +1,6 @@
 # course_filter.py
-EXCLUDED_ELEC_COURSES = {'430', '434', '436', '438', '443', '446', '498'}
+EXCLUDED_ELEC_COURSES = {'430', '434', '436', '438', '443', '446', '490', '498'}
+EXCLUDED_COEN_COURSES = {'390', '490'}
 
 
 def should_include_course(subject: str, catalog: str) -> bool:
@@ -8,7 +9,7 @@ def should_include_course(subject: str, catalog: str) -> bool:
     catalog = catalog.strip()
     
     if subject == "COEN":
-        return True
+        return catalog not in EXCLUDED_COEN_COURSES
     
     if subject == "ELEC":
         return catalog not in EXCLUDED_ELEC_COURSES
