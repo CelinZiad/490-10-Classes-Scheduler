@@ -31,11 +31,17 @@
     </div>
 
   </form>
+
+  <!-- Search + Add toolbar -->
+  <div class="catalog-toolbar">
+    <input type="text" id="course-search" placeholder="Filter courses..." class="search-box">
+    <button type="button" class="add-btn" onclick="openAddModal()">+ Add Course</button>
+  </div>
 </div>
 
 <div class="card">
   {% if rows %}
-    <table class="data-table">
+    <table class="data-table" id="catalog-table">
       <thead>
         <tr>
           <th>Course</th>
@@ -49,7 +55,7 @@
 
       <tbody>
         {% for r in rows %}
-          <tr>
+          <tr data-subject="{{ r.subject }}" data-catalog="{{ r.catalog }}" data-elective="{{ 'true' if r.iselective else 'false' }}">
             <td>{{ r.subject }} {{ r.catalog }}</td>
             <td>{{ r.title if r.title else "Not found in catalog" }}</td>
             <td>{{ r.classunit if r.classunit is not none else "-" }}</td>
@@ -59,12 +65,20 @@
             </td>
 
             <td>
-              <button
-                type="button"
-                class="delete-btn"
-                onclick="openDeleteModal('{{ r.subject }}', '{{ r.catalog }}', '{{ selected_termid }}')">
-                Delete
-              </button>
+              <div class="action-btns">
+                <button
+                  type="button"
+                  class="edit-btn"
+                  onclick="openEditModal('{{ r.subject }}', '{{ r.catalog }}', {{ 'true' if r.iselective else 'false' }})">
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  class="delete-btn"
+                  onclick="openDeleteModal('{{ r.subject }}', '{{ r.catalog }}', '{{ selected_termid }}')">
+                  Delete
+                </button>
+              </div>
             </td>
 
           </tr>
@@ -76,7 +90,7 @@
   {% endif %}
 </div>
 
-<!-- 🔥 MODAL -->
+<!-- Delete Modal (Vincent's original) -->
 <div id="deleteModal" class="modal hidden">
   <div class="modal-content">
     <h3>Confirm Deletion</h3>
@@ -84,16 +98,94 @@
 
     <div class="modal-actions">
       <button onclick="confirmDelete()" class="delete-btn">Delete</button>
-      <button onclick="closeModal()">Cancel</button>
+      <button onclick="closeDeleteModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add / Edit Modal -->
+<div id="addEditModal" class="modal hidden">
+  <div class="modal-content" style="width:420px;">
+    <h3 id="addEditTitle">Add Course</h3>
+
+    <div id="cascadeWarn" class="cascade-warning" style="display:none;">
+      Changing the course code will cascade the update across all related tables (sections, labs, optimized schedule, etc.)
+    </div>
+
+    <label for="courseInput">Course</label>
+    <div class="ac-wrapper">
+      <input type="text" id="courseInput" placeholder="Type to search (e.g. COEN 212)..." autocomplete="off">
+      <div id="acList" class="ac-list" style="display:none;"></div>
+    </div>
+
+    <label for="modalTermId">Sequence Term</label>
+    <select id="modalTermId">
+      {% for t in terms %}
+        <option value="{{ t.sequencetermid }}"{{ ' selected' if t.sequencetermid == selected_termid else '' }}>
+          Year {{ t.yearnumber }} {{ t.season|title }}{% if t.workterm %} (Work){% endif %}
+        </option>
+      {% endfor %}
+    </select>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="modalElective">
+      <label for="modalElective">Elective</label>
+    </div>
+
+    <input type="hidden" id="editOldSubject">
+    <input type="hidden" id="editOldCatalog">
+    <input type="hidden" id="editOldTermId">
+    <input type="hidden" id="modalMode" value="add">
+
+    <div class="modal-actions">
+      <button type="button" onclick="saveAddEdit()" class="add-btn">Save</button>
+      <button type="button" onclick="closeAddEditModal()">Cancel</button>
     </div>
   </div>
 </div>
 
 <!-- JS -->
+<script>
+  const CURRENT_TERM_ID = "{{ selected_termid }}";
+</script>
 <script src="{{ url_for('static', filename='js/catalog.js') }}"></script>
 
 <!-- STYLE -->
 <style>
+.catalog-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.search-box {
+  flex: 1;
+  min-width: 200px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+.add-btn {
+  background-color: #27ae60;
+  color: white;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.add-btn:hover { background-color: #219a52; }
+.edit-btn {
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.edit-btn:hover { background-color: #1d4ed8; }
 .delete-btn {
   background-color: #e74c3c;
   color: white;
@@ -102,38 +194,101 @@
   border-radius: 6px;
   cursor: pointer;
 }
-
-.delete-btn:hover {
-  background-color: #c0392b;
+.delete-btn:hover { background-color: #c0392b; }
+.action-btns {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
 }
 
 .modal {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
   background: rgba(0,0,0,0.5);
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 1000;
 }
-
-.modal.hidden {
-  display: none;
-}
-
+.modal.hidden { display: none; }
 .modal-content {
   background: white;
   padding: 20px;
   border-radius: 10px;
   width: 300px;
 }
-
+.modal-content label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin: 8px 0 3px;
+}
+.modal-content input[type="text"],
+.modal-content select {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  margin-bottom: 4px;
+}
 .modal-actions {
-  margin-top: 10px;
+  margin-top: 12px;
   display: flex;
   justify-content: space-between;
+}
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+.checkbox-row input { width: auto; margin: 0; }
+.checkbox-row label { margin: 0; }
+.cascade-warning {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.8125rem;
+  color: #92400e;
+  margin-bottom: 8px;
+}
+.ac-wrapper { position: relative; }
+.ac-list {
+  position: absolute;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1001;
+  width: 100%;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.ac-list div {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.8125rem;
+}
+.ac-list div:hover { background: #eff6ff; }
+.toast {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  padding: 10px 18px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 0.875rem;
+  z-index: 2000;
+  animation: slideIn 0.3s ease;
+}
+.toast-success { background: #16a34a; }
+.toast-error   { background: #dc2626; }
+@keyframes slideIn {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
 }
 </style>
 
