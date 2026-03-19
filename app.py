@@ -2,7 +2,7 @@ import os
 import csv
 import io
 import json
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional
 from flask import Flask, render_template, jsonify, request, redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
@@ -1051,6 +1051,7 @@ def api_events():
             st.termcode, st.currentenrollment, st.enrollmentcapacity,
             st.currentwaitlisttotal, st.waitlistcapacity,
             st.meetingpatternnumber,
+            st.classstartdate, st.classenddate,
             c.title AS coursetitle
         FROM {source_table} st
         LEFT JOIN catalog c
@@ -1183,6 +1184,15 @@ def api_events():
         if not days_of_week:
             continue
 
+        # FullCalendar startRecur/endRecur bound recurring events to a date range.
+        # endRecur is exclusive, so add one day past classenddate.
+        start_recur = None
+        end_recur = None
+        if row["classstartdate"]:
+            start_recur = str(row["classstartdate"])
+        if row["classenddate"]:
+            end_recur = str(row["classenddate"] + timedelta(days=1))
+
         events.append(
             {
                 "id": f"{row['subject']}-{row['catalog']}-{row['section']}-{row['componentcode']}-{row['classnumber']}-{row['meetingpatternnumber']}",
@@ -1190,6 +1200,8 @@ def api_events():
                 "daysOfWeek": days_of_week,
                 "startTime": str(row["classstarttime"]),
                 "endTime": str(row["classendtime"]),
+                "startRecur": start_recur,
+                "endRecur": end_recur,
                 "allDay": False,
                 "color": COMPONENT_COLORS.get(row["componentcode"], DEFAULT_COLOR),
                 "extendedProps": {
