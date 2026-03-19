@@ -3,21 +3,7 @@ import csv
 from collections import defaultdict
 from typing import List, Dict, Tuple
 from .db import fetch_all
-
-
-def should_include_course(subject: str, catalog: str) -> bool:
-    """Determine if a course should be included in scheduling (COEN, ELEC, ENGR 290)."""
-    subject = subject.upper().strip()
-    catalog = catalog.strip()
-    
-    if subject == "COEN":
-        return True
-    if subject == "ELEC":
-        return True
-    if subject == "ENGR" and catalog == "290":
-        return True
-    
-    return False
+from genetic_algo.course_filter import should_include_course
 
 
 def fetch_sequence_plans() -> List[Dict]:
@@ -59,11 +45,11 @@ def fetch_sequence_courses() -> List[Dict]:
 
 
 def season_to_number(season: str) -> int:
-    """Convert season name to number (2=fall, 4=winter, 6=summer)."""
+    """Convert season name to number (1=summer, 2=fall, 4=winter)."""
     season_map = {
+        'summer': 1,
         'fall': 2,
-        'winter': 4,
-        'summer': 6
+        'winter': 4
     }
     return season_map.get(season.lower(), 0)
 

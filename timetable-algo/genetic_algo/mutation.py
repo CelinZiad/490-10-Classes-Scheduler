@@ -3,23 +3,10 @@ import random
 from copy import deepcopy
 from typing import List, Optional
 from course import Course
+from overlap_utils import times_overlap
 from initialization import (insert_tut_into_timetable, insert_lab_into_timetable, 
                            build_room_timetable_for_schedule, find_conflict_free_lab_slot)
 from config import MUTATION_COUNT
-
-def times_overlap(element1, element2):
-    """Check if two course elements overlap in time."""
-    if element1 is None or element2 is None:
-        return False
-    
-    days1 = set(element1.day)
-    days2 = set(element2.day)
-    
-    if not days1.intersection(days2):
-        return False
-    
-    return element1.start < element2.end and element2.start < element1.end
-
 
 def is_core_sequence_course(course, core_sequences):
     """Check if a course is part of any core sequence."""

@@ -60,7 +60,9 @@ def fetch_schedule_data(termcode: str, department_code: str = "ELECCOEN") -> Lis
     sql = """
         SELECT subject, catalog, section, componentcode, termcode, classnumber,
                session, buildingcode, room, instructionmodecode, locationcode,
-               classstarttime, classendtime, classstartdate, classenddate,
+               classstarttime, classendtime,
+               classstartdate::text AS classstartdate,
+               classenddate::text AS classenddate,
                mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays,
                currentwaitlisttotal, waitlistcapacity, enrollmentcapacity, currentenrollment,
                departmentcode, facultycode, facultydescription, career,
@@ -69,7 +71,7 @@ def fetch_schedule_data(termcode: str, department_code: str = "ELECCOEN") -> Lis
         WHERE termcode = %s 
           AND departmentcode = %s
           AND meetingpatternnumber = 1
-          AND classstarttime != '00:00:00'
+          AND classstartdate > '0001-01-01'
         ORDER BY subject, catalog, classnumber, componentcode
     """
     
@@ -77,26 +79,28 @@ def fetch_schedule_data(termcode: str, department_code: str = "ELECCOEN") -> Lis
 
 
 def extract_base_section(section: str, componentcode: str) -> str:
-    """Extract the base lecture section identifier from a section string."""
-    if componentcode == 'LEC':
-        return section.strip()
-    
+    """Extract the base lecture section identifier from a section string.
+
+    The grouping key is the first character of the section, which is shared
+    between the lecture and all its associated tutorials and labs.
+    E.g., LEC "AA", TUT "AAAE", LAB "AI-X" all share first char "A".
+    For fall/winter: LEC "J", LAB "JI-X" both share first char "J".
+    """
     section = section.strip()
-    
-    if ' ' in section:
-        return section.split()[0]
-    
-    if '-' in section:
-        base = section.split('-')[0]
-        if len(base) > 1:
-            return base[:-1] if base[:-1] else base
-        return base
-    
-    return section
+    if not section:
+        return section
+    return section[0]
 
 
 def group_by_lecture(records: List[Dict]) -> Dict:
-    """Group schedule records by lecture sections."""
+    """Group schedule records by lecture sections.
+
+    After initial first-character grouping, any orphaned groups (groups that
+    have tutorials or labs but no lecture) are merged into a parent group
+    that shares the same (subject, catalog) and does have a lecture.  This
+    handles courses like COEN 212 where a single LEC "AA" owns labs AI-X,
+    BI-X, CI-X, DI-X whose first characters (A, B, C, D) differ.
+    """
     grouped = defaultdict(lambda: {'lecture': None, 'tutorials': [], 'labs': []})
     
     for record in records:
@@ -117,7 +121,29 @@ def group_by_lecture(records: List[Dict]) -> Dict:
             grouped[key]['tutorials'].append(record)
         elif component == 'LAB':
             grouped[key]['labs'].append(record)
-    
+
+    # --- Merge orphaned groups into their parent LEC group ----------------
+    # Build a lookup: (subject, catalog) -> first key that has a LEC
+    lec_parent = {}
+    for key, data in grouped.items():
+        if data['lecture'] is not None:
+            course_key = (key[0], key[1])
+            if course_key not in lec_parent:
+                lec_parent[course_key] = key
+
+    orphans = []
+    for key, data in grouped.items():
+        if data['lecture'] is None:
+            course_key = (key[0], key[1])
+            parent_key = lec_parent.get(course_key)
+            if parent_key is not None and parent_key != key:
+                grouped[parent_key]['tutorials'].extend(data['tutorials'])
+                grouped[parent_key]['labs'].extend(data['labs'])
+                orphans.append(key)
+
+    for key in orphans:
+        del grouped[key]
+
     return grouped
 
 
@@ -131,18 +157,50 @@ def count_unique_sections(components: List[Dict]) -> int:
     return len(sections)
 
 
-def determine_lab_frequency(labs: List[Dict]) -> int:
-    """Determine biweekly lab frequency (default to 1 = once every two weeks)."""
+def get_unique_sections(components: List[Dict]) -> List[str]:
+    """Get sorted unique section strings from component records."""
+    sections = set()
+    for comp in components:
+        section = comp.get('section', '').strip()
+        if section:
+            sections.add(section)
+    return sorted(sections)
+
+
+def determine_lab_frequency(labs: List[Dict], session: str = "13W") -> int:
+    """Determine biweekly lab frequency based on session type.
+    
+    Returns 1 (once per 2 weeks) for fall, winter, and 13W summer sessions.
+    Returns 2 (twice per 2 weeks, i.e. weekly) for 6H1 and 6H2 summer sessions.
+    """
     if not labs:
         return 0
+    
+    session = session.upper().strip()
+    if session in ("6H1", "6H2"):
+        return 2
     return 1
 
 
 def determine_tutorial_frequency(tutorials: List[Dict]) -> int:
-    """Determine weekly tutorial frequency (default to 1 = once per week)."""
+    """Determine weekly tutorial frequency by counting scheduled days from a representative tutorial.
+    
+    Counts the number of TRUE day columns (mondays..sundays) on the first tutorial record.
+    E.g. mondays=TRUE, wednesdays=TRUE → frequency 2 (meets twice per week).
+    """
     if not tutorials:
         return 0
-    return 1
+    
+    tut = tutorials[0]
+    day_columns = ['mondays', 'tuesdays', 'wednesdays', 'thursdays', 
+                   'fridays', 'saturdays', 'sundays']
+    
+    count = 0
+    for col in day_columns:
+        if tut.get(col) == True or str(tut.get(col)).lower() == 'true':
+            count += 1
+    
+    return max(count, 1)
 
 
 def generate_data_csv(output_path: str = "Data.csv", 
@@ -172,6 +230,7 @@ def generate_data_csv(output_path: str = "Data.csv",
         end_time = parse_time_to_dotted(lecture['classendtime'])
         
         tut_count = count_unique_sections(data['tutorials'])
+        tut_sections = get_unique_sections(data['tutorials'])
         tut_duration = 0
         weekly_tut_freq = 0
         
@@ -184,6 +243,7 @@ def generate_data_csv(output_path: str = "Data.csv",
             weekly_tut_freq = determine_tutorial_frequency(data['tutorials'])
         
         lab_count = count_unique_sections(data['labs'])
+        lab_sections = get_unique_sections(data['labs'])
         lab_duration = 0
         biweekly_lab_freq = 0
         
@@ -193,8 +253,10 @@ def generate_data_csv(output_path: str = "Data.csv",
                 lab['classstarttime'], 
                 lab['classendtime']
             )
-            biweekly_lab_freq = determine_lab_frequency(data['labs'])
+            biweekly_lab_freq = determine_lab_frequency(data['labs'], lecture.get('session', '13W'))
         
+        lec_section = lecture.get('section', '').strip()
+
         row = {
             'subject': subject,
             'catalog_nbr': catalog,
@@ -207,7 +269,10 @@ def generate_data_csv(output_path: str = "Data.csv",
             'lab_duration': lab_duration if lab_count > 0 else '',
             'tut_count': tut_count if tut_count > 0 else '',
             'weekly_tut_freq': weekly_tut_freq if tut_count > 0 else '',
-            'tut_duration': tut_duration if tut_count > 0 else ''
+            'tut_duration': tut_duration if tut_count > 0 else '',
+            'lec_section': lec_section,
+            'tut_sections': ','.join(tut_sections) if tut_sections else '',
+            'lab_sections': ','.join(lab_sections) if lab_sections else '',
         }
         
         rows.append(row)
@@ -215,7 +280,8 @@ def generate_data_csv(output_path: str = "Data.csv",
     fieldnames = [
         'subject', 'catalog_nbr', 'class_nbr', 'day_of_week',
         'start_time', 'end_time', 'lab_count', 'biweekly_lab_freq',
-        'lab_duration', 'tut_count', 'weekly_tut_freq', 'tut_duration'
+        'lab_duration', 'tut_count', 'weekly_tut_freq', 'tut_duration',
+        'lec_section', 'tut_sections', 'lab_sections'
     ]
     
     with open(output_path, 'w', newline='', encoding='utf-8-sig') as f:
@@ -242,6 +308,7 @@ def extract_and_generate_course_data(output_path: str = "Data.csv",
         num_rows = generate_data_csv(output_path, year, season_code)
         
         if num_rows == 0:
+            print(f"Warning: generate_data_csv returned 0 rows for {output_path}")
             return False
         
         if show_summary:
@@ -249,8 +316,124 @@ def extract_and_generate_course_data(output_path: str = "Data.csv",
         
         return True
         
-    except Exception:
+    except Exception as e:
+        import traceback
+        print(f"Error generating {output_path}: {e}")
+        traceback.print_exc()
         return False
+
+
+def load_courses_from_db(year: int, season_code: int) -> List:
+    """Load courses directly from the scheduleterm table and return Course objects.
+
+    Queries the previous year's data (same as generate_data_csv) but builds
+    Course objects in memory instead of writing/reading a CSV file.
+    Courses with classstartdate='0001-01-01' are excluded by the query.
+    Courses with classstarttime='00:00:00' (e.g. online) are included with
+    an empty-day, zero-time lecture so their tutorials and labs are still scheduled.
+    """
+    from genetic_algo.course import Course, parse_time_to_minutes
+    from genetic_algo.course_element import CourseElement
+    from genetic_algo.day import parse_day_pattern as parse_day_pattern_ga
+
+    previous_year = year - 1
+    termcode = build_termcode(previous_year, season_code)
+
+    records = fetch_schedule_data(termcode, "ELECCOEN")
+    if not records:
+        return []
+
+    grouped = group_by_lecture(records)
+    courses = []
+
+    for (subject, catalog, base_sec), data in sorted(grouped.items()):
+        lecture_rec = data['lecture']
+        if not lecture_rec:
+            continue
+
+        # Build day pattern string from boolean columns
+        day_pattern_str = parse_day_pattern(lecture_rec)
+
+        # Parse lecture times (empty days / 00:00:00 times are valid for online courses)
+        if day_pattern_str:
+            start_time_str = parse_time_to_dotted(lecture_rec['classstarttime'])
+            end_time_str = parse_time_to_dotted(lecture_rec['classendtime'])
+            try:
+                lec_days = parse_day_pattern_ga(day_pattern_str)
+                lec_start = parse_time_to_minutes(start_time_str)
+                lec_end = parse_time_to_minutes(end_time_str)
+            except (ValueError, KeyError):
+                lec_days = ()
+                lec_start = 0
+                lec_end = 0
+        else:
+            lec_days = ()
+            lec_start = 0
+            lec_end = 0
+
+        lec_section = lecture_rec.get('section', '').strip()
+
+        lecture_elem = CourseElement(
+            day=lec_days,
+            start=lec_start,
+            end=lec_end,
+            bldg=None,
+            room=None,
+            section=lec_section or None
+        )
+
+        # Tutorial counts and duration
+        tut_count = count_unique_sections(data['tutorials'])
+        tut_sections = get_unique_sections(data['tutorials'])
+        tut_duration = 0
+        weekly_tut_freq = 0
+        if data['tutorials']:
+            tut_rec = data['tutorials'][0]
+            tut_duration = calculate_duration_minutes(
+                tut_rec['classstarttime'], tut_rec['classendtime'])
+            weekly_tut_freq = determine_tutorial_frequency(data['tutorials'])
+
+        # Lab counts and duration
+        lab_count = count_unique_sections(data['labs'])
+        lab_sections = get_unique_sections(data['labs'])
+        lab_duration = 0
+        biweekly_lab_freq = 0
+        if data['labs']:
+            lab_rec = data['labs'][0]
+            lab_duration = calculate_duration_minutes(
+                lab_rec['classstarttime'], lab_rec['classendtime'])
+            biweekly_lab_freq = determine_lab_frequency(data['labs'], lecture_rec.get('session', '13W'))
+
+        # Build empty CourseElement placeholders (GA will fill them in)
+        laboratory = tuple(
+            CourseElement(day=[], start=0, end=0, bldg=None, room=None,
+                          section=lab_sections[i] if i < len(lab_sections) else None)
+            for i in range(lab_count)
+        )
+        tutorials = tuple(
+            CourseElement(day=[], start=0, end=0, bldg=None, room=None,
+                          section=tut_sections[i] if i < len(tut_sections) else None)
+            for i in range(tut_count)
+        )
+
+        course = Course(
+            subject=subject,
+            catalog_nbr=catalog,
+            class_nbr=base_sec,
+            lecture=lecture_elem,
+            lab=laboratory,
+            tutorial=tutorials,
+            lab_count=lab_count,
+            biweekly_lab_freq=biweekly_lab_freq,
+            lab_duration=lab_duration,
+            tut_count=tut_count,
+            weekly_tut_freq=weekly_tut_freq,
+            tut_duration=tut_duration,
+            lec_section=lec_section,
+        )
+        courses.append(course)
+
+    return courses
 
 
 if __name__ == "__main__":

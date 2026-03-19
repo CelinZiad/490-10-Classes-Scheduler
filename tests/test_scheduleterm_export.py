@@ -2,13 +2,16 @@ import pytest
 from helper.scheduleterm_export import (
     should_exclude_course,
     build_termcode,
+    get_previous_year_data,
+)
+from helper.academic_calendar import (
     get_session_code,
-    get_class_dates,
+)
+from helper.time_utils import (
     minutes_to_time,
     day_number_to_day_columns,
     combine_day_columns,
     extract_day_numbers,
-    get_previous_year_data,
 )
 from day import Day
 
@@ -61,67 +64,6 @@ def test_session_summer_with_previous():
 
 def test_session_summer_no_previous():
     assert get_session_code(1) == "13W"
-
-
-# --- get_class_dates ---
-
-def test_dates_lec_fall():
-    start, end = get_class_dates(2, 'LEC')
-    assert start == '2026-09-08'
-    assert end == '2026-12-07'
-
-
-def test_dates_lec_winter():
-    start, end = get_class_dates(4, 'LEC')
-    assert start == '2027-01-11'
-    assert end == '2027-04-12'
-
-
-def test_dates_lec_year_long():
-    start, end = get_class_dates(3, 'LEC')
-    assert start == '2026-09-08'
-    assert end == '2027-04-12'
-
-
-def test_dates_tut_fall():
-    start, end = get_class_dates(2, 'TUT')
-    assert start == '2026-09-08'
-
-
-def test_dates_lab_fall_week1():
-    start, end = get_class_dates(2, 'LAB', day_numbers=[1, 3])
-    assert start == '2026-09-20'
-    assert end == '2026-09-26'
-
-
-def test_dates_lab_fall_week2():
-    start, end = get_class_dates(2, 'LAB', day_numbers=[8, 10])
-    assert start == '2026-09-27'
-    assert end == '2026-10-03'
-
-
-def test_dates_lab_fall_both_weeks():
-    start, end = get_class_dates(2, 'LAB', day_numbers=[3, 10])
-    assert start == '2026-09-20'
-    assert end == '2026-10-03'
-
-
-def test_dates_lab_winter_week1():
-    start, end = get_class_dates(4, 'LAB', day_numbers=[3])
-    assert start == '2027-01-24'
-    assert end == '2027-01-30'
-
-
-def test_dates_lab_year_long():
-    start, end = get_class_dates(3, 'LAB', day_numbers=[3])
-    assert start == ''
-    assert end == ''
-
-
-def test_dates_unknown_season():
-    start, end = get_class_dates(99, 'LEC')
-    assert start == ''
-    assert end == ''
 
 
 # --- minutes_to_time ---

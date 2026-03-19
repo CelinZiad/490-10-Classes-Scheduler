@@ -2,28 +2,14 @@
 import csv
 from typing import List, Dict, Tuple
 from genetic_algo.course import Course
+from genetic_algo.overlap_utils import times_overlap, has_valid_sequence_combination
 from itertools import product
-
-
-def times_overlap(element1, element2):
-    """Check if two course elements overlap in time."""
-    if element1 is None or element2 is None:
-        return False
-    
-    days1 = set(element1.day)
-    days2 = set(element2.day)
-    
-    if not days1.intersection(days2):
-        return False
-    
-    return element1.start < element2.end and element2.start < element1.end
 
 
 def minutes_to_time_string(minutes: int) -> str:
     """Convert minutes from midnight to HH:MM format."""
-    hours = minutes // 60
-    mins = minutes % 60
-    return f"{hours:02d}:{mins:02d}"
+    from .time_utils import minutes_to_time_short
+    return minutes_to_time_short(minutes)
 
 
 def extract_day_number(day):
@@ -254,82 +240,6 @@ def collect_sequence_conflicts(schedule: List[Course], core_sequences: List[List
                 })
     
     return conflicts
-
-
-def has_valid_sequence_combination(schedule, sequence_courses):
-    """Check if sequence has valid combination."""
-    courses = []
-    for course_code in sequence_courses:
-        subject = ''.join(c for c in course_code if c.isalpha())
-        catalog = ''.join(c for c in course_code if c.isdigit())
-        
-        for course in schedule:
-            if course.subject == subject and course.catalog_nbr == catalog:
-                courses.append(course)
-                break
-    
-    if len(courses) != len(sequence_courses):
-        return False
-    
-    all_tutorials = []
-    all_labs = []
-    
-    for course in courses:
-        if course.tutorial:
-            valid_tuts = [t for t in course.tutorial if t is not None]
-            if valid_tuts:
-                all_tutorials.append(valid_tuts)
-        
-        if course.lab:
-            valid_labs = [l for l in course.lab if l is not None]
-            if valid_labs:
-                all_labs.append(valid_labs)
-    
-    if not all_tutorials and not all_labs:
-        return True
-    
-    tut_iter = product(*all_tutorials) if all_tutorials else iter([[]])
-    lab_list = list(product(*all_labs)) if all_labs else [[]]
-
-    for tut_combo in tut_iter:
-        tut_has_overlap = False
-        for i, tut1 in enumerate(tut_combo):
-            for tut2 in tut_combo[i+1:]:
-                if times_overlap(tut1, tut2):
-                    tut_has_overlap = True
-                    break
-            if tut_has_overlap:
-                break
-
-        if tut_has_overlap:
-            continue
-
-        for lab_combo in lab_list:
-            lab_has_overlap = False
-            for i, lab1 in enumerate(lab_combo):
-                for lab2 in lab_combo[i+1:]:
-                    if times_overlap(lab1, lab2):
-                        lab_has_overlap = True
-                        break
-                if lab_has_overlap:
-                    break
-
-            if lab_has_overlap:
-                continue
-
-            tut_lab_overlap = False
-            for tut in tut_combo:
-                for lab in lab_combo:
-                    if times_overlap(tut, lab):
-                        tut_lab_overlap = True
-                        break
-                if tut_lab_overlap:
-                    break
-
-            if not tut_lab_overlap:
-                return True
-
-    return False
 
 
 def collect_room_conflicts(schedule: List[Course], room_assignments) -> List[Dict]:

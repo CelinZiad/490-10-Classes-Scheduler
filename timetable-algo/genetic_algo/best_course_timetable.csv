@@ -1,0 +1,342 @@
+Type,Subject,Catalog_Nbr,Class_Nbr,Section,Component_Index,Day_Number,Day_Name,Start_Time,End_Time,Start_Minutes,End_Minutes,Building,Room
+Lab,COEN,212,W,WJ-X,0,5,Week 1 - Friday,14:45,17:30,885,1050,H,807
+Lab,COEN,212,W,WN-X,2,11,Week 2 - Thursday,14:45,17:30,885,1050,H,807
+Lab,COEN,212,W,WL-X,1,12,Week 2 - Friday,11:45,14:30,705,870,H,807
+Lab,COEN,212,W,WR-X,3,12,Week 2 - Friday,14:45,17:30,885,1050,H,807
+Tutorial,COEN,212,W,W WC,2,1,Week 1 - Monday,08:45,10:25,525,625,,
+Tutorial,COEN,212,W,W WD,3,1,Week 1 - Monday,15:50,17:30,950,1050,,
+Tutorial,COEN,212,W,W WA,0,3,Week 1 - Wednesday,14:45,16:25,885,985,,
+Tutorial,COEN,212,W,W WB,1,5,Week 1 - Friday,11:45,13:25,705,805,,
+Tutorial,COEN,212,W,W WC,2,8,Week 2 - Monday,08:45,10:25,525,625,,
+Tutorial,COEN,212,W,W WD,3,8,Week 2 - Monday,15:50,17:30,950,1050,,
+Tutorial,COEN,212,W,W WA,0,10,Week 2 - Wednesday,14:45,16:25,885,985,,
+Tutorial,COEN,212,W,W WB,1,12,Week 2 - Friday,11:45,13:25,705,805,,
+Tutorial,COEN,231,W,W WB,1,1,Week 1 - Monday,17:45,18:35,1065,1115,,
+Tutorial,COEN,231,W,W WA,0,2,Week 1 - Tuesday,10:40,11:30,640,690,,
+Tutorial,COEN,231,W,W WC,2,3,Week 1 - Wednesday,19:40,20:30,1180,1230,,
+Tutorial,COEN,231,W,W WB,1,8,Week 2 - Monday,17:45,18:35,1065,1115,,
+Tutorial,COEN,231,W,W WA,0,9,Week 2 - Tuesday,10:40,11:30,640,690,,
+Tutorial,COEN,231,W,W WC,2,10,Week 2 - Wednesday,19:40,20:30,1180,1230,,
+Lab,COEN,243,J,JL-X,2,1,Week 1 - Monday,15:50,17:30,950,1050,,
+Lab,COEN,243,J,JI-X,0,4,Week 1 - Thursday,11:45,13:25,705,805,,
+Lab,COEN,243,J,JM-X,3,5,Week 1 - Friday,11:45,13:25,705,805,,
+Lab,COEN,243,J,JO-X,5,8,Week 2 - Monday,08:45,10:25,525,625,,
+Lab,COEN,243,J,JN-X,4,12,Week 2 - Friday,09:50,11:30,590,690,,
+Lab,COEN,243,J,JK-X,1,12,Week 2 - Friday,17:45,19:25,1065,1165,,
+Tutorial,COEN,243,J,J JB,1,2,Week 1 - Tuesday,12:50,14:30,770,870,,
+Tutorial,COEN,243,J,J JD,3,2,Week 1 - Tuesday,18:50,20:30,1130,1230,,
+Tutorial,COEN,243,J,J JC,2,3,Week 1 - Wednesday,11:45,13:25,705,805,,
+Tutorial,COEN,243,J,J JA,0,3,Week 1 - Wednesday,12:50,14:30,770,870,,
+Tutorial,COEN,243,J,J JE,4,4,Week 1 - Thursday,18:50,20:30,1130,1230,,
+Tutorial,COEN,243,J,J JB,1,9,Week 2 - Tuesday,12:50,14:30,770,870,,
+Tutorial,COEN,243,J,J JD,3,9,Week 2 - Tuesday,18:50,20:30,1130,1230,,
+Tutorial,COEN,243,J,J JC,2,10,Week 2 - Wednesday,11:45,13:25,705,805,,
+Tutorial,COEN,243,J,J JA,0,10,Week 2 - Wednesday,12:50,14:30,770,870,,
+Tutorial,COEN,243,J,J JE,4,11,Week 2 - Thursday,18:50,20:30,1130,1230,,
+Tutorial,COEN,244,D,D DB,1,2,Week 1 - Tuesday,11:45,13:25,705,805,,
+Tutorial,COEN,244,D,D DE,4,2,Week 1 - Tuesday,11:45,13:25,705,805,,
+Tutorial,COEN,244,D,D DA,0,2,Week 1 - Tuesday,12:50,14:30,770,870,,
+Tutorial,COEN,244,D,D DD,3,4,Week 1 - Thursday,09:50,11:30,590,690,,
+Tutorial,COEN,244,D,D DC,2,5,Week 1 - Friday,09:50,11:30,590,690,,
+Tutorial,COEN,244,D,D DB,1,9,Week 2 - Tuesday,11:45,13:25,705,805,,
+Tutorial,COEN,244,D,D DE,4,9,Week 2 - Tuesday,11:45,13:25,705,805,,
+Tutorial,COEN,244,D,D DA,0,9,Week 2 - Tuesday,12:50,14:30,770,870,,
+Tutorial,COEN,244,D,D DD,3,11,Week 2 - Thursday,09:50,11:30,590,690,,
+Tutorial,COEN,244,D,D DC,2,12,Week 2 - Friday,09:50,11:30,590,690,,
+Tutorial,COEN,244,S,S SA,0,4,Week 1 - Thursday,11:45,13:25,705,805,,
+Tutorial,COEN,244,S,S SC,2,4,Week 1 - Thursday,12:50,14:30,770,870,,
+Tutorial,COEN,244,S,S SE,3,4,Week 1 - Thursday,17:45,19:25,1065,1165,,
+Tutorial,COEN,244,S,S SB,1,5,Week 1 - Friday,08:45,10:25,525,625,,
+Tutorial,COEN,244,S,S SA,0,11,Week 2 - Thursday,11:45,13:25,705,805,,
+Tutorial,COEN,244,S,S SC,2,11,Week 2 - Thursday,12:50,14:30,770,870,,
+Tutorial,COEN,244,S,S SE,3,11,Week 2 - Thursday,17:45,19:25,1065,1165,,
+Tutorial,COEN,244,S,S SB,1,12,Week 2 - Friday,08:45,10:25,525,625,,
+Lab,COEN,311,W,WJ-X,0,1,Week 1 - Monday,14:45,17:30,885,1050,H,813
+Lab,COEN,311,W,WK-X,1,3,Week 1 - Wednesday,11:45,14:30,705,870,H,813
+Lab,COEN,311,W,WM-X,3,3,Week 1 - Wednesday,11:45,14:30,705,870,H,813
+Lab,COEN,311,W,WL-X,2,4,Week 1 - Thursday,08:45,11:30,525,690,H,813
+Lab,COEN,311,W,WN-X,4,9,Week 2 - Tuesday,14:45,17:30,885,1050,H,813
+Lab,COEN,311,W,WP-X,6,10,Week 2 - Wednesday,11:45,14:30,705,870,H,813
+Lab,COEN,311,W,WO-X,5,11,Week 2 - Thursday,17:45,20:30,1065,1230,H,813
+Tutorial,COEN,311,W,W WB,1,1,Week 1 - Monday,16:40,17:30,1000,1050,,
+Tutorial,COEN,311,W,W WC,2,4,Week 1 - Thursday,14:45,15:35,885,935,,
+Tutorial,COEN,311,W,W WA,0,4,Week 1 - Thursday,19:40,20:30,1180,1230,,
+Tutorial,COEN,311,W,W WB,1,8,Week 2 - Monday,16:40,17:30,1000,1050,,
+Tutorial,COEN,311,W,W WC,2,11,Week 2 - Thursday,14:45,15:35,885,935,,
+Tutorial,COEN,311,W,W WA,0,11,Week 2 - Thursday,19:40,20:30,1180,1230,,
+Lab,COEN,311,Y,YI-X,0,1,Week 1 - Monday,17:45,20:30,1065,1230,H,813
+Lab,COEN,311,Y,YM-X,4,3,Week 1 - Wednesday,08:45,11:30,525,690,H,813
+Lab,COEN,311,Y,YN-X,5,3,Week 1 - Wednesday,14:45,17:30,885,1050,H,813
+Lab,COEN,311,Y,YJ-X,1,4,Week 1 - Thursday,14:45,17:30,885,1050,H,813
+Lab,COEN,311,Y,YL-X,3,8,Week 2 - Monday,08:45,11:30,525,690,H,813
+Lab,COEN,311,Y,YK-X,2,9,Week 2 - Tuesday,17:45,20:30,1065,1230,H,813
+Lab,COEN,311,Y,YO-X,6,10,Week 2 - Wednesday,17:45,20:30,1065,1230,H,813
+Lab,COEN,311,Y,YP-X,7,12,Week 2 - Friday,17:45,20:30,1065,1230,H,813
+Tutorial,COEN,311,Y,Y YB,1,4,Week 1 - Thursday,17:45,18:35,1065,1115,,
+Tutorial,COEN,311,Y,Y YC,2,4,Week 1 - Thursday,19:40,20:30,1180,1230,,
+Tutorial,COEN,311,Y,Y YA,0,5,Week 1 - Friday,14:45,15:35,885,935,,
+Tutorial,COEN,311,Y,Y YB,1,11,Week 2 - Thursday,17:45,18:35,1065,1115,,
+Tutorial,COEN,311,Y,Y YC,2,11,Week 2 - Thursday,19:40,20:30,1180,1230,,
+Tutorial,COEN,311,Y,Y YA,0,12,Week 2 - Friday,14:45,15:35,885,935,,
+Lab,COEN,313,U,UK-X,2,2,Week 1 - Tuesday,11:45,14:30,705,870,H,859
+Lab,COEN,313,U,UN-X,4,3,Week 1 - Wednesday,14:45,17:30,885,1050,H,859
+Lab,COEN,313,U,UJ-X,1,5,Week 1 - Friday,08:45,11:30,525,690,H,859
+Lab,COEN,313,U,UR-X,7,5,Week 1 - Friday,11:45,14:30,705,870,H,859
+Lab,COEN,313,U,UI-X,0,5,Week 1 - Friday,17:45,20:30,1065,1230,H,859
+Lab,COEN,313,U,UL-X,3,5,Week 1 - Friday,17:45,20:30,1065,1230,H,859
+Lab,COEN,313,U,UO-X,5,8,Week 2 - Monday,08:45,11:30,525,690,H,859
+Lab,COEN,313,U,UP-X,6,8,Week 2 - Monday,08:45,11:30,525,690,H,859
+Tutorial,COEN,313,U,U UC,2,1,Week 1 - Monday,11:45,12:35,705,755,,
+Tutorial,COEN,313,U,U UA,0,3,Week 1 - Wednesday,16:40,17:30,1000,1050,,
+Tutorial,COEN,313,U,U UB,1,5,Week 1 - Friday,17:45,18:35,1065,1115,,
+Tutorial,COEN,313,U,U UC,2,8,Week 2 - Monday,11:45,12:35,705,755,,
+Tutorial,COEN,313,U,U UA,0,10,Week 2 - Wednesday,16:40,17:30,1000,1050,,
+Tutorial,COEN,313,U,U UB,1,12,Week 2 - Friday,17:45,18:35,1065,1115,,
+Lab,COEN,314,W,WO-X,5,1,Week 1 - Monday,08:45,11:30,525,690,H,861
+Lab,COEN,314,W,WJ-X,0,4,Week 1 - Thursday,11:45,14:30,705,870,H,861
+Lab,COEN,314,W,WK-X,1,4,Week 1 - Thursday,14:45,17:30,885,1050,H,861
+Lab,COEN,314,W,WM-X,3,10,Week 2 - Wednesday,08:45,11:30,525,690,H,861
+Lab,COEN,314,W,WL-X,2,11,Week 2 - Thursday,17:45,20:30,1065,1230,H,861
+Lab,COEN,314,W,WN-X,4,12,Week 2 - Friday,14:45,17:30,885,1050,H,861
+Tutorial,COEN,314,W,W WA,0,2,Week 1 - Tuesday,13:40,14:30,820,870,,
+Tutorial,COEN,314,W,W WC,2,2,Week 1 - Tuesday,19:40,20:30,1180,1230,,
+Tutorial,COEN,314,W,W WB,1,4,Week 1 - Thursday,11:45,12:35,705,755,,
+Tutorial,COEN,314,W,W WA,0,9,Week 2 - Tuesday,13:40,14:30,820,870,,
+Tutorial,COEN,314,W,W WC,2,9,Week 2 - Tuesday,19:40,20:30,1180,1230,,
+Tutorial,COEN,314,W,W WB,1,11,Week 2 - Thursday,11:45,12:35,705,755,,
+Lab,COEN,316,W,WE-X,4,2,Week 1 - Tuesday,17:45,20:30,1065,1230,H,859
+Lab,COEN,316,W,WB-X,1,3,Week 1 - Wednesday,11:45,14:30,705,870,H,859
+Lab,COEN,316,W,WF-X,5,3,Week 1 - Wednesday,11:45,14:30,705,870,H,859
+Lab,COEN,316,W,WD-X,3,3,Week 1 - Wednesday,17:45,20:30,1065,1230,H,859
+Lab,COEN,316,W,WC-X,2,4,Week 1 - Thursday,08:45,11:30,525,690,H,859
+Lab,COEN,316,W,WA-X,0,9,Week 2 - Tuesday,17:45,20:30,1065,1230,H,859
+Lab,COEN,316,W,WG-X,6,11,Week 2 - Thursday,17:45,20:30,1065,1230,H,859
+Tutorial,COEN,316,W,W WA,0,1,Week 1 - Monday,17:45,18:35,1065,1115,,
+Tutorial,COEN,316,W,W WB,1,2,Week 1 - Tuesday,10:40,11:30,640,690,,
+Tutorial,COEN,316,W,W WC,2,3,Week 1 - Wednesday,14:45,15:35,885,935,,
+Tutorial,COEN,316,W,W WA,0,8,Week 2 - Monday,17:45,18:35,1065,1115,,
+Tutorial,COEN,316,W,W WB,1,9,Week 2 - Tuesday,10:40,11:30,640,690,,
+Tutorial,COEN,316,W,W WC,2,10,Week 2 - Wednesday,14:45,15:35,885,935,,
+Lab,COEN,317,U,UK-X,2,3,Week 1 - Wednesday,11:45,14:30,705,870,H,913
+Lab,COEN,317,U,UN-X,4,3,Week 1 - Wednesday,11:45,14:30,705,870,H,913
+Lab,COEN,317,U,UI-X,0,8,Week 2 - Monday,14:45,17:30,885,1050,H,913
+Lab,COEN,317,U,UL-X,3,10,Week 2 - Wednesday,11:45,14:30,705,870,H,913
+Lab,COEN,317,U,UJ-X,1,10,Week 2 - Wednesday,17:45,20:30,1065,1230,H,913
+Lab,COEN,317,U,UP-X,5,11,Week 2 - Thursday,11:45,14:30,705,870,H,913
+Tutorial,COEN,317,U,U UC,2,2,Week 1 - Tuesday,13:40,14:30,820,870,,
+Tutorial,COEN,317,U,U UA,0,4,Week 1 - Thursday,14:45,15:35,885,935,,
+Tutorial,COEN,317,U,U UB,1,5,Week 1 - Friday,13:40,14:30,820,870,,
+Tutorial,COEN,317,U,U UC,2,9,Week 2 - Tuesday,13:40,14:30,820,870,,
+Tutorial,COEN,317,U,U UA,0,11,Week 2 - Thursday,14:45,15:35,885,935,,
+Tutorial,COEN,317,U,U UB,1,12,Week 2 - Friday,13:40,14:30,820,870,,
+Lab,COEN,320,P,PJ-X,0,1,Week 1 - Monday,11:45,14:30,705,870,,
+Lab,COEN,320,P,PL-X,1,1,Week 1 - Monday,11:45,14:30,705,870,,
+Lab,COEN,320,P,PN-X,2,9,Week 2 - Tuesday,08:45,11:30,525,690,,
+Tutorial,COEN,320,P,P PA,0,4,Week 1 - Thursday,08:45,09:35,525,575,,
+Tutorial,COEN,320,P,P PC,2,4,Week 1 - Thursday,11:45,12:35,705,755,,
+Tutorial,COEN,320,P,P PB,1,5,Week 1 - Friday,16:40,17:30,1000,1050,,
+Tutorial,COEN,320,P,P PA,0,11,Week 2 - Thursday,08:45,09:35,525,575,,
+Tutorial,COEN,320,P,P PC,2,11,Week 2 - Thursday,11:45,12:35,705,755,,
+Tutorial,COEN,320,P,P PB,1,12,Week 2 - Friday,16:40,17:30,1000,1050,,
+Lab,COEN,346,Y,YL-X,3,1,Week 1 - Monday,11:45,14:30,705,870,,
+Lab,COEN,346,Y,YP-X,6,2,Week 1 - Tuesday,08:45,11:30,525,690,,
+Lab,COEN,346,Y,YI-X,0,4,Week 1 - Thursday,17:45,20:30,1065,1230,,
+Lab,COEN,346,Y,YJ-X,1,8,Week 2 - Monday,17:45,20:30,1065,1230,,
+Lab,COEN,346,Y,YM-X,4,9,Week 2 - Tuesday,11:45,14:30,705,870,,
+Lab,COEN,346,Y,YN-X,5,9,Week 2 - Tuesday,11:45,14:30,705,870,,
+Lab,COEN,346,Y,YK-X,2,10,Week 2 - Wednesday,14:45,17:30,885,1050,,
+Tutorial,COEN,346,Y,Y YB,1,2,Week 1 - Tuesday,14:45,15:35,885,935,,
+Tutorial,COEN,346,Y,Y YA,0,3,Week 1 - Wednesday,19:40,20:30,1180,1230,,
+Tutorial,COEN,346,Y,Y YC,2,5,Week 1 - Friday,16:40,17:30,1000,1050,,
+Tutorial,COEN,346,Y,Y YB,1,9,Week 2 - Tuesday,14:45,15:35,885,935,,
+Tutorial,COEN,346,Y,Y YA,0,10,Week 2 - Wednesday,19:40,20:30,1180,1230,,
+Tutorial,COEN,346,Y,Y YC,2,12,Week 2 - Friday,16:40,17:30,1000,1050,,
+Tutorial,COEN,352,V,V VB,1,3,Week 1 - Wednesday,08:45,09:35,525,575,,
+Tutorial,COEN,352,V,V VA,0,4,Week 1 - Thursday,19:40,20:30,1180,1230,,
+Tutorial,COEN,352,V,V VD,3,5,Week 1 - Friday,10:40,11:30,640,690,,
+Tutorial,COEN,352,V,V VC,2,5,Week 1 - Friday,19:40,20:30,1180,1230,,
+Tutorial,COEN,352,V,V VB,1,10,Week 2 - Wednesday,08:45,09:35,525,575,,
+Tutorial,COEN,352,V,V VA,0,11,Week 2 - Thursday,19:40,20:30,1180,1230,,
+Tutorial,COEN,352,V,V VD,3,12,Week 2 - Friday,10:40,11:30,640,690,,
+Tutorial,COEN,352,V,V VC,2,12,Week 2 - Friday,19:40,20:30,1180,1230,,
+Lab,COEN,366,W,WM-X,4,4,Week 1 - Thursday,17:45,20:30,1065,1230,,
+Lab,COEN,366,W,WN-X,5,4,Week 1 - Thursday,17:45,20:30,1065,1230,,
+Lab,COEN,366,W,WI-X,0,8,Week 2 - Monday,11:45,14:30,705,870,,
+Lab,COEN,366,W,WJ-X,1,9,Week 2 - Tuesday,08:45,11:30,525,690,,
+Lab,COEN,366,W,WL-X,3,10,Week 2 - Wednesday,14:45,17:30,885,1050,,
+Lab,COEN,366,W,WK-X,2,11,Week 2 - Thursday,08:45,11:30,525,690,,
+Tutorial,COEN,390,E,EC C,2,1,Week 1 - Monday,11:45,13:25,705,805,,
+Tutorial,COEN,390,E,EC B,1,3,Week 1 - Wednesday,08:45,10:25,525,625,,
+Tutorial,COEN,390,E,EC A,0,3,Week 1 - Wednesday,12:50,14:30,770,870,,
+Tutorial,COEN,390,E,EC C,2,8,Week 2 - Monday,11:45,13:25,705,805,,
+Tutorial,COEN,390,E,EC B,1,10,Week 2 - Wednesday,08:45,10:25,525,625,,
+Tutorial,COEN,390,E,EC A,0,10,Week 2 - Wednesday,12:50,14:30,770,870,,
+Lab,COEN,448,W,WJ-X,0,2,Week 1 - Tuesday,14:45,17:30,885,1050,,
+Tutorial,COEN,448,W,W WA,0,1,Week 1 - Monday,13:40,14:30,820,870,,
+Tutorial,COEN,448,W,W WA,0,8,Week 2 - Monday,13:40,14:30,820,870,,
+Tutorial,ELEC,242,U,U UB,1,1,Week 1 - Monday,11:45,13:25,705,805,,
+Tutorial,ELEC,242,U,U UD,3,1,Week 1 - Monday,17:45,19:25,1065,1165,,
+Tutorial,ELEC,242,U,U UC,2,2,Week 1 - Tuesday,08:45,10:25,525,625,,
+Tutorial,ELEC,242,U,U UA,0,3,Week 1 - Wednesday,17:45,19:25,1065,1165,,
+Tutorial,ELEC,242,U,U UE,4,3,Week 1 - Wednesday,18:50,20:30,1130,1230,,
+Tutorial,ELEC,242,U,U UF,5,4,Week 1 - Thursday,14:45,16:25,885,985,,
+Tutorial,ELEC,242,U,U UB,1,8,Week 2 - Monday,11:45,13:25,705,805,,
+Tutorial,ELEC,242,U,U UD,3,8,Week 2 - Monday,17:45,19:25,1065,1165,,
+Tutorial,ELEC,242,U,U UC,2,9,Week 2 - Tuesday,08:45,10:25,525,625,,
+Tutorial,ELEC,242,U,U UA,0,10,Week 2 - Wednesday,17:45,19:25,1065,1165,,
+Tutorial,ELEC,242,U,U UE,4,10,Week 2 - Wednesday,18:50,20:30,1130,1230,,
+Tutorial,ELEC,242,U,U UF,5,11,Week 2 - Thursday,14:45,16:25,885,985,,
+Tutorial,ELEC,251,W,W WA,0,3,Week 1 - Wednesday,08:45,09:35,525,575,,
+Tutorial,ELEC,251,W,W WB,1,5,Week 1 - Friday,19:40,20:30,1180,1230,,
+Tutorial,ELEC,251,W,W WA,0,10,Week 2 - Wednesday,08:45,09:35,525,575,,
+Tutorial,ELEC,251,W,W WB,1,12,Week 2 - Friday,19:40,20:30,1180,1230,,
+Lab,ELEC,273,D,DI-X,0,3,Week 1 - Wednesday,11:45,14:30,705,870,H,822
+Lab,ELEC,273,D,DP-X,7,3,Week 1 - Wednesday,11:45,14:30,705,870,H,822
+Lab,ELEC,273,D,DM-X,4,5,Week 1 - Friday,11:45,14:30,705,870,H,822
+Lab,ELEC,273,D,DK-X,2,8,Week 2 - Monday,17:45,20:30,1065,1230,H,822
+Lab,ELEC,273,D,DL-X,3,9,Week 2 - Tuesday,08:45,11:30,525,690,H,822
+Lab,ELEC,273,D,DO-X,6,9,Week 2 - Tuesday,08:45,11:30,525,690,H,822
+Lab,ELEC,273,D,DN-X,5,11,Week 2 - Thursday,08:45,11:30,525,690,H,822
+Lab,ELEC,273,D,DJ-X,1,12,Week 2 - Friday,08:45,11:30,525,690,H,822
+Tutorial,ELEC,273,D,D DB,1,1,Week 1 - Monday,17:45,19:25,1065,1165,,
+Tutorial,ELEC,273,D,D DD,3,1,Week 1 - Monday,17:45,19:25,1065,1165,,
+Tutorial,ELEC,273,D,D DC,2,3,Week 1 - Wednesday,15:50,17:30,950,1050,,
+Tutorial,ELEC,273,D,D DA,0,5,Week 1 - Friday,18:50,20:30,1130,1230,,
+Tutorial,ELEC,273,D,D DB,1,8,Week 2 - Monday,17:45,19:25,1065,1165,,
+Tutorial,ELEC,273,D,D DD,3,8,Week 2 - Monday,17:45,19:25,1065,1165,,
+Tutorial,ELEC,273,D,D DC,2,10,Week 2 - Wednesday,15:50,17:30,950,1050,,
+Tutorial,ELEC,273,D,D DA,0,12,Week 2 - Friday,18:50,20:30,1130,1230,,
+Lab,ELEC,273,W,WL-X,3,1,Week 1 - Monday,14:45,17:30,885,1050,H,822
+Lab,ELEC,273,W,WN-X,5,3,Week 1 - Wednesday,14:45,17:30,885,1050,H,822
+Lab,ELEC,273,W,WM-X,4,3,Week 1 - Wednesday,17:45,20:30,1065,1230,H,822
+Lab,ELEC,273,W,WI-X,0,4,Week 1 - Thursday,11:45,14:30,705,870,H,822
+Lab,ELEC,273,W,WJ-X,1,5,Week 1 - Friday,08:45,11:30,525,690,H,822
+Lab,ELEC,273,W,WK-X,2,12,Week 2 - Friday,17:45,20:30,1065,1230,H,822
+Tutorial,ELEC,273,W,W WA,0,1,Week 1 - Monday,15:50,17:30,950,1050,,
+Tutorial,ELEC,273,W,W WC,2,2,Week 1 - Tuesday,14:45,16:25,885,985,,
+Tutorial,ELEC,273,W,W WD,3,3,Week 1 - Wednesday,08:45,10:25,525,625,,
+Tutorial,ELEC,273,W,W WB,1,4,Week 1 - Thursday,08:45,10:25,525,625,,
+Tutorial,ELEC,273,W,W WA,0,8,Week 2 - Monday,15:50,17:30,950,1050,,
+Tutorial,ELEC,273,W,W WC,2,9,Week 2 - Tuesday,14:45,16:25,885,985,,
+Tutorial,ELEC,273,W,W WD,3,10,Week 2 - Wednesday,08:45,10:25,525,625,,
+Tutorial,ELEC,273,W,W WB,1,11,Week 2 - Thursday,08:45,10:25,525,625,,
+Lab,ELEC,275,J,JL-X,1,1,Week 1 - Monday,11:45,14:30,705,870,H,822
+Lab,ELEC,275,J,JO-X,3,2,Week 1 - Tuesday,11:45,14:30,705,870,H,822
+Lab,ELEC,275,J,JN-X,2,4,Week 1 - Thursday,17:45,20:30,1065,1230,H,822
+Lab,ELEC,275,J,JK-X,0,8,Week 2 - Monday,14:45,17:30,885,1050,H,822
+Tutorial,ELEC,275,J,JJJB,1,4,Week 1 - Thursday,17:45,19:25,1065,1165,,
+Tutorial,ELEC,275,J,JJJC,2,4,Week 1 - Thursday,18:50,20:30,1130,1230,,
+Tutorial,ELEC,275,J,JJJA,0,5,Week 1 - Friday,08:45,10:25,525,625,,
+Tutorial,ELEC,275,J,JJJB,1,11,Week 2 - Thursday,17:45,19:25,1065,1165,,
+Tutorial,ELEC,275,J,JJJC,2,11,Week 2 - Thursday,18:50,20:30,1130,1230,,
+Tutorial,ELEC,275,J,JJJA,0,12,Week 2 - Friday,08:45,10:25,525,625,,
+Lab,ELEC,275,S,SK-X,1,1,Week 1 - Monday,08:45,11:30,525,690,H,822
+Lab,ELEC,275,S,SJ-X,0,5,Week 1 - Friday,17:45,20:30,1065,1230,H,822
+Lab,ELEC,275,S,SL-X,2,5,Week 1 - Friday,17:45,20:30,1065,1230,H,822
+Tutorial,ELEC,275,S,SSSC,2,1,Week 1 - Monday,08:45,10:25,525,625,,
+Tutorial,ELEC,275,S,SSSB,1,4,Week 1 - Thursday,11:45,13:25,705,805,,
+Tutorial,ELEC,275,S,SSSA,0,5,Week 1 - Friday,14:45,16:25,885,985,,
+Tutorial,ELEC,275,S,SSSC,2,8,Week 2 - Monday,08:45,10:25,525,625,,
+Tutorial,ELEC,275,S,SSSB,1,11,Week 2 - Thursday,11:45,13:25,705,805,,
+Tutorial,ELEC,275,S,SSSA,0,12,Week 2 - Friday,14:45,16:25,885,985,,
+Lab,ELEC,311,H,HM-X,3,3,Week 1 - Wednesday,17:45,20:30,1065,1230,H,855
+Lab,ELEC,311,H,HL-X,2,5,Week 1 - Friday,11:45,14:30,705,870,H,855
+Lab,ELEC,311,H,HJ-X,1,10,Week 2 - Wednesday,17:45,20:30,1065,1230,H,855
+Lab,ELEC,311,H,HI-X,0,11,Week 2 - Thursday,14:45,17:30,885,1050,H,855
+Tutorial,ELEC,311,H,H HB,1,3,Week 1 - Wednesday,08:45,10:25,525,625,,
+Tutorial,ELEC,311,H,H HA,0,5,Week 1 - Friday,12:50,14:30,770,870,,
+Tutorial,ELEC,311,H,H HB,1,10,Week 2 - Wednesday,08:45,10:25,525,625,,
+Tutorial,ELEC,311,H,H HA,0,12,Week 2 - Friday,12:50,14:30,770,870,,
+Lab,ELEC,312,W,WJ-X,1,3,Week 1 - Wednesday,14:45,17:30,885,1050,H,855
+Lab,ELEC,312,W,WI-X,0,4,Week 1 - Thursday,08:45,11:30,525,690,H,855
+Lab,ELEC,312,W,WL-X,3,11,Week 2 - Thursday,17:45,20:30,1065,1230,H,855
+Lab,ELEC,312,W,WK-X,2,12,Week 2 - Friday,11:45,14:30,705,870,H,855
+Tutorial,ELEC,312,W,W WA,0,2,Week 1 - Tuesday,19:40,20:30,1180,1230,,
+Tutorial,ELEC,312,W,W WB,1,4,Week 1 - Thursday,13:40,14:30,820,870,,
+Tutorial,ELEC,312,W,W WA,0,9,Week 2 - Tuesday,19:40,20:30,1180,1230,,
+Tutorial,ELEC,312,W,W WB,1,11,Week 2 - Thursday,13:40,14:30,820,870,,
+Lab,ELEC,321,E,ECLX,3,1,Week 1 - Monday,14:45,17:30,885,1050,H,861
+Lab,ELEC,321,E,ECKX,2,2,Week 1 - Tuesday,08:45,11:30,525,690,H,861
+Lab,ELEC,321,E,ECIX,0,5,Week 1 - Friday,17:45,20:30,1065,1230,H,861
+Lab,ELEC,321,E,ECJX,1,9,Week 2 - Tuesday,08:45,11:30,525,690,H,861
+Lab,ELEC,321,E,ECMX,4,12,Week 2 - Friday,11:45,14:30,705,870,H,861
+Tutorial,ELEC,321,E,EC A,0,1,Week 1 - Monday,13:40,14:30,820,870,,
+Tutorial,ELEC,321,E,EC B,1,3,Week 1 - Wednesday,17:45,18:35,1065,1115,,
+Tutorial,ELEC,321,E,EC A,0,8,Week 2 - Monday,13:40,14:30,820,870,,
+Tutorial,ELEC,321,E,EC B,1,10,Week 2 - Wednesday,17:45,18:35,1065,1115,,
+Lab,ELEC,331,W,WJ-X,1,3,Week 1 - Wednesday,08:45,11:30,525,690,H,945
+Lab,ELEC,331,W,WK-X,2,4,Week 1 - Thursday,11:45,14:30,705,870,H,945
+Lab,ELEC,331,W,WL-X,3,5,Week 1 - Friday,14:45,17:30,885,1050,H,945
+Lab,ELEC,331,W,WN-X,5,8,Week 2 - Monday,11:45,14:30,705,870,H,945
+Lab,ELEC,331,W,WI-X,0,9,Week 2 - Tuesday,11:45,14:30,705,870,H,945
+Lab,ELEC,331,W,WM-X,4,11,Week 2 - Thursday,17:45,20:30,1065,1230,H,945
+Tutorial,ELEC,331,W,W WB,1,3,Week 1 - Wednesday,17:45,18:35,1065,1115,,
+Tutorial,ELEC,331,W,W WA,0,4,Week 1 - Thursday,17:45,18:35,1065,1115,,
+Tutorial,ELEC,331,W,W WB,1,10,Week 2 - Wednesday,17:45,18:35,1065,1115,,
+Tutorial,ELEC,331,W,W WA,0,11,Week 2 - Thursday,17:45,18:35,1065,1115,,
+Lab,ELEC,342,M,MN-X,3,2,Week 1 - Tuesday,14:45,17:30,885,1050,,
+Lab,ELEC,342,M,MJ-X,0,10,Week 2 - Wednesday,14:45,17:30,885,1050,,
+Lab,ELEC,342,M,ML-X,1,10,Week 2 - Wednesday,14:45,17:30,885,1050,,
+Lab,ELEC,342,M,MM-X,2,10,Week 2 - Wednesday,14:45,17:30,885,1050,,
+Lab,ELEC,342,M,MO-X,4,10,Week 2 - Wednesday,14:45,17:30,885,1050,,
+Tutorial,ELEC,342,M,M MC,2,1,Week 1 - Monday,08:45,09:35,525,575,,
+Tutorial,ELEC,342,M,M MA,0,2,Week 1 - Tuesday,17:45,18:35,1065,1115,,
+Tutorial,ELEC,342,M,M MB,1,3,Week 1 - Wednesday,16:40,17:30,1000,1050,,
+Tutorial,ELEC,342,M,M MC,2,8,Week 2 - Monday,08:45,09:35,525,575,,
+Tutorial,ELEC,342,M,M MA,0,9,Week 2 - Tuesday,17:45,18:35,1065,1115,,
+Tutorial,ELEC,342,M,M MB,1,10,Week 2 - Wednesday,16:40,17:30,1000,1050,,
+Lab,ELEC,351,W,WM-X,4,1,Week 1 - Monday,17:45,20:30,1065,1230,H,853
+Lab,ELEC,351,W,WJ-X,1,4,Week 1 - Thursday,08:45,11:30,525,690,H,853
+Lab,ELEC,351,W,WI-X,0,8,Week 2 - Monday,11:45,14:30,705,870,H,853
+Lab,ELEC,351,W,WK-X,2,8,Week 2 - Monday,11:45,14:30,705,870,H,853
+Lab,ELEC,351,W,WL-X,3,9,Week 2 - Tuesday,14:45,17:30,885,1050,H,853
+Lab,ELEC,351,W,WN-X,5,12,Week 2 - Friday,14:45,17:30,885,1050,H,853
+Tutorial,ELEC,351,W,W WA,0,4,Week 1 - Thursday,08:45,09:35,525,575,,
+Tutorial,ELEC,351,W,W WB,1,5,Week 1 - Friday,16:40,17:30,1000,1050,,
+Tutorial,ELEC,351,W,W WA,0,11,Week 2 - Thursday,08:45,09:35,525,575,,
+Tutorial,ELEC,351,W,W WB,1,12,Week 2 - Friday,16:40,17:30,1000,1050,,
+Lab,ELEC,366,M,ML-X,2,1,Week 1 - Monday,08:45,11:30,525,690,H,921
+Lab,ELEC,366,M,MK-X,1,5,Week 1 - Friday,11:45,14:30,705,870,H,921
+Lab,ELEC,366,M,MJ-X,0,10,Week 2 - Wednesday,11:45,14:30,705,870,H,921
+Lab,ELEC,367,W,WM-X,3,3,Week 1 - Wednesday,14:45,17:30,885,1050,H,801
+Lab,ELEC,367,W,WL-X,2,9,Week 2 - Tuesday,17:45,20:30,1065,1230,H,801
+Lab,ELEC,367,W,WK-X,1,10,Week 2 - Wednesday,08:45,11:30,525,690,H,801
+Lab,ELEC,367,W,WJ-X,0,10,Week 2 - Wednesday,17:45,20:30,1065,1230,H,801
+Tutorial,ELEC,367,W,W WB,1,2,Week 1 - Tuesday,13:40,14:30,820,870,,
+Tutorial,ELEC,367,W,W WA,0,2,Week 1 - Tuesday,19:40,20:30,1180,1230,,
+Tutorial,ELEC,367,W,W WB,1,9,Week 2 - Tuesday,13:40,14:30,820,870,,
+Tutorial,ELEC,367,W,W WA,0,9,Week 2 - Tuesday,19:40,20:30,1180,1230,,
+Lab,ELEC,372,U,UL-X,2,3,Week 1 - Wednesday,14:45,17:30,885,1050,H,863
+Lab,ELEC,372,U,UM-X,3,8,Week 2 - Monday,17:45,20:30,1065,1230,H,863
+Lab,ELEC,372,U,UJ-X,1,10,Week 2 - Wednesday,17:45,20:30,1065,1230,H,863
+Lab,ELEC,372,U,UI-X,0,11,Week 2 - Thursday,17:45,20:30,1065,1230,H,863
+Lab,ELEC,372,U,UN-X,4,12,Week 2 - Friday,11:45,14:30,705,870,H,863
+Tutorial,ELEC,372,U,U UA,0,2,Week 1 - Tuesday,08:45,09:35,525,575,,
+Tutorial,ELEC,372,U,U UB,1,4,Week 1 - Thursday,17:45,18:35,1065,1115,,
+Tutorial,ELEC,372,U,U UC,2,5,Week 1 - Friday,08:45,09:35,525,575,,
+Tutorial,ELEC,372,U,U UA,0,9,Week 2 - Tuesday,08:45,09:35,525,575,,
+Tutorial,ELEC,372,U,U UB,1,11,Week 2 - Thursday,17:45,18:35,1065,1115,,
+Tutorial,ELEC,372,U,U UC,2,12,Week 2 - Friday,08:45,09:35,525,575,,
+Tutorial,ELEC,390,E,EC C,2,1,Week 1 - Monday,11:45,13:25,705,805,,
+Tutorial,ELEC,390,E,EC B,1,3,Week 1 - Wednesday,08:45,10:25,525,625,,
+Tutorial,ELEC,390,E,EC A,0,3,Week 1 - Wednesday,12:50,14:30,770,870,,
+Tutorial,ELEC,390,E,EC C,2,8,Week 2 - Monday,11:45,13:25,705,805,,
+Tutorial,ELEC,390,E,EC B,1,10,Week 2 - Wednesday,08:45,10:25,525,625,,
+Tutorial,ELEC,390,E,EC A,0,10,Week 2 - Wednesday,12:50,14:30,770,870,,
+Lab,ELEC,453,W,WJ-X,1,1,Week 1 - Monday,11:45,14:30,705,870,H,853
+Lab,ELEC,453,W,WI-X,0,3,Week 1 - Wednesday,08:45,11:30,525,690,H,853
+Lab,ELEC,465,W,WI-X,0,2,Week 1 - Tuesday,08:45,11:30,525,690,H,919
+Lab,ELEC,465,W,WJ-X,1,3,Week 1 - Wednesday,14:45,17:30,885,1050,H,919
+Lab,ELEC,483,U,UUUI,0,1,Week 1 - Monday,14:45,17:30,885,1050,H,832-2
+Lab,ELEC,483,U,UUUJ,1,1,Week 1 - Monday,17:45,20:30,1065,1230,H,832-2
+Lab,ELEC,483,U,UUUK,2,5,Week 1 - Friday,08:45,11:30,525,690,H,832-2
+Lab,ELEC,6391,W,WI-X,0,12,Week 2 - Friday,08:45,11:30,525,690,H,853
+Lab,ELEC,6391,W,WJ-X,1,12,Week 2 - Friday,17:45,20:30,1065,1230,H,853
+Tutorial,ENGR,290,N,N NX,0,2,Week 1 - Tuesday,08:45,10:25,525,625,,
+Tutorial,ENGR,290,N,N NY,1,2,Week 1 - Tuesday,18:50,20:30,1130,1230,,
+Tutorial,ENGR,290,N,N NX,0,9,Week 2 - Tuesday,08:45,10:25,525,625,,
+Tutorial,ENGR,290,N,N NY,1,9,Week 2 - Tuesday,18:50,20:30,1130,1230,,
+Tutorial,ENGR,290,U,U UA,0,1,Week 1 - Monday,12:50,14:30,770,870,,
+Tutorial,ENGR,290,U,U UB,1,5,Week 1 - Friday,08:45,10:25,525,625,,
+Tutorial,ENGR,290,U,U UA,0,8,Week 2 - Monday,12:50,14:30,770,870,,
+Tutorial,ENGR,290,U,U UB,1,12,Week 2 - Friday,08:45,10:25,525,625,,

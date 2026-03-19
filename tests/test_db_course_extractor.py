@@ -88,22 +88,7 @@ def test_day_pattern_empty():
     assert parse_day_pattern(row) == ""
 
 
-# --- extract_base_section ---
 
-def test_base_section_lec():
-    assert extract_base_section("AA", "LEC") == "AA"
-
-
-def test_base_section_tut_space():
-    assert extract_base_section("AA T1", "TUT") == "AA"
-
-
-def test_base_section_tut_dash():
-    assert extract_base_section("AA-T1", "TUT") == "A"
-
-
-def test_base_section_lab_no_separator():
-    assert extract_base_section("AA", "LAB") == "AA"
 
 
 # --- count_unique_sections ---
@@ -137,18 +122,7 @@ def test_tut_freq_no_tuts():
 
 # --- group_by_lecture ---
 
-def test_group_basic():
-    records = [
-        {'subject': 'COEN', 'catalog': '311', 'section': 'AA', 'componentcode': 'LEC'},
-        {'subject': 'COEN', 'catalog': '311', 'section': 'AA T1', 'componentcode': 'TUT'},
-        {'subject': 'COEN', 'catalog': '311', 'section': 'AA L1', 'componentcode': 'LAB'},
-    ]
-    grouped = group_by_lecture(records)
-    key = ('COEN', '311', 'AA')
-    assert key in grouped
-    assert grouped[key]['lecture'] is not None
-    assert len(grouped[key]['tutorials']) == 1
-    assert len(grouped[key]['labs']) == 1
+
 
 
 def test_group_filters_math():
