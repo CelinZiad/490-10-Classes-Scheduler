@@ -3,7 +3,6 @@ from helper.scheduleterm_export import (
     should_exclude_course,
     build_termcode,
     get_session_code,
-    get_class_dates,
     minutes_to_time,
     day_number_to_day_columns,
     combine_day_columns,
