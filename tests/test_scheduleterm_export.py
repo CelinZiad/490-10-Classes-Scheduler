@@ -2,13 +2,17 @@ import pytest
 from helper.scheduleterm_export import (
     should_exclude_course,
     build_termcode,
+    get_previous_year_data,
+)
+from helper.academic_calendar import (
     get_session_code,
     get_class_dates,
+)
+from helper.time_utils import (
     minutes_to_time,
     day_number_to_day_columns,
     combine_day_columns,
     extract_day_numbers,
-    get_previous_year_data,
 )
 from day import Day
 
