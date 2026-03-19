@@ -226,8 +226,8 @@ function setupEventListeners() {
     applyFilters();
   });
 
-  semesterFilter.addEventListener("change", () => {
-    navigateToSemester();
+  semesterFilter.addEventListener("change", async () => {
+    await navigateToSemester();
     applyFilters();
   });
 
@@ -265,16 +265,18 @@ function setupEventListeners() {
   const srcOriginal = document.getElementById("source-original");
   const srcOptimized = document.getElementById("source-optimized");
   if (srcOriginal && srcOptimized) {
-    srcOriginal.addEventListener("click", () => {
+    srcOriginal.addEventListener("click", async () => {
       activeSource = "scheduleterm";
       srcOriginal.classList.add("active");
       srcOptimized.classList.remove("active");
+      await navigateToSemester();
       applyFilters();
     });
-    srcOptimized.addEventListener("click", () => {
+    srcOptimized.addEventListener("click", async () => {
       activeSource = "optimized";
       srcOptimized.classList.add("active");
       srcOriginal.classList.remove("active");
+      await navigateToSemester();
       applyFilters();
     });
   }
@@ -344,11 +346,34 @@ function getSemesterStartDate(semesterLabel, planName) {
 
 /**
  * Navigate the calendar to the appropriate date based on current filters.
+ *
+ * For the optimized schedule the plan-name year (e.g. "25-26") may not
+ * match the actual data dates (termcode offsets vary by range).  Instead
+ * of guessing, we ask the server for the real date range.
  */
-function navigateToSemester() {
+async function navigateToSemester() {
   if (!calendar) return;
 
-  // If a semester is selected, use it (more specific)
+  // Optimized mode: navigate to where the data actually lives.
+  if (activeSource === "optimized") {
+    const params = new URLSearchParams();
+    if (planFilter.value) params.set("planid", planFilter.value);
+    if (semesterFilter.value) params.set("termid", semesterFilter.value);
+    try {
+      const res = await fetch(`/api/optimized-date-range?${params}`);
+      const range = await res.json();
+      if (range.startDate) {
+        const d = new Date(range.startDate + "T00:00:00");
+        while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
+        calendar.gotoDate(d);
+        return;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch optimized date range:", e);
+    }
+  }
+
+  // Original schedule: derive dates from plan name / term label.
   if (semesterFilter.value && planFilter.value) {
     const semLabel = semesterFilter.selectedOptions[0]?.text;
     const planLabel = planFilter.selectedOptions[0]?.text;
@@ -358,7 +383,7 @@ function navigateToSemester() {
     }
   }
 
-  // Otherwise use the Term dropdown
+  // Fallback: use the Term dropdown
   const termLabel = termFilter.selectedOptions[0]?.text;
   if (termLabel) {
     const d = getTermStartDate(termLabel);

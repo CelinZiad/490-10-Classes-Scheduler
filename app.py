@@ -1226,6 +1226,57 @@ def api_events():
     return jsonify(events)
 
 
+@app.get("/api/optimized-date-range")
+def api_optimized_date_range():
+    """Return the actual date range of the optimized schedule.
+
+    Used by the frontend to navigate the calendar to the correct dates,
+    since the optimized schedule's termcode may not align with the plan
+    name's academic year (e.g. plan "25-26" but data in 2026-27).
+
+    Concordia termcode offsets relative to plan name year:
+      2250-2260 → +10,  2260-2270 → 0,
+      2270-2280 → -10,  2280-2290 → -10
+    Rather than relying on these offsets, we query the actual dates.
+    """
+    planid = request.args.get("planid", type=int)
+    termid = request.args.get("termid", type=int)
+
+    query = """
+        SELECT MIN(os.classstartdate) AS min_date,
+               MAX(os.classenddate)   AS max_date
+        FROM optimized_schedule os
+        WHERE os.classstartdate IS NOT NULL
+    """
+    params = {}
+
+    if planid or termid:
+        query += """
+          AND EXISTS (
+              SELECT 1
+              FROM sequencecourse sc
+              JOIN sequenceterm st ON st.sequencetermid = sc.sequencetermid
+              WHERE sc.subject = os.subject
+                AND sc.catalog = os.catalog
+        """
+        if planid:
+            query += " AND st.planid = :planid"
+            params["planid"] = planid
+        if termid:
+            query += " AND sc.sequencetermid = :termid"
+            params["termid"] = termid
+        query += ")"
+
+    row = db.session.execute(db.text(query), params).mappings().first()
+
+    if row and row["min_date"]:
+        return jsonify({
+            "startDate": str(row["min_date"]),
+            "endDate": str(row["max_date"]) if row["max_date"] else None,
+        })
+    return jsonify({"startDate": None, "endDate": None})
+
+
 @app.get("/api/filters")
 def api_filters():
     """
