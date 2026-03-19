@@ -1,8 +1,11 @@
-import pytest
-from helper.db_room_extractor import (
-    should_include_course,
-    group_courses_by_room,
-)
+import sys
+from unittest.mock import MagicMock
+
+# Mock database dependency before importing the module
+sys.modules.setdefault("helper.db", MagicMock())
+
+from genetic_algo.course_filter import should_include_course
+from helper.db_room_extractor import group_courses_by_room
 
 
 # --- should_include_course ---
