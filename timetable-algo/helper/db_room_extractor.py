@@ -3,21 +3,7 @@ import csv
 from collections import defaultdict
 from typing import List, Dict, Tuple
 from .db import fetch_all
-
-
-def should_include_course(subject: str, catalog: str) -> bool:
-    """Determine if a course should be included in scheduling (COEN, ELEC, ENGR 290)."""
-    subject = subject.upper().strip()
-    catalog = catalog.strip()
-    
-    if subject == "COEN":
-        return True
-    if subject == "ELEC":
-        return True
-    if subject == "ENGR" and catalog == "290":
-        return True
-    
-    return False
+from genetic_algo.course_filter import should_include_course
 
 
 def fetch_lab_rooms() -> Dict[int, Dict]:

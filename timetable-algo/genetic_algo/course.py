@@ -57,6 +57,8 @@ class Course:
     weekly_tut_freq: int = 0
     tut_duration: int = 0
 
+    lec_section: str = ""  # Full lecture section string (e.g. "AA", "CC")
+
     @property
     def day_codes(self) -> List[int]:
         """Get day codes from lecture (e.g., TuTh -> [2, 9, 4, 11])."""
@@ -75,12 +77,15 @@ class Course:
         lec_start = parse_time_to_minutes(_get(row, "start_time"))
         lec_end = parse_time_to_minutes(_get(row, "end_time"))
 
+        lec_section = (row.get("lec_section") or "").strip()
+
         lecture = CourseElement(
             day=lec_days,
             start=lec_start,
             end=lec_end,
             bldg=None,
-            room=None
+            room=None,
+            section=lec_section or None
         )
 
         lab_count = _int_or_zero(_get(row, "lab_count"))
@@ -91,14 +96,22 @@ class Course:
         weekly_tut_freq = _int_or_zero(_get(row, "weekly_tut_freq"))
         tut_duration = _int_or_zero(_get(row, "tut_duration"))
 
+        # Parse section lists from CSV if present (comma-separated)
+        tut_sections_str = (row.get("tut_sections") or "").strip()
+        lab_sections_str = (row.get("lab_sections") or "").strip()
+        tut_sections = [s.strip() for s in tut_sections_str.split(",") if s.strip()] if tut_sections_str else []
+        lab_sections = [s.strip() for s in lab_sections_str.split(",") if s.strip()] if lab_sections_str else []
+
         laboratory = tuple(
-            CourseElement(day=[], start=0, end=0, bldg=None, room=None) 
-            for _ in range(lab_count)
+            CourseElement(day=[], start=0, end=0, bldg=None, room=None,
+                          section=lab_sections[i] if i < len(lab_sections) else None)
+            for i in range(lab_count)
         )
 
         tutorials = tuple(
-            CourseElement(day=[], start=0, end=0, bldg=None, room=None) 
-            for _ in range(tut_count)
+            CourseElement(day=[], start=0, end=0, bldg=None, room=None,
+                          section=tut_sections[i] if i < len(tut_sections) else None)
+            for i in range(tut_count)
         )
 
         return cls(
@@ -114,4 +127,5 @@ class Course:
             tut_count=tut_count,
             weekly_tut_freq=weekly_tut_freq,
             tut_duration=tut_duration,
+            lec_section=lec_section,
         )

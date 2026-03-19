@@ -7,9 +7,9 @@ from dotenv import load_dotenv
 _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(_env_path)
 
-POPULATION_SIZE = 4
+POPULATION_SIZE = 50
 ALPHA = 0.75
-MUTATION_COUNT = 1
+MUTATION_COUNT = 10
 
 LIMIT_POPULATION_GENERATION = 100
 LIMIT_FITTEST_UNCHANGED_GENERATION = 15

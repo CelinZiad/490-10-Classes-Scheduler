@@ -1,6 +1,7 @@
 # initialization.py
 import random
 from course import Course
+from overlap_utils import times_overlap
 from typing import Tuple, List, Optional, Dict
 
 start_time_0845 = 8*60 + 45
@@ -25,11 +26,12 @@ tut_100_start = [start_time_0845, start_time_0950, start_time_1145, start_time_1
                     start_time_1445, start_time_1550, start_time_1745, start_time_1850]
 
 def insert_tut_into_timetable(course):
+    has_lecture_days = bool(course.lecture and course.lecture.day)
     for tut in course.tutorial:
         if course.weekly_tut_freq == 1 and course.tut_duration == 50:
             d = random.choice(day_of_week_tut)
             tut.day = [d, d + 7]
-            if any(d in day.value for day in course.lecture.day):
+            if has_lecture_days and any(d in day.value for day in course.lecture.day):
                 diff = -1
                 attempts = 0
                 while 0 >= diff and attempts < 120:
@@ -46,7 +48,7 @@ def insert_tut_into_timetable(course):
         elif course.weekly_tut_freq == 1 and course.tut_duration == 100:
             d = random.choice(day_of_week_tut)
             tut.day = [d, d + 7]
-            if any(d in day.value for day in course.lecture.day):
+            if has_lecture_days and any(d in day.value for day in course.lecture.day):
                 diff = -1
                 attempts = 0
                 while 0 >= diff and attempts < 120:
@@ -59,6 +61,34 @@ def insert_tut_into_timetable(course):
                 tut.start = tut_start
             else:
                 tut.start = random.choice(tut_100_start)    
+            tut.end = tut.start + 100
+        elif course.weekly_tut_freq == 2 and course.tut_duration == 100:
+            d1 = random.choice(day_of_week_tut)
+            non_adjacent = [d for d in day_of_week_tut if abs(d - d1) > 1]
+            if not non_adjacent:
+                non_adjacent = [d for d in day_of_week_tut if d != d1]
+            d2 = random.choice(non_adjacent)
+            tut.day = [d1, d1 + 7, d2, d2 + 7]
+            if has_lecture_days:
+                lecture_days = set()
+                for day in course.lecture.day:
+                    lecture_days.update(day.value)
+                has_day_conflict = d1 in lecture_days or d2 in lecture_days
+            else:
+                has_day_conflict = False
+            if has_day_conflict:
+                diff = -1
+                attempts = 0
+                while 0 >= diff and attempts < 120:
+                    tut_start = random.choice(tut_100_start)
+                    if tut_start > course.lecture.start:
+                        diff = tut_start - course.lecture.end
+                    elif course.lecture.start > tut_start:
+                        diff = course.lecture.end - 100 - tut_start
+                    attempts += 1
+                tut.start = tut_start
+            else:
+                tut.start = random.choice(tut_100_start)
             tut.end = tut.start + 100
 
 
@@ -109,7 +139,7 @@ def find_conflict_free_lab_slot(course, lab_index: int, room_timetable: Optional
         base_weekday = base_day if base_day <= 7 else base_day - 7
         has_lecture_conflict = False
         
-        if any(base_weekday in day.value for day in course.lecture.day):
+        if course.lecture.day and any(base_weekday in day.value for day in course.lecture.day):
             if lab_start < course.lecture.end and course.lecture.start < lab_end:
                 has_lecture_conflict = True
         
@@ -131,6 +161,7 @@ def find_conflict_free_lab_slot(course, lab_index: int, room_timetable: Optional
 
 def insert_lab_into_timetable(course, room_timetable: Optional[Dict] = None):
     """Insert labs into course timetable, avoiding lecture and room conflicts."""
+    has_lecture_days = bool(course.lecture and course.lecture.day)
     for lab_index, lab in enumerate(course.lab):
         result = find_conflict_free_lab_slot(course, lab_index, room_timetable)
         
@@ -143,7 +174,7 @@ def insert_lab_into_timetable(course, room_timetable: Optional[Dict] = None):
             if course.biweekly_lab_freq == 1 and course.lab_duration == 165:
                 d = random.choice(day_of_week_lab)
                 lab.day = [d]
-                if any(d in day.value for day in course.lecture.day):
+                if has_lecture_days and any(d in day.value for day in course.lecture.day):
                     diff = -1
                     attempts = 0
                     while 0 >= diff and attempts < 120:
@@ -160,7 +191,7 @@ def insert_lab_into_timetable(course, room_timetable: Optional[Dict] = None):
             elif course.biweekly_lab_freq == 1 and course.lab_duration == 100:
                 d = random.choice(day_of_week_lab)
                 lab.day = [d]
-                if any(d in day.value for day in course.lecture.day):
+                if has_lecture_days and any(d in day.value for day in course.lecture.day):
                     diff = -1
                     attempts = 0
                     while 0 >= diff and attempts < 120:
@@ -174,6 +205,51 @@ def insert_lab_into_timetable(course, room_timetable: Optional[Dict] = None):
                 else:
                     lab.start = random.choice(tut_100_start)    
                 lab.end = lab.start + 100
+            elif course.biweekly_lab_freq == 2 and course.lab_duration == 165:
+                d = random.choice(day_of_week_lab)
+                lab.day = get_lab_days_for_frequency(2, d)
+                if has_lecture_days and any(d in day.value for day in course.lecture.day):
+                    diff = -1
+                    attempts = 0
+                    while 0 >= diff and attempts < 120:
+                        lab_start = random.choice(lab_165_start)
+                        if lab_start > course.lecture.start:
+                            diff = lab_start - course.lecture.end
+                        elif course.lecture.start > lab_start:
+                            diff = course.lecture.end - 165 - lab_start
+                        attempts += 1
+                    lab.start = lab_start
+                else:
+                    lab.start = random.choice(lab_165_start)
+                lab.end = lab.start + 165
+            elif course.biweekly_lab_freq == 2 and course.lab_duration == 100:
+                d = random.choice(day_of_week_lab)
+                lab.day = get_lab_days_for_frequency(2, d)
+                if has_lecture_days and any(d in day.value for day in course.lecture.day):
+                    diff = -1
+                    attempts = 0
+                    while 0 >= diff and attempts < 120:
+                        lab_start = random.choice(tut_100_start)
+                        if lab_start > course.lecture.start:
+                            diff = lab_start - course.lecture.end
+                        elif course.lecture.start > lab_start:
+                            diff = course.lecture.end - 100 - lab_start
+                        attempts += 1
+                    lab.start = lab_start
+                else:
+                    lab.start = random.choice(tut_100_start)
+                lab.end = lab.start + 100
+            else:
+                # General fallback for any other duration/frequency combination
+                d = random.choice(day_of_week_lab)
+                lab.day = get_lab_days_for_frequency(course.biweekly_lab_freq, d)
+                if course.lab_duration == 165:
+                    lab.start = random.choice(lab_165_start)
+                elif course.lab_duration == 100:
+                    lab.start = random.choice(tut_100_start)
+                else:
+                    lab.start = random.choice(lab_165_start)
+                lab.end = lab.start + course.lab_duration
 
 
 def build_room_timetable_for_schedule(schedule, room_assignments):
@@ -225,17 +301,6 @@ def has_valid_lab_tut_combination(course):
                 return True
     
     return False
-
-
-def times_overlap(element1, element2):
-    """Check if two course elements overlap in time."""
-    days1 = set(element1.day)
-    days2 = set(element2.day)
-    
-    if not days1.intersection(days2):
-        return False
-    
-    return element1.start < element2.end and element2.start < element1.end
 
 
 def initialize_course_with_validation(course, max_attempts=100, room_assignments=None, 
