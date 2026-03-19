@@ -42,6 +42,5 @@ def test_parse_day_pattern_invalid_raises():
         parse_day_pattern("Xx")
 
 
-def test_parse_day_pattern_empty_raises():
-    with pytest.raises(ValueError):
-        parse_day_pattern("")
+def test_parse_day_pattern_empty_returns_empty():
+    assert parse_day_pattern("") == ()
