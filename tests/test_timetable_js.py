@@ -15,14 +15,14 @@ class TestTimetableJsStructure:
         """timetable.js should be readable as text."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert len(content) > 0, "timetable.js should not be empty"
 
     def test_timetable_js_has_required_functions(self):
         """timetable.js should declare required functions."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         
         required_functions = [
             "loadFilters",
@@ -45,14 +45,14 @@ class TestTimetableJsStructure:
         """timetable.js should define ECE_SUBJECTS constant."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "ECE_SUBJECTS" in content
 
     def test_timetable_js_initializes_on_dom_ready(self):
         """timetable.js should initialize on DOMContentLoaded."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "DOMContentLoaded" in content
 
 
@@ -63,49 +63,49 @@ class TestTimetableJsSelectors:
         """JS should reference the plan-filter select element."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert 'plan-filter' in content or 'planFilter' in content
 
     def test_js_references_semester_filter_element(self):
         """JS should reference the semester-filter select element."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert 'semester-filter' in content or 'semesterFilter' in content
 
     def test_js_references_term_filter_element(self):
         """JS should reference the term-filter select element."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert 'term-filter' in content or 'termFilter' in content
 
     def test_js_references_subject_filter_element(self):
         """JS should reference the subject-filter select element."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert 'subject-filter' in content or 'subjectFilter' in content
 
     def test_js_references_component_filter_element(self):
         """JS should reference the component-filter select element."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert 'component-filter' in content or 'componentFilter' in content
 
     def test_js_references_building_filter_element(self):
         """JS should reference the building-filter select element."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert 'building-filter' in content or 'buildingFilter' in content
 
     def test_js_references_calendar_element(self):
         """JS should reference the calendar container element."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert 'calendar' in content
 
 
@@ -116,28 +116,28 @@ class TestTimetableJsApiBehavior:
         """JS should call /api/events endpoint."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "/api/events" in content
 
     def test_js_calls_api_filters_endpoint(self):
         """JS should call /api/filters endpoint."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "/api/filters" in content
 
     def test_js_calls_api_plan_terms_endpoint(self):
         """JS should call /api/plans endpoint for plan terms."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "/api/plans" in content and "/terms" in content
 
     def test_js_calls_plan_sequenceterm_termcodes_endpoint(self):
         """JS should call new /api/plans/.../sequenceterms/.../termcodes endpoint."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         # Check for the endpoint or function that loads semester offerings
         assert "api" in content and ("termcode" in content.lower() or "semester" in content.lower())
 
@@ -149,28 +149,28 @@ class TestTimetableJsEventHandlers:
         """JS should set up event listeners."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "addEventListener" in content or "on" in content.lower()
 
     def test_js_handles_apply_button_click(self):
         """JS should handle apply button clicks."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "apply" in content.lower()
 
     def test_js_handles_clear_button_click(self):
         """JS should handle clear button clicks."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "clear" in content.lower()
 
     def test_js_handles_tab_filter_clicks(self):
         """JS should handle quick filter tab clicks."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "tab" in content.lower() or "filter" in content.lower()
 
 
@@ -181,35 +181,35 @@ class TestTimetableJsFilterLogic:
         """JS should build filter parameters from dropdown selections."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "getFilterParams" in content or "params" in content.lower()
 
     def test_js_includes_term_in_filters(self):
         """JS should include term parameter in filter params."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "term" in content.lower()
 
     def test_js_includes_subject_in_filters(self):
         """JS should include subject parameter in filter params."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "subject" in content
 
     def test_js_includes_component_in_filters(self):
         """JS should include component parameter in filter params."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "component" in content
 
     def test_js_includes_building_in_filters(self):
         """JS should include building parameter in filter params."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "building" in content
 
 
@@ -220,14 +220,14 @@ class TestTimetableJsCalendar:
         """JS should initialize FullCalendar."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "FullCalendar" in content or "calendar" in content
 
     def test_js_configures_calendar_views(self):
         """JS should configure FullCalendar views."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         # Should have calendar view configurations
         assert "timeGridWeek" in content or "view" in content.lower()
 
@@ -235,7 +235,7 @@ class TestTimetableJsCalendar:
         """JS should refetch events when filters change."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "refetch" in content or "refetchEvents" in content
 
 
@@ -246,21 +246,21 @@ class TestTimetableJsUi:
         """JS should show/hide loading overlay."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "showLoading" in content or "loading" in content.lower()
 
     def test_js_has_event_modal_functionality(self):
         """JS should show/hide event detail modal."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "modal" in content.lower()
 
     def test_js_updates_event_count_display(self):
         """JS should update event count display."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "updateStats" in content or "event-count" in content
 
 
@@ -271,20 +271,20 @@ class TestTimetableJsSemanticFunctions:
         """JS should have loadSemesterOfferings function for mapping sequences to terms."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "loadSemesterOfferings" in content or "semester" in content.lower()
 
     def test_js_populates_semester_dropdown_from_plan(self):
         """JS should populate semester dropdown when plan is selected."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         assert "loadPlanTerms" in content
 
     def test_js_handles_no_offerings_for_semester(self):
         """JS should handle case where a semester has no schedule offerings."""
         from pathlib import Path
         js_file = Path(__file__).resolve().parents[1] / "static" / "js" / "timetable.js"
-        content = js_file.read_text()
+        content = js_file.read_text(encoding="utf-8")
         # Should have some error/empty handling
         assert len(content) > 100  # Reasonable JS file size

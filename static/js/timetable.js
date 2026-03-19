@@ -703,8 +703,8 @@ function setupEventListeners() {
     );
   });
 
-  document.querySelector(".modal-close").addEventListener("click", closeModal);
-  document.querySelector(".modal-backdrop").addEventListener("click", closeModal);
+  modal.querySelector(".modal-close").addEventListener("click", closeModal);
+  modal.querySelector(".modal-backdrop").addEventListener("click", closeModal);
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeModal();
   });
