@@ -607,14 +607,15 @@ def api_search_catalog():
 
 @app.route("/create-course", methods=["POST"])
 def create_course():
-    """Add a course to a sequence term."""
+    """Add a course to a sequence term. Optionally creates the catalog entry first."""
     data = request.get_json()
     termid = data.get("termid")
     subject = (data.get("subject") or "").strip().upper()
-    catalog = (data.get("catalog") or "").strip()
+    catalog_num = (data.get("catalog") or "").strip()
     iselective = bool(data.get("iselective", False))
+    create_new = bool(data.get("create_new", False))
 
-    if not termid or not subject or not catalog:
+    if not termid or not subject or not catalog_num:
         return jsonify({"error": "termid, subject, and catalog are required"}), 400
 
     try:
@@ -626,37 +627,55 @@ def create_course():
         if not term:
             return jsonify({"error": f"Sequence term {termid} not found"}), 404
 
-        # Verify the course exists in catalog
+        # Check if the course already exists in catalog
         cat = db.session.execute(
             db.text(
                 "SELECT subject, catalog FROM catalog "
                 "WHERE subject = :s AND catalog = :c AND career = 'UGRD'"
             ),
-            {"s": subject, "c": catalog},
+            {"s": subject, "c": catalog_num},
         ).first()
-        if not cat:
-            return jsonify({"error": f"Course {subject} {catalog} not found in UGRD catalog"}), 404
 
-        # Check for duplicate
+        if not cat and not create_new:
+            return jsonify({"error": f"Course {subject} {catalog_num} not found in UGRD catalog"}), 404
+
+        if not cat and create_new:
+            # Create the catalog entry first
+            title = (data.get("title") or "").strip()
+            classunit = data.get("classunit")
+            prerequisites = (data.get("prerequisites") or "").strip()
+            if not title:
+                return jsonify({"error": "Title is required for a new catalog course"}), 400
+            db.session.execute(
+                db.text("""
+                    INSERT INTO catalog (id, subject, catalog, title, career, classunit, prerequisites)
+                    VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM catalog),
+                            :s, :c, :t, 'UGRD', :cu, :pr)
+                """),
+                {"s": subject, "c": catalog_num, "t": title,
+                 "cu": classunit, "pr": prerequisites or None},
+            )
+
+        # Check for duplicate in sequence
         existing = db.session.execute(
             db.text("""
                 SELECT 1 FROM sequencecourse
                 WHERE sequencetermid = :tid AND subject = :s AND catalog = :c
             """),
-            {"tid": termid, "s": subject, "c": catalog},
+            {"tid": termid, "s": subject, "c": catalog_num},
         ).first()
         if existing:
-            return jsonify({"error": f"{subject} {catalog} already exists in this term"}), 409
+            return jsonify({"error": f"{subject} {catalog_num} already exists in this term"}), 409
 
         db.session.execute(
             db.text("""
                 INSERT INTO sequencecourse (sequencetermid, subject, catalog, iselective)
                 VALUES (:tid, :s, :c, :ie)
             """),
-            {"tid": termid, "s": subject, "c": catalog, "ie": iselective},
+            {"tid": termid, "s": subject, "c": catalog_num, "ie": iselective},
         )
         db.session.commit()
-        return jsonify({"message": f"Added {subject} {catalog}"}), 201
+        return jsonify({"message": f"Added {subject} {catalog_num}"}), 201
 
     except Exception:
         db.session.rollback()

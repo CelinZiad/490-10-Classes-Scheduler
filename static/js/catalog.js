@@ -126,15 +126,37 @@ if (courseInput) {
     });
 }
 
+// ── Source toggle (catalog vs new course) ────────────────────────────
+
+function setAddSource(source) {
+    document.getElementById("addSource").value = source;
+    document.getElementById("btnFromCatalog").classList.toggle("active", source === "catalog");
+    document.getElementById("btnNewCourse").classList.toggle("active", source === "new");
+    document.getElementById("catalogSearch").style.display = source === "catalog" ? "" : "none";
+    document.getElementById("newCourseFields").style.display = source === "new" ? "" : "none";
+    if (source === "new") {
+        document.getElementById("newSubject").focus();
+    } else {
+        courseInput.focus();
+    }
+}
+
 // ── Add Course Modal ─────────────────────────────────────────────────
 
 function openAddModal() {
     document.getElementById("modalMode").value = "add";
     document.getElementById("addEditTitle").textContent = "Add Course to Sequence";
     document.getElementById("cascadeWarn").style.display = "none";
+    document.getElementById("sourceToggle").style.display = "";
+    setAddSource("catalog");
     courseInput.value = "";
     selectedSubject = "";
     selectedCatalog = "";
+    document.getElementById("newSubject").value = "";
+    document.getElementById("newCatalog").value = "";
+    document.getElementById("newTitle").value = "";
+    document.getElementById("newCredits").value = "";
+    document.getElementById("newPrereqs").value = "";
     document.getElementById("modalElective").checked = false;
     document.getElementById("modalTermId").value = CURRENT_TERM_ID;
     document.getElementById("addEditModal").classList.remove("hidden");
@@ -147,6 +169,10 @@ function openEditModal(subject, catalog, iselective) {
     document.getElementById("modalMode").value = "edit";
     document.getElementById("addEditTitle").textContent = "Edit " + subject + " " + catalog;
     document.getElementById("cascadeWarn").style.display = "block";
+    document.getElementById("sourceToggle").style.display = "none";
+    document.getElementById("catalogSearch").style.display = "";
+    document.getElementById("newCourseFields").style.display = "none";
+    document.getElementById("addSource").value = "catalog";
 
     courseInput.value = subject + " " + catalog;
     selectedSubject = subject;
@@ -171,43 +197,71 @@ function closeAddEditModal() {
 
 function saveAddEdit() {
     var mode = document.getElementById("modalMode").value;
+    var source = document.getElementById("addSource").value;
     var termid = document.getElementById("modalTermId").value;
     var elective = document.getElementById("modalElective").checked;
 
-    // Parse subject/catalog from input if user typed manually
-    if (!selectedSubject || !selectedCatalog) {
-        var parts = courseInput.value.trim().split(/\s+/);
-        if (parts.length >= 2) {
-            selectedSubject = parts[0].toUpperCase();
-            selectedCatalog = parts.slice(1).join(" ");
-        }
-    }
-
-    if (!selectedSubject || !selectedCatalog) {
-        showToast("Please select a valid course", "error");
-        return;
-    }
-
     var url, body;
-    if (mode === "add") {
+
+    if (mode === "add" && source === "new") {
+        // New course mode — read from manual fields
+        var subj = (document.getElementById("newSubject").value || "").trim().toUpperCase();
+        var catNum = (document.getElementById("newCatalog").value || "").trim();
+        var title = (document.getElementById("newTitle").value || "").trim();
+        var credits = document.getElementById("newCredits").value;
+        var prereqs = (document.getElementById("newPrereqs").value || "").trim();
+
+        if (!subj || !catNum || !title) {
+            showToast("Subject, catalog number, and title are required", "error");
+            return;
+        }
+
         url = "/create-course";
         body = {
             termid: termid,
-            subject: selectedSubject,
-            catalog: selectedCatalog,
-            iselective: elective
+            subject: subj,
+            catalog: catNum,
+            iselective: elective,
+            create_new: true,
+            title: title,
+            classunit: credits ? parseFloat(credits) : null,
+            prerequisites: prereqs
         };
     } else {
-        url = "/update-course";
-        body = {
-            old_termid: document.getElementById("editOldTermId").value,
-            old_subject: document.getElementById("editOldSubject").value,
-            old_catalog: document.getElementById("editOldCatalog").value,
-            new_termid: termid,
-            new_subject: selectedSubject,
-            new_catalog: selectedCatalog,
-            iselective: elective
-        };
+        // Catalog search mode (existing flow)
+        if (!selectedSubject || !selectedCatalog) {
+            var parts = courseInput.value.trim().split(/\s+/);
+            if (parts.length >= 2) {
+                selectedSubject = parts[0].toUpperCase();
+                selectedCatalog = parts.slice(1).join(" ");
+            }
+        }
+
+        if (!selectedSubject || !selectedCatalog) {
+            showToast("Please select a valid course", "error");
+            return;
+        }
+
+        if (mode === "add") {
+            url = "/create-course";
+            body = {
+                termid: termid,
+                subject: selectedSubject,
+                catalog: selectedCatalog,
+                iselective: elective
+            };
+        } else {
+            url = "/update-course";
+            body = {
+                old_termid: document.getElementById("editOldTermId").value,
+                old_subject: document.getElementById("editOldSubject").value,
+                old_catalog: document.getElementById("editOldCatalog").value,
+                new_termid: termid,
+                new_subject: selectedSubject,
+                new_catalog: selectedCatalog,
+                iselective: elective
+            };
+        }
     }
 
     fetch(url, {

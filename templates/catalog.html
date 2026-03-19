@@ -112,10 +112,37 @@
       Changing the course code will cascade the update across all related tables (sections, labs, optimized schedule, etc.)
     </div>
 
-    <label for="courseInput">Course</label>
-    <div class="ac-wrapper">
-      <input type="text" id="courseInput" placeholder="Type to search (e.g. COEN 212)..." autocomplete="off">
-      <div id="acList" class="ac-list" style="display:none;"></div>
+    <!-- Source toggle (only visible in add mode) -->
+    <div id="sourceToggle" class="source-toggle-row">
+      <button type="button" id="btnFromCatalog" class="toggle-btn active" onclick="setAddSource('catalog')">From Catalog</button>
+      <button type="button" id="btnNewCourse" class="toggle-btn" onclick="setAddSource('new')">New Course</button>
+    </div>
+
+    <!-- Catalog search (existing flow) -->
+    <div id="catalogSearch">
+      <label for="courseInput">Course</label>
+      <div class="ac-wrapper">
+        <input type="text" id="courseInput" placeholder="Type to search (e.g. COEN 212)..." autocomplete="off">
+        <div id="acList" class="ac-list" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- New course fields (hidden by default) -->
+    <div id="newCourseFields" style="display:none;">
+      <label for="newSubject">Subject</label>
+      <input type="text" id="newSubject" placeholder="e.g. COEN">
+
+      <label for="newCatalog">Catalog Number</label>
+      <input type="text" id="newCatalog" placeholder="e.g. 390">
+
+      <label for="newTitle">Title</label>
+      <input type="text" id="newTitle" placeholder="e.g. Software Engineering">
+
+      <label for="newCredits">Credits</label>
+      <input type="number" id="newCredits" step="0.5" min="0" placeholder="e.g. 3.0">
+
+      <label for="newPrereqs">Prerequisites</label>
+      <input type="text" id="newPrereqs" placeholder="e.g. COEN 243, COEN 311">
     </div>
 
     <label for="modalTermId">Sequence Term</label>
@@ -136,6 +163,7 @@
     <input type="hidden" id="editOldCatalog">
     <input type="hidden" id="editOldTermId">
     <input type="hidden" id="modalMode" value="add">
+    <input type="hidden" id="addSource" value="catalog">
 
     <div class="modal-actions">
       <button type="button" onclick="saveAddEdit()" class="add-btn">Save</button>
@@ -254,6 +282,39 @@
   font-size: 0.8125rem;
   color: #92400e;
   margin-bottom: 8px;
+}
+.source-toggle-row {
+  display: flex;
+  gap: 0;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+}
+.toggle-btn {
+  flex: 1;
+  padding: 6px 10px;
+  border: none;
+  background: #f3f4f6;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #374151;
+}
+.toggle-btn.active {
+  background: #2563eb;
+  color: white;
+}
+.toggle-btn:hover:not(.active) {
+  background: #e5e7eb;
+}
+#newCourseFields input[type="number"] {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  margin-bottom: 4px;
 }
 .ac-wrapper { position: relative; }
 .ac-list {
