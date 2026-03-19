@@ -2,6 +2,163 @@
 
 {% block title %}Catalog{% endblock %}
 
+{% block extra_css %}
+<style>
+  .catalog-toolbar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin-top: 12px;
+    flex-wrap: wrap;
+  }
+  .catalog-toolbar .search-box {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.875rem;
+  }
+  .btn-sm {
+    padding: 0.375rem 0.75rem;
+    border-radius: 5px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+  }
+  .btn-add {
+    background: #16a34a;
+    color: #fff;
+  }
+  .btn-edit {
+    background: var(--sidebar-active);
+    color: #fff;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  .btn-delete {
+    background: #dc2626;
+    color: #fff;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  .actions-cell {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open {
+    display: flex;
+  }
+  .modal-box {
+    background: #fff;
+    border-radius: 10px;
+    padding: 1.5rem;
+    width: 440px;
+    max-width: 92vw;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+  }
+  .modal-box h3 {
+    margin: 0 0 1rem;
+  }
+  .modal-box label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+  .modal-box input,
+  .modal-box select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.875rem;
+    margin-bottom: 0.75rem;
+  }
+  .modal-box .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0.75rem;
+  }
+  .modal-box .checkbox-row input {
+    width: auto;
+    margin: 0;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 1rem;
+  }
+  .btn-cancel {
+    background: #e5e7eb;
+    color: #374151;
+  }
+  .cascade-warning {
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+    color: #92400e;
+    margin-bottom: 0.75rem;
+  }
+  .autocomplete-list {
+    position: absolute;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1001;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    width: calc(100% - 1.5rem);
+  }
+  .autocomplete-list div {
+    padding: 0.4rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.8125rem;
+  }
+  .autocomplete-list div:hover {
+    background: #eff6ff;
+  }
+  .search-wrapper {
+    position: relative;
+  }
+  .toast {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    padding: 0.75rem 1.25rem;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 0.875rem;
+    z-index: 2000;
+    animation: slideIn 0.3s ease;
+  }
+  .toast-success { background: #16a34a; }
+  .toast-error   { background: #dc2626; }
+  @keyframes slideIn {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <h1>Catalog View (by Sequence)</h1>
 
@@ -33,11 +190,16 @@
       <button type="submit">Load</button>
     </noscript>
   </form>
+
+  <div class="catalog-toolbar">
+    <input type="text" class="search-box" id="course-search" placeholder="Filter courses...">
+    <button class="btn-sm btn-add" id="btn-add-course">+ Add Course</button>
+  </div>
 </div>
 
 <div class="card">
   {% if rows %}
-    <table class="data-table">
+    <table class="data-table" id="catalog-table">
       <thead>
         <tr>
           <th>Course</th>
@@ -45,17 +207,24 @@
           <th>Credits</th>
           <th>Elective</th>
           <th>Prerequisites</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         {% for r in rows %}
-          <tr>
+          <tr data-subject="{{ r.subject }}" data-catalog="{{ r.catalog }}" data-elective="{{ 'true' if r.iselective else 'false' }}">
             <td>{{ r.subject }} {{ r.catalog }}</td>
             <td>{{ r.title if r.title else "Not found in catalog" }}</td>
             <td>{{ r.classunit if r.classunit is not none else "-" }}</td>
             <td>{{ "Yes" if r.iselective else "No" }}</td>
             <td style="max-width: 520px;">
               {{ r.prerequisites if r.prerequisites else "-" }}
+            </td>
+            <td>
+              <div class="actions-cell">
+                <button class="btn-sm btn-edit" onclick="openEdit(this)">Edit</button>
+                <button class="btn-sm btn-delete" onclick="openDelete(this)">Delete</button>
+              </div>
             </td>
           </tr>
         {% endfor %}
@@ -65,4 +234,58 @@
     <p>No courses found for this selection.</p>
   {% endif %}
 </div>
+
+<!-- Add / Edit Modal -->
+<div class="modal-overlay" id="modal-add-edit">
+  <div class="modal-box">
+    <h3 id="modal-title">Add Course</h3>
+    <div id="cascade-warn" class="cascade-warning" style="display:none;">
+      Changing the course code will cascade the update across all related tables (sections, labs, optimized schedule, etc.)
+    </div>
+    <div class="search-wrapper">
+      <label for="modal-course-input">Course</label>
+      <input type="text" id="modal-course-input" placeholder="Type to search (e.g. COEN 212)..." autocomplete="off">
+      <div class="autocomplete-list" id="ac-list" style="display:none;"></div>
+    </div>
+    <label for="modal-termid">Sequence Term</label>
+    <select id="modal-termid">
+      {% for t in terms %}
+        <option value="{{ t.sequencetermid }}"{{ ' selected' if t.sequencetermid == selected_termid else '' }}>
+          Year {{ t.yearnumber }} {{ t.season|title }}{% if t.workterm %} (Work){% endif %}
+        </option>
+      {% endfor %}
+    </select>
+    <div class="checkbox-row">
+      <input type="checkbox" id="modal-elective">
+      <label for="modal-elective" style="margin:0;">Elective</label>
+    </div>
+    <!-- hidden fields for edit mode -->
+    <input type="hidden" id="edit-old-subject">
+    <input type="hidden" id="edit-old-catalog">
+    <input type="hidden" id="edit-old-termid">
+    <input type="hidden" id="modal-mode" value="add">
+    <div class="modal-actions">
+      <button class="btn-sm btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-sm btn-add" id="modal-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal-overlay" id="modal-delete">
+  <div class="modal-box">
+    <h3>Delete Course</h3>
+    <p>Remove <strong id="del-course-name"></strong> from this sequence term?</p>
+    <input type="hidden" id="del-subject">
+    <input type="hidden" id="del-catalog">
+    <div class="modal-actions">
+      <button class="btn-sm btn-cancel" onclick="closeDeleteModal()">Cancel</button>
+      <button class="btn-sm btn-delete" id="modal-confirm-delete">Delete</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/catalog.js') }}"></script>
 {% endblock %}

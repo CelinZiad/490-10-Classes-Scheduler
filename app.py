@@ -532,6 +532,231 @@ def catalog():
     )
 
 
+# ── Sequence-course CRUD API ──────────────────────────────────────────
+
+
+@app.get("/api/search-catalog")
+def api_search_catalog():
+    """Search the catalog table for courses matching a query string."""
+    q = request.args.get("q", "").strip()
+    if len(q) < 2:
+        return jsonify([])
+
+    rows = (
+        db.session.execute(
+            db.text(
+                """
+        SELECT subject, catalog, title, classunit
+        FROM catalog
+        WHERE career = 'UGRD'
+          AND (
+            CONCAT(subject, ' ', catalog) ILIKE :pattern
+            OR title ILIKE :pattern
+          )
+        ORDER BY subject, catalog
+        LIMIT 30;
+    """
+            ),
+            {"pattern": f"%{q}%"},
+        )
+        .mappings()
+        .all()
+    )
+    return jsonify(
+        [
+            {
+                "subject": r["subject"],
+                "catalog": r["catalog"],
+                "title": r["title"],
+                "classunit": r["classunit"],
+            }
+            for r in rows
+        ]
+    )
+
+
+@app.post("/api/sequence-course")
+def api_create_sequence_course():
+    """Add a course to a sequence term."""
+    data = request.get_json(force=True)
+    termid = data.get("sequencetermid")
+    subject = (data.get("subject") or "").strip().upper()
+    catalog = (data.get("catalog") or "").strip()
+    iselective = bool(data.get("iselective", False))
+
+    if not termid or not subject or not catalog:
+        return jsonify({"error": "sequencetermid, subject, and catalog are required"}), 400
+
+    try:
+        # Verify the term exists
+        term = db.session.execute(
+            db.text("SELECT sequencetermid FROM sequenceterm WHERE sequencetermid = :tid"),
+            {"tid": termid},
+        ).first()
+        if not term:
+            return jsonify({"error": f"Sequence term {termid} not found"}), 404
+
+        # Verify the course exists in catalog
+        cat = db.session.execute(
+            db.text(
+                "SELECT subject, catalog FROM catalog WHERE subject = :s AND catalog = :c AND career = 'UGRD'"
+            ),
+            {"s": subject, "c": catalog},
+        ).first()
+        if not cat:
+            return jsonify({"error": f"Course {subject} {catalog} not found in UGRD catalog"}), 404
+
+        # Check for duplicate
+        existing = db.session.execute(
+            db.text(
+                """SELECT 1 FROM sequencecourse
+                   WHERE sequencetermid = :tid AND subject = :s AND catalog = :c"""
+            ),
+            {"tid": termid, "s": subject, "c": catalog},
+        ).first()
+        if existing:
+            return jsonify({"error": f"{subject} {catalog} already exists in this term"}), 409
+
+        db.session.execute(
+            db.text(
+                """INSERT INTO sequencecourse (sequencetermid, subject, catalog, iselective)
+                   VALUES (:tid, :s, :c, :ie)"""
+            ),
+            {"tid": termid, "s": subject, "c": catalog, "ie": iselective},
+        )
+        db.session.commit()
+        return jsonify({"ok": True, "message": f"Added {subject} {catalog}"}), 201
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.put("/api/sequence-course")
+def api_update_sequence_course():
+    """Update a sequence course with cascading across all related tables.
+
+    Expects JSON with:
+      old_termid, old_subject, old_catalog  – identify the row to update
+      new_termid, new_subject, new_catalog, iselective – new values
+    If subject/catalog changes, cascade to all 7 tables that reference them.
+    """
+    data = request.get_json(force=True)
+    old_tid = data.get("old_termid")
+    old_subj = (data.get("old_subject") or "").strip().upper()
+    old_cat = (data.get("old_catalog") or "").strip()
+
+    new_tid = data.get("new_termid", old_tid)
+    new_subj = (data.get("new_subject") or "").strip().upper()
+    new_cat = (data.get("new_catalog") or "").strip()
+    iselective = bool(data.get("iselective", False))
+
+    if not old_tid or not old_subj or not old_cat:
+        return jsonify({"error": "old_termid, old_subject, old_catalog required"}), 400
+    if not new_subj or not new_cat:
+        return jsonify({"error": "new_subject and new_catalog required"}), 400
+
+    course_changed = (old_subj != new_subj) or (old_cat != new_cat)
+
+    try:
+        # Verify the old row exists
+        exists = db.session.execute(
+            db.text(
+                """SELECT 1 FROM sequencecourse
+                   WHERE sequencetermid = :tid AND subject = :s AND catalog = :c"""
+            ),
+            {"tid": old_tid, "s": old_subj, "c": old_cat},
+        ).first()
+        if not exists:
+            return jsonify({"error": "Original course not found in sequence"}), 404
+
+        # If course identity changed, validate new course exists in catalog
+        if course_changed:
+            valid = db.session.execute(
+                db.text(
+                    "SELECT 1 FROM catalog WHERE subject = :s AND catalog = :c AND career = 'UGRD'"
+                ),
+                {"s": new_subj, "c": new_cat},
+            ).first()
+            if not valid:
+                return jsonify({"error": f"{new_subj} {new_cat} not found in UGRD catalog"}), 404
+
+        cascaded_tables = []
+
+        if course_changed:
+            # Cascade update across all tables that share subject+catalog
+            cascade_targets = [
+                "courselabs",
+                "lab_slot_result",
+                "optimized_schedule",
+                "scheduleterm",
+                "section",
+            ]
+            for tbl in cascade_targets:
+                result = db.session.execute(
+                    db.text(
+                        f"UPDATE {tbl} SET subject = :ns, catalog = :nc "
+                        f"WHERE subject = :os AND catalog = :oc"
+                    ),
+                    {"ns": new_subj, "nc": new_cat, "os": old_subj, "oc": old_cat},
+                )
+                if result.rowcount > 0:
+                    cascaded_tables.append(f"{tbl}({result.rowcount})")
+
+        # Delete old sequencecourse row, insert new one (PK change requires delete+insert)
+        db.session.execute(
+            db.text(
+                """DELETE FROM sequencecourse
+                   WHERE sequencetermid = :tid AND subject = :s AND catalog = :c"""
+            ),
+            {"tid": old_tid, "s": old_subj, "c": old_cat},
+        )
+        db.session.execute(
+            db.text(
+                """INSERT INTO sequencecourse (sequencetermid, subject, catalog, iselective)
+                   VALUES (:tid, :s, :c, :ie)"""
+            ),
+            {"tid": new_tid, "s": new_subj, "c": new_cat, "ie": iselective},
+        )
+
+        db.session.commit()
+        msg = f"Updated {old_subj} {old_cat} → {new_subj} {new_cat}"
+        if cascaded_tables:
+            msg += f" | Cascaded: {', '.join(cascaded_tables)}"
+        return jsonify({"ok": True, "message": msg, "cascaded": cascaded_tables})
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+@app.delete("/api/sequence-course")
+def api_delete_sequence_course():
+    """Remove a course from a sequence term."""
+    data = request.get_json(force=True)
+    termid = data.get("sequencetermid")
+    subject = (data.get("subject") or "").strip().upper()
+    catalog = (data.get("catalog") or "").strip()
+
+    if not termid or not subject or not catalog:
+        return jsonify({"error": "sequencetermid, subject, and catalog are required"}), 400
+
+    try:
+        result = db.session.execute(
+            db.text(
+                """DELETE FROM sequencecourse
+                   WHERE sequencetermid = :tid AND subject = :s AND catalog = :c"""
+            ),
+            {"tid": termid, "s": subject, "c": catalog},
+        )
+        if result.rowcount == 0:
+            return jsonify({"error": "Course not found in this term"}), 404
+
+        db.session.commit()
+        return jsonify({"ok": True, "message": f"Deleted {subject} {catalog}"})
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
 @app.get("/conflicts")
 def conflicts():
     rows = (
