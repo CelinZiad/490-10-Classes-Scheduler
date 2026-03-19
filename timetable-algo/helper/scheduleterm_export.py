@@ -5,6 +5,8 @@ from datetime import date
 import csv
 from .db import get_connection, fetch_all
 from genetic_algo.course import Course
+from .time_utils import (minutes_to_time, day_number_to_day_columns,
+                         combine_day_columns, extract_day_numbers)
 from .academic_calendar import (
     SemesterDates,
     get_lec_tut_dates,
@@ -80,56 +82,6 @@ def _build_cross_list_classnumber_map(previous_termcode: str) -> Dict:
                 mapping[alt_key] = r['classnumber']
     return mapping
 
-
-def minutes_to_time(minutes: int) -> str:
-    hours = minutes // 60
-    mins = minutes % 60
-    return f"{hours:02d}:{mins:02d}:00"
-
-
-def day_number_to_day_columns(day_num: int) -> Dict[str, bool]:
-    day_map = {
-        1: 'mondays', 2: 'tuesdays', 3: 'wednesdays', 4: 'thursdays', 5: 'fridays',
-        8: 'mondays', 9: 'tuesdays', 10: 'wednesdays', 11: 'thursdays', 12: 'fridays'
-    }
-    result = {
-        'mondays': False, 'tuesdays': False, 'wednesdays': False,
-        'thursdays': False, 'fridays': False, 'saturdays': False, 'sundays': False
-    }
-    day_col = day_map.get(day_num)
-    if day_col:
-        result[day_col] = True
-    return result
-
-
-def combine_day_columns(day_numbers: List[int]) -> Dict[str, bool]:
-    result = {
-        'mondays': False, 'tuesdays': False, 'wednesdays': False,
-        'thursdays': False, 'fridays': False, 'saturdays': False, 'sundays': False
-    }
-    for day_num in day_numbers:
-        dc = day_number_to_day_columns(day_num)
-        for day, value in dc.items():
-            if value:
-                result[day] = True
-    return result
-
-
-def extract_day_numbers(day_enum) -> List[int]:
-    if isinstance(day_enum, int):
-        return [day_enum]
-    day_str = str(day_enum)
-    if 'Week1' in day_str or 'Week2' in day_str:
-        day_map = {
-            'Week1Monday': 1, 'Week1Tuesday': 2, 'Week1Wednesday': 3,
-            'Week1Thursday': 4, 'Week1Friday': 5,
-            'Week2Monday': 8, 'Week2Tuesday': 9, 'Week2Wednesday': 10,
-            'Week2Thursday': 11, 'Week2Friday': 12
-        }
-        for key, val in day_map.items():
-            if key in day_str:
-                return [val]
-    return [day_enum] if isinstance(day_enum, int) else []
 
 
 
@@ -826,12 +778,19 @@ def export_csv(rows: List[Dict], output_path: str):
 # Pass-through courses 
 
 
-def _build_passthrough_filter() -> str:
-    """Build a SQL OR clause for PASSTHROUGH_COURSES."""
+def _build_passthrough_filter() -> Tuple[str, List[str]]:
+    """Build a parameterized SQL filter clause for PASSTHROUGH_COURSES.
+    
+    Returns (clause_string, params_list) where the clause uses %s placeholders.
+    """
+    if not PASSTHROUGH_COURSES:
+        return '', []
     clauses = []
+    params = []
     for subj, cat in PASSTHROUGH_COURSES:
-        clauses.append(f"(subject = '{subj}' AND catalog = '{cat}')")
-    return ' OR '.join(clauses)
+        clauses.append("(subject = %s AND catalog = %s)")
+        params.extend([subj, cat])
+    return ' OR '.join(clauses), params
 
 
 def insert_passthrough_records(termcode: str, year: int, season: int,
@@ -840,7 +799,7 @@ def insert_passthrough_records(termcode: str, year: int, season: int,
     if season not in (2, 4):
         return 0
 
-    filter_clause = _build_passthrough_filter()
+    filter_clause, filter_params = _build_passthrough_filter()
     if not filter_clause:
         return 0
 
@@ -862,7 +821,7 @@ def insert_passthrough_records(termcode: str, year: int, season: int,
           AND ({filter_clause})
         ORDER BY subject, catalog, classnumber, componentcode, meetingpatternnumber
     """
-    records = fetch_all(sql, (previous_termcode, fw_termcode))
+    records = fetch_all(sql, (previous_termcode, fw_termcode, *filter_params))
     if not records:
         return 0
 
@@ -936,7 +895,7 @@ def _build_passthrough_csv_rows(termcode: str, year: int, season: int,
     if season not in (2, 4):
         return []
 
-    filter_clause = _build_passthrough_filter()
+    filter_clause, filter_params = _build_passthrough_filter()
     if not filter_clause:
         return []
 
@@ -958,7 +917,7 @@ def _build_passthrough_csv_rows(termcode: str, year: int, season: int,
           AND ({filter_clause})
         ORDER BY subject, catalog, classnumber, componentcode, meetingpatternnumber
     """
-    records = fetch_all(sql, (previous_termcode, fw_termcode))
+    records = fetch_all(sql, (previous_termcode, fw_termcode, *filter_params))
 
     # Pass-through courses are Fall+Winter (8-month): session 26W,
     # classstartdate from fall semester, classenddate from winter semester.
