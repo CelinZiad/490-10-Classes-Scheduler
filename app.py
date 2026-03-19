@@ -626,9 +626,10 @@ def api_create_sequence_course():
         )
         db.session.commit()
         return jsonify({"ok": True, "message": f"Added {subject} {catalog}"}), 201
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        traceback.print_exc()
+        return jsonify({"error": "Database error while creating sequence course"}), 500
 
 
 @app.put("/api/sequence-course")
@@ -723,9 +724,10 @@ def api_update_sequence_course():
         if cascaded_tables:
             msg += f" | Cascaded: {', '.join(cascaded_tables)}"
         return jsonify({"ok": True, "message": msg, "cascaded": cascaded_tables})
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        traceback.print_exc()
+        return jsonify({"error": "Database error while updating sequence course"}), 500
 
 
 @app.delete("/api/sequence-course")
@@ -752,9 +754,10 @@ def api_delete_sequence_course():
 
         db.session.commit()
         return jsonify({"ok": True, "message": f"Deleted {subject} {catalog}"})
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        traceback.print_exc()
+        return jsonify({"error": "Database error while deleting sequence course"}), 500
 
 
 @app.get("/conflicts")
