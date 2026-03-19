@@ -5,10 +5,9 @@ sys.modules.setdefault("helper.db", MagicMock())
 sys.modules.setdefault("genetic_algo.course_filter", MagicMock())
 
 import helper.db_room_extractor as mod
-from genetic_algo.course_filter import should_include_course as _mock_sic
 
-EXCLUDED_ELEC = {'430', '434', '436', '438', '443', '446', '490', '498'}
-EXCLUDED_COEN = {'390', '490'}
+EXCLUDED_ELEC = {"430", "434", "436", "438", "443", "446", "490", "498"}
+EXCLUDED_COEN = {"390", "490"}
 
 
 def should_include_course(subject, catalog):
@@ -27,6 +26,7 @@ group_courses_by_room = mod.group_courses_by_room
 
 
 # --- should_include_course ---
+
 
 def test_include_coen():
     assert should_include_course("COEN", "311") is True
@@ -54,6 +54,27 @@ def test_include_lowercase():
 
 # --- group_courses_by_room ---
 
+
 def test_group_basic():
     assignments = [
-        {'labroomid': 1, 'subject': 'COEN', 'catalog': '311
+        {"labroomid": 1, "subject": "COEN", "catalog": "311", "comments": ""},
+        {"labroomid": 1, "subject": "COEN", "catalog": "212", "comments": ""},
+        {"labroomid": 2, "subject": "ELEC", "catalog": "273", "comments": ""},
+    ]
+    grouped = group_courses_by_room(assignments)
+    assert len(grouped[1]) == 2
+    assert len(grouped[2]) == 1
+
+
+def test_group_no_duplicates():
+    assignments = [
+        {"labroomid": 1, "subject": "COEN", "catalog": "311", "comments": ""},
+        {"labroomid": 1, "subject": "COEN", "catalog": "311", "comments": ""},
+    ]
+    grouped = group_courses_by_room(assignments)
+    assert len(grouped[1]) == 1
+
+
+def test_group_empty():
+    grouped = group_courses_by_room([])
+    assert len(grouped) == 0
