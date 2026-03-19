@@ -146,6 +146,7 @@ def export_course_timetable_csv(schedule: List[Course], output_path: str,
     for course in schedule:
         if course.lecture:
             lecture = course.lecture
+            lec_section = lecture.section or course.lec_section or course.class_nbr
             day_numbers = extract_day_numbers(lecture.day)
             for day in day_numbers:
                 row = {
@@ -153,6 +154,7 @@ def export_course_timetable_csv(schedule: List[Course], output_path: str,
                     'Subject': course.subject,
                     'Catalog_Nbr': course.catalog_nbr,
                     'Class_Nbr': course.class_nbr,
+                    'Section': lec_section,
                     'Component_Index': 0,
                     'Day_Number': day,
                     'Day_Name': day_number_to_string(day),
@@ -176,6 +178,7 @@ def export_course_timetable_csv(schedule: List[Course], output_path: str,
             for tut_index, tut in enumerate(course.tutorial):
                 if tut is None or not tut.day:
                     continue
+                tut_section = tut.section or course.lec_section or course.class_nbr
                 day_numbers = extract_day_numbers(tut.day)
                 for day in day_numbers:
                     row = {
@@ -183,6 +186,7 @@ def export_course_timetable_csv(schedule: List[Course], output_path: str,
                         'Subject': course.subject,
                         'Catalog_Nbr': course.catalog_nbr,
                         'Class_Nbr': course.class_nbr,
+                        'Section': tut_section,
                         'Component_Index': tut_index,
                         'Day_Number': day,
                         'Day_Name': day_number_to_string(day),
@@ -206,6 +210,7 @@ def export_course_timetable_csv(schedule: List[Course], output_path: str,
             for lab_index, lab in enumerate(course.lab):
                 if lab is None or not lab.day:
                     continue
+                lab_section = lab.section or course.lec_section or course.class_nbr
                 day_numbers = extract_day_numbers(lab.day)
                 for day in day_numbers:
                     row = {
@@ -213,6 +218,7 @@ def export_course_timetable_csv(schedule: List[Course], output_path: str,
                         'Subject': course.subject,
                         'Catalog_Nbr': course.catalog_nbr,
                         'Class_Nbr': course.class_nbr,
+                        'Section': lab_section,
                         'Component_Index': lab_index,
                         'Day_Number': day,
                         'Day_Name': day_number_to_string(day),
@@ -234,7 +240,12 @@ def export_course_timetable_csv(schedule: List[Course], output_path: str,
     
     # Append pass-through courses from previous year's scheduleterm
     if year is not None and season is not None:
-        rows.extend(_fetch_passthrough_course_rows(year, season))
+        passthrough_rows = _fetch_passthrough_course_rows(year, season)
+        # Ensure passthrough rows have a Section field
+        for r in passthrough_rows:
+            if 'Section' not in r:
+                r['Section'] = r.get('Class_Nbr', '')
+        rows.extend(passthrough_rows)
 
     rows.sort(key=lambda x: (
         x['Subject'], x['Catalog_Nbr'], x['Class_Nbr'],
@@ -244,7 +255,8 @@ def export_course_timetable_csv(schedule: List[Course], output_path: str,
     if rows:
         with open(output_path, 'w', newline='', encoding='utf-8') as f:
             fieldnames = [
-                'Type', 'Subject', 'Catalog_Nbr', 'Class_Nbr', 'Component_Index',
+                'Type', 'Subject', 'Catalog_Nbr', 'Class_Nbr', 'Section',
+                'Component_Index',
                 'Day_Number', 'Day_Name', 'Start_Time', 'End_Time', 
                 'Start_Minutes', 'End_Minutes', 'Building', 'Room'
             ]
