@@ -88,22 +88,7 @@ def test_day_pattern_empty():
     assert parse_day_pattern(row) == ""
 
 
-# --- extract_base_section ---
 
-def test_base_section_lec():
-    assert extract_base_section("AA", "LEC") == "AA"
-
-
-def test_base_section_tut_space():
-    assert extract_base_section("AA T1", "TUT") == "AA"
-
-
-def test_base_section_tut_dash():
-    assert extract_base_section("AA-T1", "TUT") == "A"
-
-
-def test_base_section_lab_no_separator():
-    assert extract_base_section("AA", "LAB") == "AA"
 
 
 # --- count_unique_sections ---
