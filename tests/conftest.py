@@ -26,9 +26,10 @@ def _db_reachable() -> bool:
 
 
 class _FakeResult:
-    def __init__(self, rows=None, scalar_value=None):
+    def __init__(self, rows=None, scalar_value=None, rowcount=0):
         self._rows = rows or []
         self._scalar_value = scalar_value
+        self.rowcount = rowcount
 
     def mappings(self):
         return self
@@ -77,6 +78,18 @@ class _FakeSession:
 
         if "from sequencecourse" in sql:
             return _FakeResult(rows=[])
+
+        # Catalog search queries
+        if "from catalog" in sql:
+            return _FakeResult(rows=[])
+
+        # Sequence term existence check
+        if "from sequenceterm" in sql and "sequencetermid" in sql:
+            return _FakeResult(rows=[])
+
+        # UPDATE statements (cascade updates, etc.)
+        if sql.strip().startswith("update"):
+            return _FakeResult(rows=[], rowcount=0)
 
         if "from solution" in sql:
             return _FakeResult(rows=[])
