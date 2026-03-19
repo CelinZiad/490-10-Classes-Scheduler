@@ -37,9 +37,9 @@ def test_config_defaults(monkeypatch):
 
 def test_config_algorithm_params():
     import config
-    assert config.POPULATION_SIZE == 4
+    assert config.POPULATION_SIZE == 50
     assert config.ALPHA == 0.75
-    assert config.MUTATION_COUNT == 1
+    assert config.MUTATION_COUNT == 10
     assert config.LIMIT_POPULATION_GENERATION == 100
     assert config.LIMIT_FITTEST_UNCHANGED_GENERATION == 15
     assert config.FITNESS_RATIO_THRESHOLD == 0.9
