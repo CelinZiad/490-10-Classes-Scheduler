@@ -1,7 +1,7 @@
 from course_element import CourseElement
 from course import Course
 from day import Day
-from sequence import Sequence
+
 from sequence_validation import (
     times_overlap,
     get_course_by_code,
