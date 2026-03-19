@@ -1,4 +1,4 @@
-# db_room_extractor.py
+# db_sequence_extractor.py
 import csv
 from collections import defaultdict
 from typing import List, Dict, Tuple
@@ -6,156 +6,168 @@ from .db import fetch_all
 from genetic_algo.course_filter import should_include_course
 
 
-def fetch_lab_rooms() -> Dict[int, Dict]:
-    """Fetch all lab room information from the database (excludes room 007 and AITS)."""
+def fetch_sequence_plans() -> List[Dict]:
+    """Fetch all sequence plans from the database."""
     sql = """
-        SELECT labroomid, campus, building, room, resources, capacity, capacitymax
-        FROM labrooms
-        WHERE room NOT IN ('007', 'AITS')
-        ORDER BY labroomid
+        SELECT planid, planname, program, entryterm, option, durationyears, publishedon
+        FROM sequenceplan
+        ORDER BY planid
     """
     
-    rows = fetch_all(sql)
+    return fetch_all(sql)
+
+
+def fetch_sequence_terms() -> List[Dict]:
+    """Fetch all sequence terms from the database."""
+    sql = """
+        SELECT sequencetermid, planid, yearnumber, season, workterm, notes
+        FROM sequenceterm
+        ORDER BY planid, yearnumber, 
+                 CASE season 
+                     WHEN 'fall' THEN 1 
+                     WHEN 'winter' THEN 2 
+                     WHEN 'summer' THEN 3 
+                 END
+    """
     
-    lab_rooms = {}
-    for row in rows:
-        lab_rooms[row['labroomid']] = {
-            'campus': row['campus'],
-            'building': row['building'],
-            'room': row['room'],
-            'resources': row['resources'] or '',
-            'capacity': row['capacity'],
-            'capacitymax': row['capacitymax']
+    return fetch_all(sql)
+
+
+def fetch_sequence_courses() -> List[Dict]:
+    """Fetch all sequence courses from the database."""
+    sql = """
+        SELECT sequencetermid, subject, catalog, label, iselective
+        FROM sequencecourse
+        ORDER BY sequencetermid, subject, catalog
+    """
+    
+    return fetch_all(sql)
+
+
+def season_to_number(season: str) -> int:
+    """Convert season name to number (1=summer, 2=fall, 4=winter)."""
+    season_map = {
+        'summer': 1,
+        'fall': 2,
+        'winter': 4
+    }
+    return season_map.get(season.lower(), 0)
+
+
+def build_sequence_structure():
+    """Build the complete sequence structure from database."""
+    plans = fetch_sequence_plans()
+    terms = fetch_sequence_terms()
+    courses = fetch_sequence_courses()
+    
+    structure = {}
+    
+    for plan in plans:
+        structure[plan['planid']] = {
+            'info': {
+                'planname': plan['planname'],
+                'program': plan['program'],
+                'entryterm': plan['entryterm'],
+                'option': plan['option'],
+                'durationyears': plan['durationyears']
+            },
+            'terms': {}
         }
     
-    return lab_rooms
-
-
-def fetch_course_lab_assignments() -> List[Dict]:
-    """Fetch all course-lab room assignments from the database (COEN, ELEC, ENGR 290 only)."""
-    sql = """
-        SELECT labroomid, subject, catalog, comments
-        FROM courselabs
-        ORDER BY subject, catalog, labroomid
-    """
+    for term in terms:
+        planid = term['planid']
+        if planid in structure:
+            structure[planid]['terms'][term['sequencetermid']] = {
+                'info': {
+                    'yearnumber': term['yearnumber'],
+                    'season': term['season'],
+                    'season_code': season_to_number(term['season']),
+                    'workterm': term['workterm'],
+                    'notes': term['notes'] or ''
+                },
+                'courses': []
+            }
     
-    rows = fetch_all(sql)
-    
-    assignments = []
-    
-    for row in rows:
-        if not should_include_course(row['subject'], row['catalog']):
+    for course in courses:
+        if not should_include_course(course['subject'], course['catalog']):
             continue
         
-        assignments.append({
-            'labroomid': row['labroomid'],
-            'subject': row['subject'],
-            'catalog': row['catalog'],
-            'comments': row['comments'] or ''
-        })
-    
-    return assignments
-
-
-def group_courses_by_room(assignments: List[Dict]) -> Dict[int, List[Tuple[str, str]]]:
-    """Group courses by their assigned lab room."""
-    room_courses = defaultdict(list)
-    
-    for assignment in assignments:
-        labroomid = assignment['labroomid']
-        subject = assignment['subject']
-        catalog = assignment['catalog']
+        sequencetermid = course['sequencetermid']
+        course_code = f"{course['subject']}{course['catalog']}"
         
-        course_tuple = (subject, catalog)
-        if course_tuple not in room_courses[labroomid]:
-            room_courses[labroomid].append(course_tuple)
+        for planid, plan_data in structure.items():
+            if sequencetermid in plan_data['terms']:
+                plan_data['terms'][sequencetermid]['courses'].append(course_code)
+                break
     
-    return room_courses
+    return structure
 
 
-def generate_room_data_csv(output_path: str = "Room_data.csv") -> int:
-    """Generate Room_data.csv from database tables (excludes room 007 and AITS)."""
-    lab_rooms = fetch_lab_rooms()
-    assignments = fetch_course_lab_assignments()
-    room_courses = group_courses_by_room(assignments)
+def generate_sequences_csv(output_path: str = "Sequences.csv", 
+                           target_season: int = None) -> int:
+    """Generate Sequences.csv from database tables."""
+    structure = build_sequence_structure()
     
     rows = []
     
-    for labroomid in sorted(room_courses.keys()):
-        if labroomid not in lab_rooms:
-            continue
+    for planid in sorted(structure.keys()):
+        plan_data = structure[planid]
+        plan_info = plan_data['info']
         
-        room_info = lab_rooms[labroomid]
-        building = room_info['building']
-        room = room_info['room']
-        
-        courses = room_courses[labroomid]
-        
-        subject_courses = defaultdict(list)
-        for subject, catalog in courses:
-            subject_courses[subject].append(catalog)
-        
-        for subject, catalogs in subject_courses.items():
-            unique_catalogs = sorted(set(catalogs))
+        for sequencetermid in sorted(plan_data['terms'].keys()):
+            term_data = plan_data['terms'][sequencetermid]
+            term_info = term_data['info']
+            
+            if term_info['workterm']:
+                continue
+            
+            if target_season is not None and term_info['season_code'] != target_season:
+                continue
+            
+            if not term_data['courses']:
+                continue
             
             row = {
-                'bldg': building,
-                'room': room,
-                'subject': subject
+                'planid': planid,
+                'planname': plan_info['planname'],
+                'program': plan_info['program'],
+                'sequencetermid': sequencetermid,
+                'yearnumber': term_info['yearnumber'],
+                'season': term_info['season'],
+                'season_code': term_info['season_code'],
+                'courses': ','.join(term_data['courses'])
             }
-            
-            for i, catalog in enumerate(unique_catalogs, start=1):
-                row[f'course{i}'] = catalog
             
             rows.append(row)
     
-    max_courses = max(len([k for k in row.keys() if k.startswith('course')]) 
-                     for row in rows) if rows else 0
-    
-    fieldnames = ['bldg', 'room', 'subject'] + [f'course{i}' for i in range(1, max_courses + 1)]
-    
-    with open(output_path, 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(rows)
+    if rows:
+        fieldnames = ['planid', 'planname', 'program', 'sequencetermid', 
+                     'yearnumber', 'season', 'season_code', 'courses']
+        
+        with open(output_path, 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
     
     return len(rows)
 
 
-def display_room_summary(output_path: str = "Room_data.csv"):
-    """Display a summary of the generated Room_data.csv file."""
+def display_sequence_summary(output_path: str = "Sequences.csv"):
+    """Display a summary of the generated Sequences.csv file."""
     with open(output_path, 'r', newline='', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         rows = list(reader)
-    
-    subject_counts = defaultdict(int)
-    for row in rows:
-        subject = row['subject']
-        course_count = len([v for k, v in row.items() 
-                          if k.startswith('course') and v])
-        subject_counts[subject] += course_count
 
 
-def verify_database_connection():
-    """Verify that the database connection is working."""
-    try:
-        rows = fetch_all("SELECT 1 as test")
-        return rows and rows[0]['test'] == 1
-    except Exception:
-        return False
-
-
-def extract_and_generate_room_data(output_path: str = "Room_data.csv", 
+def extract_and_generate_sequences(output_path: str = "Sequences.csv",
+                                   target_season: int = None,
                                    show_summary: bool = True) -> bool:
-    """Main function to extract data from database and generate Room_data.csv."""
+    """Main function to extract sequences from database and generate CSV."""
     try:
-        if not verify_database_connection():
-            return False
-        
-        generate_room_data_csv(output_path)
+        num_rows = generate_sequences_csv(output_path, target_season)
         
         if show_summary:
-            display_room_summary(output_path)
+            display_sequence_summary(output_path)
         
         return True
         
@@ -164,4 +176,16 @@ def extract_and_generate_room_data(output_path: str = "Room_data.csv",
 
 
 if __name__ == "__main__":
-    extract_and_generate_room_data()
+    import sys
+    
+    target_season = None
+    if len(sys.argv) > 1:
+        season_arg = sys.argv[1].lower()
+        if season_arg in ['fall', '2']:
+            target_season = 2
+        elif season_arg in ['winter', '4']:
+            target_season = 4
+        elif season_arg in ['summer', '6']:
+            target_season = 6
+    
+    extract_and_generate_sequences(target_season=target_season)
