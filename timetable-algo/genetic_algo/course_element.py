@@ -10,3 +10,4 @@ class CourseElement:
     end: int  # End time in minutes from midnight
     bldg: Optional[str] = None
     room: Optional[str] = None
+    section: Optional[str] = None  # Full section string (e.g. "AAAE", "AI-X")
