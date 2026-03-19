@@ -204,21 +204,23 @@
 
 /* ---- Modal ---- */
 .modal {
-  display: none;
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
   z-index: 1000;
 }
 
 .modal.open {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: block;
 }
 
 .modal-backdrop {
   position: absolute;
-  inset: 0;
+  width: 100%;
+  height: 100%;
   background: rgb(0 0 0 / 50%);
 }
 
@@ -226,24 +228,23 @@
   position: relative;
   background: white;
   border-radius: 12px;
-  padding: 1.5rem;
-  max-width: 480px;
-  width: 90%;
+  padding: 20px;
+  margin: 80px auto;
+  width: 500px;
   max-height: 80vh;
   overflow-y: auto;
-  box-shadow: 0 20px 40px rgb(0 0 0 / 20%);
+  z-index: 10;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 20%);
 }
 
 .modal-close {
   position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  background: none;
+  top: 10px;
+  right: 15px;
   border: none;
-  font-size: 1.5rem;
+  background: none;
+  font-size: 20px;
   cursor: pointer;
-  color: #9ca3af;
-  line-height: 1;
 }
 
 .modal-close:hover { color: var(--text-primary); }
@@ -270,8 +271,9 @@
 
 .modal-actions {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
 }
 
 .modal-actions .btn {
@@ -362,7 +364,7 @@
   border-radius: 10px;
   overflow: hidden;
   background: #f9fafb;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 10%);
   display: flex;
   flex-direction: column;
 }
@@ -377,7 +379,7 @@
 
 .badge {
   font-size: 11px;
-  background: rgba(255,255,255,0.2);
+  background: rgb(255 255 255 / 20%);
   padding: 2px 6px;
   border-radius: 6px;
 }
@@ -402,49 +404,41 @@
 }
 
 .card-footer {
-  padding: 8px;
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 10px;
   text-align: right;
 }
 
 /* Buttons */
 .btn-primary {
-  background: #3B82F6;
+  background: #3b82f6;
   color: white;
   border: none;
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 12px;
+  flex: 1;
 }
 
 .btn-primary:hover {
-  background: #2563EB;
+  background: #2563eb;
 }
 
 .btn-danger {
-  background: #EF4444;
+  background: #ef4444;
   color: white;
   border: none;
-  padding: 6px 10px;
-  border-radius: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
   cursor: pointer;
   font-size: 12px;
 }
 
 .btn-danger:hover {
   background: #DC2626;
-}
-
-/* Footer layout */
-.card-footer {
-  display: flex;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 8px;
-}
-
-.card-footer {
-  padding: 10px;
 }
 
 .btn-group {
@@ -488,8 +482,8 @@
   overflow-y: auto;
   border-radius: 14px;
   padding: 20px;
-  background: #ffffff;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+  background: #fff;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 20%);
 }
 
 /* Title */
@@ -556,57 +550,9 @@
   background: #059669;
 }
 
-/* Create Modal */
-.modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: none;
-
-}
-
-.modal.open {
-  display: block;
-}
-
-
-.modal-backdrop {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-}
-
-
-.modal-content {
-  position: relative;
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin: 80px auto;
-  width: 500px;
-  z-index: 10;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-}
-
-
 .large-modal {
   width: 600px;
 }
-
-
-.modal-close {
-  position: absolute;
-  top: 10px;
-  right: 15px;
-  border: none;
-  background: none;
-  font-size: 20px;
-  cursor: pointer;
-}
-
 
 .modal-grid {
   display: grid;
@@ -614,7 +560,6 @@
   gap: 14px;
   margin-top: 10px;
 }
-
 
 .form-group {
   display: flex;
@@ -635,79 +580,19 @@
   font-size: 14px;
 }
 
-
-.modal-actions {
-  margin-top: 20px;
-  display: flex;
-  gap: 10px;
-}
-
-
-.btn-primary {
-  background: #3b82f6;
-  color: white;
-  border: none;
-  padding: 10px;
-  border-radius: 8px;
-  cursor: pointer;
-  flex: 1;
-}
-
-.btn-primary:hover {
-  background: #2563eb;
-}
-
 .btn-ghost {
   background: #e5e7eb;
   border: none;
-  padding: 10px;
+  padding: 8px 14px;
   border-radius: 8px;
   cursor: pointer;
   flex: 1;
-}
-
-.btn-danger {
-  background: #ef4444;
-  color: white;
-  border: none;
-  padding: 10px;
-  border-radius: 8px;
 }
 
 /* UI-modal */
 .small-modal {
   max-width: 350px;
   text-align: center;
-}
-
-.modal-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 20px;
-}
-
-.btn-danger {
-  background: #ef4444;
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-}
-
-.btn-primary {
-  background: #3b82f6;
-  color: white;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
-}
-
-.btn-ghost {
-  background: #e5e7eb;
-  border: none;
-  padding: 8px 14px;
-  border-radius: 8px;
 }
 
 /* Create/Edit modal */
@@ -722,3 +607,4 @@
 /* Validation / Delete modal */
 #ui-modal {
   z-index: 1200;
+}

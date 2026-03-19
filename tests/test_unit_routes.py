@@ -16,11 +16,18 @@ EXPECTED_GET_ROUTES = {
     "/api/plans/<int:planid>/terms",
     "/api/export-csv",
     "/api/import/labrooms",
+    "/api/search-catalog",
+    "/api/list-optimized",
+    "/api/optimized-date-range",
 }
 
 EXPECTED_POST_ROUTES = {
     "/schedulerrun",
     "/api/import/labrooms",
+    "/create-course",
+    "/update-course",
+    "/delete-course",
+    "/api/create-class",
 }
 
 
