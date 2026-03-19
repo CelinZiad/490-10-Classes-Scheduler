@@ -3,13 +3,7 @@ import csv
 from typing import List, Dict, Tuple
 from genetic_algo.course import Course
 from genetic_algo.room_management import RoomTimetable, create_room_timetables, load_room_assignments
-
-
-def minutes_to_time_string(minutes: int) -> str:
-    """Convert minutes from midnight to HH:MM format."""
-    hours = minutes // 60
-    mins = minutes % 60
-    return f"{hours:02d}:{mins:02d}"
+from .time_utils import minutes_to_time_short as minutes_to_time_string
 
 
 def day_number_to_string(day) -> str:
@@ -61,8 +55,10 @@ def _fetch_passthrough_course_rows(year: int, season: int) -> List[Dict]:
 
     PASSTHROUGH_COURSES = {('ELEC', '490'), ('COEN', '490')}
     clauses = []
+    filter_params = []
     for subj, cat in PASSTHROUGH_COURSES:
-        clauses.append(f"(subject = '{subj}' AND catalog = '{cat}')")
+        clauses.append("(subject = %s AND catalog = %s)")
+        filter_params.extend([subj, cat])
     filter_clause = ' OR '.join(clauses)
 
     previous_year = year - 1
@@ -83,7 +79,7 @@ def _fetch_passthrough_course_rows(year: int, season: int) -> List[Dict]:
           AND ({filter_clause})
         ORDER BY subject, catalog, classnumber, componentcode, meetingpatternnumber
     """
-    records = fetch_all(sql, (prev_termcode, fw_termcode))
+    records = fetch_all(sql, (prev_termcode, fw_termcode, *filter_params))
 
     component_map = {'LEC': 'Lecture', 'TUT': 'Tutorial', 'LAB': 'Lab'}
     day_col_to_num = {
