@@ -1,8 +1,12 @@
 import sys
 from unittest.mock import MagicMock
 
-# Mock database dependency before importing the module
+# Mock database dependency before importing the modules
 sys.modules.setdefault("helper.db", MagicMock())
+
+# Mock course_filter with the real module so db_room_extractor can import it
+import genetic_algo.course_filter as real_course_filter
+sys.modules.setdefault("genetic_algo.course_filter", real_course_filter)
 
 from genetic_algo.course_filter import should_include_course
 from helper.db_room_extractor import group_courses_by_room
@@ -59,3 +63,10 @@ def test_group_no_duplicates():
 def test_group_empty():
     grouped = group_courses_by_room([])
     assert len(grouped) == 0
+```
+
+Wait — if `genetic_algo.course_filter` can already be imported (since `timetable-algo` is on `PYTHONPATH`), then the original error means `helper.db` is the only blocker. But the error persisted even after mocking `helper.db`... which suggests `timetable-algo` might **not** be on `PYTHONPATH`.
+
+Can you confirm your CI workflow has this in the `PYTHONPATH`?
+```
+PYTHONPATH=/home/runner/work/490-10-Classes-Scheduler/490-10-Classes-Scheduler:/home/runner/work/490-10-Classes-Scheduler/490-10-Classes-Scheduler/timetable-algo
