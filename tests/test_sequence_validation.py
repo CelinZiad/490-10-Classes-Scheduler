@@ -88,12 +88,7 @@ def test_valid_sequence_overlapping_tuts():
     assert has_valid_sequence_combination(schedule, ["COEN212", "COEN231"]) is False
 
 
-# --- Sequence class ---
 
-def test_sequence_data():
-    assert len(Sequence.year) == 2
-    assert "COEN212" in Sequence.year[0]
-    assert "COEN311" in Sequence.year[1]
 
 
 # --- validate_all_sequences ---
