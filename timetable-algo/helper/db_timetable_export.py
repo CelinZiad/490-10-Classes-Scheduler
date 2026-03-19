@@ -9,6 +9,8 @@ carry forward lecture data from the previous year.  It writes tutorials
 from typing import List, Dict
 from .db import get_connection
 from genetic_algo.course import Course
+from .time_utils import (minutes_to_time, day_number_to_day_columns,
+                         combine_day_columns, extract_day_numbers)
 from .academic_calendar import (
     SemesterDates,
     get_lec_tut_dates,
@@ -67,56 +69,6 @@ def create_optimized_schedule_table():
     finally:
         cursor.close()
         conn.close()
-
-
-def day_number_to_day_columns(day_num: int) -> Dict[str, bool]:
-    day_map = {
-        1: 'mondays', 2: 'tuesdays', 3: 'wednesdays', 4: 'thursdays', 5: 'fridays',
-        8: 'mondays', 9: 'tuesdays', 10: 'wednesdays', 11: 'thursdays', 12: 'fridays'
-    }
-    result = {
-        'mondays': False, 'tuesdays': False, 'wednesdays': False,
-        'thursdays': False, 'fridays': False, 'saturdays': False, 'sundays': False
-    }
-    col = day_map.get(day_num)
-    if col:
-        result[col] = True
-    return result
-
-
-def combine_day_columns(day_numbers: List[int]) -> Dict[str, bool]:
-    result = {
-        'mondays': False, 'tuesdays': False, 'wednesdays': False,
-        'thursdays': False, 'fridays': False, 'saturdays': False, 'sundays': False
-    }
-    for d in day_numbers:
-        for k, v in day_number_to_day_columns(d).items():
-            if v:
-                result[k] = True
-    return result
-
-
-def minutes_to_time(minutes: int) -> str:
-    hours = minutes // 60
-    mins = minutes % 60
-    return f"{hours:02d}:{mins:02d}:00"
-
-
-def extract_day_numbers(day_enum) -> List[int]:
-    if isinstance(day_enum, int):
-        return [day_enum]
-    day_str = str(day_enum)
-    if 'Week1' in day_str or 'Week2' in day_str:
-        day_map = {
-            'Week1Monday': 1, 'Week1Tuesday': 2, 'Week1Wednesday': 3,
-            'Week1Thursday': 4, 'Week1Friday': 5,
-            'Week2Monday': 8, 'Week2Tuesday': 9, 'Week2Wednesday': 10,
-            'Week2Thursday': 11, 'Week2Friday': 12
-        }
-        for key, val in day_map.items():
-            if key in day_str:
-                return [val]
-    return [day_enum] if isinstance(day_enum, int) else []
 
 
 def insert_schedule_records(schedule: List[Course], room_assignments,
