@@ -490,7 +490,8 @@ def catalog():
         )
 
     selected_termid = request.args.get("termid", type=int)
-    if selected_termid is None and terms:
+    valid_termids = {t["sequencetermid"] for t in terms}
+    if selected_termid not in valid_termids and terms:
         selected_termid = terms[0]["sequencetermid"]
 
     rows = []
@@ -565,7 +566,279 @@ def delete_course():
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": str(e)}), 500
+        traceback.print_exc()
+        return jsonify({"error": "Database error while deleting course"}), 500
+
+
+@app.get("/api/search-catalog")
+def api_search_catalog():
+    """Search the catalog table for courses matching a query string."""
+    q = request.args.get("q", "").strip()
+    if len(q) < 2:
+        return jsonify([])
+
+    rows = (
+        db.session.execute(
+            db.text("""
+                SELECT subject, catalog, title, classunit, prerequisites
+                FROM catalog
+                WHERE career = 'UGRD'
+                  AND (
+                    CONCAT(subject, ' ', catalog) ILIKE :pattern
+                    OR title ILIKE :pattern
+                  )
+                ORDER BY subject, catalog
+                LIMIT 30
+            """),
+            {"pattern": f"%{q}%"},
+        )
+        .mappings()
+        .all()
+    )
+    return jsonify([
+        {
+            "subject": r["subject"],
+            "catalog": r["catalog"],
+            "title": r["title"],
+            "classunit": r["classunit"],
+            "prerequisites": r["prerequisites"],
+        }
+        for r in rows
+    ])
+
+
+@app.route("/create-course", methods=["POST"])
+def create_course():
+    """Add a course to a sequence term. Optionally creates the catalog entry first."""
+    data = request.get_json()
+    termid = data.get("termid")
+    subject = (data.get("subject") or "").strip().upper()
+    catalog_num = (data.get("catalog") or "").strip()
+    iselective = bool(data.get("iselective", False))
+    create_new = bool(data.get("create_new", False))
+
+    if not termid or not subject or not catalog_num:
+        return jsonify({"error": "termid, subject, and catalog are required"}), 400
+
+    try:
+        # Verify the term exists
+        term = db.session.execute(
+            db.text("SELECT sequencetermid FROM sequenceterm WHERE sequencetermid = :tid"),
+            {"tid": termid},
+        ).first()
+        if not term:
+            return jsonify({"error": f"Sequence term {termid} not found"}), 404
+
+        # Check if the course already exists in catalog
+        cat = db.session.execute(
+            db.text(
+                "SELECT subject, catalog FROM catalog "
+                "WHERE subject = :s AND catalog = :c AND career = 'UGRD'"
+            ),
+            {"s": subject, "c": catalog_num},
+        ).first()
+
+        if not cat and not create_new:
+            return jsonify({"error": f"Course {subject} {catalog_num} not found in UGRD catalog"}), 404
+
+        if not cat and create_new:
+            # Create the catalog entry first
+            title = (data.get("title") or "").strip()
+            classunit = data.get("classunit")
+            prerequisites = (data.get("prerequisites") or "").strip()
+            if not title:
+                return jsonify({"error": "Title is required for a new catalog course"}), 400
+            db.session.execute(
+                db.text("""
+                    INSERT INTO catalog (id, subject, catalog, title, career, classunit, prerequisites)
+                    VALUES ((SELECT COALESCE(MAX(id), 0) + 1 FROM catalog),
+                            :s, :c, :t, 'UGRD', :cu, :pr)
+                """),
+                {"s": subject, "c": catalog_num, "t": title,
+                 "cu": classunit, "pr": prerequisites or None},
+            )
+
+        # Check for duplicate in sequence
+        existing = db.session.execute(
+            db.text("""
+                SELECT 1 FROM sequencecourse
+                WHERE sequencetermid = :tid AND subject = :s AND catalog = :c
+            """),
+            {"tid": termid, "s": subject, "c": catalog_num},
+        ).first()
+        if existing:
+            return jsonify({"error": f"{subject} {catalog_num} already exists in this term"}), 409
+
+        db.session.execute(
+            db.text("""
+                INSERT INTO sequencecourse (sequencetermid, subject, catalog, iselective)
+                VALUES (:tid, :s, :c, :ie)
+            """),
+            {"tid": termid, "s": subject, "c": catalog_num, "ie": iselective},
+        )
+        db.session.commit()
+        return jsonify({"message": f"Added {subject} {catalog_num}"}), 201
+
+    except Exception:
+        db.session.rollback()
+        traceback.print_exc()
+        return jsonify({"error": "Database error while creating course"}), 500
+
+
+@app.route("/update-course", methods=["POST"])
+def update_course():
+    """Update a sequence course with cascading across all related tables."""
+    data = request.get_json()
+    old_subject = (data.get("old_subject") or "").strip().upper()
+    old_catalog = (data.get("old_catalog") or "").strip()
+    old_termid = data.get("old_termid")
+
+    new_subject = (data.get("new_subject") or "").strip().upper()
+    new_catalog = (data.get("new_catalog") or "").strip()
+    new_termid = data.get("new_termid", old_termid)
+    iselective = bool(data.get("iselective", False))
+
+    # Catalog detail fields (optional — update catalog table if provided)
+    new_title = data.get("title")
+    new_classunit = data.get("classunit")
+    new_prerequisites = data.get("prerequisites")
+
+    if not old_subject or not old_catalog or not old_termid:
+        return jsonify({"error": "old_subject, old_catalog, old_termid required"}), 400
+    if not new_subject or not new_catalog:
+        return jsonify({"error": "new_subject and new_catalog required"}), 400
+
+    course_changed = (old_subject != new_subject) or (old_catalog != new_catalog)
+
+    try:
+        # Verify the old row exists
+        exists = db.session.execute(
+            db.text("""
+                SELECT 1 FROM sequencecourse
+                WHERE sequencetermid = :tid AND subject = :s AND catalog = :c
+            """),
+            {"tid": old_termid, "s": old_subject, "c": old_catalog},
+        ).first()
+        if not exists:
+            return jsonify({"error": "Original course not found in sequence"}), 404
+
+        # If course identity changed, handle catalog rename or swap
+        if course_changed:
+            new_exists = db.session.execute(
+                db.text(
+                    "SELECT 1 FROM catalog "
+                    "WHERE subject = :s AND catalog = :c AND career = 'UGRD'"
+                ),
+                {"s": new_subject, "c": new_catalog},
+            ).first()
+            if not new_exists:
+                # New course doesn't exist — rename the old catalog entry
+                db.session.execute(
+                    db.text(
+                        "UPDATE catalog SET subject = :ns, catalog = :nc "
+                        "WHERE subject = :os AND catalog = :oc AND career = 'UGRD'"
+                    ),
+                    {"ns": new_subject, "nc": new_catalog,
+                     "os": old_subject, "oc": old_catalog},
+                )
+
+        cascaded_tables = []
+
+        if course_changed:
+            # Cascade update across all tables that share subject+catalog
+            cascade_targets = [
+                "courselabs",
+                "lab_slot_result",
+                "optimized_schedule",
+                "scheduleterm",
+                "section",
+            ]
+            for tbl in cascade_targets:
+                result = db.session.execute(
+                    db.text(
+                        f"UPDATE {tbl} SET subject = :ns, catalog = :nc "
+                        f"WHERE subject = :os AND catalog = :oc"
+                    ),
+                    {"ns": new_subject, "nc": new_catalog, "os": old_subject, "oc": old_catalog},
+                )
+                if result.rowcount > 0:
+                    cascaded_tables.append(f"{tbl}({result.rowcount})")
+
+        # Update catalog details (title, credits, prerequisites) if provided
+        target_subj = new_subject
+        target_cat = new_catalog
+        detail_sets = []
+        detail_params = {"s": target_subj, "c": target_cat}
+        if new_title is not None:
+            new_title = str(new_title).strip()
+            if new_title:
+                detail_sets.append("title = :t")
+                detail_params["t"] = new_title
+        if new_classunit is not None:
+            if new_classunit == "" or new_classunit is None:
+                detail_sets.append("classunit = NULL")
+            else:
+                detail_sets.append("classunit = :cu")
+                detail_params["cu"] = float(new_classunit)
+        if new_prerequisites is not None:
+            new_prerequisites = str(new_prerequisites).strip()
+            detail_sets.append("prerequisites = :pr")
+            detail_params["pr"] = new_prerequisites or None
+
+        if detail_sets:
+            db.session.execute(
+                db.text(
+                    f"UPDATE catalog SET {', '.join(detail_sets)} "
+                    f"WHERE subject = :s AND catalog = :c AND career = 'UGRD'"
+                ),
+                detail_params,
+            )
+
+        # Update sequencecourse row
+        if course_changed and not new_exists:
+            # Catalog was renamed — FK CASCADE already updated subject/catalog
+            # in sequencecourse, so just update termid and iselective on the
+            # cascaded row.
+            db.session.execute(
+                db.text("""
+                    UPDATE sequencecourse
+                    SET sequencetermid = :new_tid, iselective = :ie
+                    WHERE sequencetermid = :old_tid
+                      AND subject = :ns AND catalog = :nc
+                """),
+                {"new_tid": new_termid, "ie": iselective,
+                 "old_tid": old_termid, "ns": new_subject, "nc": new_catalog},
+            )
+        else:
+            # Either course identity didn't change (just term/elective update)
+            # or the new course already exists in catalog (swap scenario) —
+            # delete old row and insert new one.
+            db.session.execute(
+                db.text("""
+                    DELETE FROM sequencecourse
+                    WHERE sequencetermid = :tid AND subject = :s AND catalog = :c
+                """),
+                {"tid": old_termid, "s": old_subject, "c": old_catalog},
+            )
+            db.session.execute(
+                db.text("""
+                    INSERT INTO sequencecourse (sequencetermid, subject, catalog, iselective)
+                    VALUES (:tid, :s, :c, :ie)
+                """),
+                {"tid": new_termid, "s": new_subject, "c": new_catalog, "ie": iselective},
+            )
+
+        db.session.commit()
+        msg = f"Updated {old_subject} {old_catalog} → {new_subject} {new_catalog}"
+        if cascaded_tables:
+            msg += f" | Cascaded: {', '.join(cascaded_tables)}"
+        return jsonify({"message": msg, "cascaded": cascaded_tables})
+
+    except Exception:
+        db.session.rollback()
+        traceback.print_exc()
+        return jsonify({"error": "Database error while updating course"}), 500
+
 
 @app.get("/conflicts")
 def conflicts():
@@ -1421,139 +1694,150 @@ def update_class(class_id):
             return t + ":00"
         return t
 
-    query = """
-        UPDATE optimized_schedule
-        SET
-            subject = :subject,
-            catalog = :catalog,
-            section = :section,
-            componentcode = :component,
-            classstarttime = :startTime,
-            classendtime = :endTime,
-            buildingcode = :building,
-            room = :room,
-            currentenrollment = :enrollment,
-            enrollmentcapacity = :capacity,
-            currentwaitlisttotal = :waitlist,
-            waitlistcapacity = :waitlistCapacity,
-            mondays = :monday,
-            tuesdays = :tuesday,
-            wednesdays = :wednesday,
-            thursdays = :thursday,
-            fridays = :friday
-        WHERE id = :id
-    """
+    try:
+        query = """
+            UPDATE optimized_schedule
+            SET
+                subject = :subject,
+                catalog = :catalog,
+                section = :section,
+                componentcode = :component,
+                classstarttime = :startTime,
+                classendtime = :endTime,
+                buildingcode = :building,
+                room = :room,
+                currentenrollment = :enrollment,
+                enrollmentcapacity = :capacity,
+                currentwaitlisttotal = :waitlist,
+                waitlistcapacity = :waitlistCapacity,
+                mondays = :monday,
+                tuesdays = :tuesday,
+                wednesdays = :wednesday,
+                thursdays = :thursday,
+                fridays = :friday
+            WHERE id = :id
+        """
 
-    # Reset all days
-    params = {
-        "id": class_id,
-        "subject": data["subject"],
-        "catalog": data["catalog"],
-        "section": data["section"],
-        "component": data["component"],
-        "startTime": fix_time(data["startTime"]),
-        "endTime": fix_time(data["endTime"]),
-        "building": data["building"],
-        "room": data["room"],
-        "enrollment": data["enrollment"],
-        "capacity": data["capacity"],
-        "waitlist": data["waitlist"],
-        "waitlistCapacity": data["waitlistCapacity"],
-        "monday": False,
-        "tuesday": False,
-        "wednesday": False,
-        "thursday": False,
-        "friday": False,
-    }
+        params = {
+            "id": class_id,
+            "subject": data["subject"],
+            "catalog": data["catalog"],
+            "section": data["section"],
+            "component": data["component"],
+            "startTime": fix_time(data["startTime"]),
+            "endTime": fix_time(data["endTime"]),
+            "building": data["building"],
+            "room": data["room"],
+            "enrollment": data["enrollment"],
+            "capacity": data["capacity"],
+            "waitlist": data["waitlist"],
+            "waitlistCapacity": data["waitlistCapacity"],
+            "monday": False,
+            "tuesday": False,
+            "wednesday": False,
+            "thursday": False,
+            "friday": False,
+        }
 
-    # Map selected day
-    if "day" in data:
-        if data["day"] == "Monday":
-            params["monday"] = True
-        elif data["day"] == "Tuesday":
-            params["tuesday"] = True
-        elif data["day"] == "Wednesday":
-            params["wednesday"] = True
-        elif data["day"] == "Thursday":
-            params["thursday"] = True
-        elif data["day"] == "Friday":
-            params["friday"] = True
+        # Map selected day
+        day_map = {
+            "Monday": "monday", "Tuesday": "tuesday",
+            "Wednesday": "wednesday", "Thursday": "thursday",
+            "Friday": "friday"
+        }
+        if data.get("day") in day_map:
+            params[day_map[data["day"]]] = True
 
-    result = db.session.execute(db.text(query), params)
-    db.session.commit()
+        db.session.execute(db.text(query), params)
+        db.session.commit()
 
-    print("Rows updated:", result.rowcount)  # DEBUG
-
-    return jsonify({"status": "success"})
+        return jsonify({"status": "success"})
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to update class"}), 500
 
 @app.route("/api/delete-class/<int:class_id>", methods=["DELETE"])
 def delete_class(class_id):
-    db.session.execute(
-        db.text("DELETE FROM optimized_schedule WHERE id = :id"),
-        {"id": class_id}
-    )
-    db.session.commit()
+    try:
+        db.session.execute(
+            db.text("DELETE FROM optimized_schedule WHERE id = :id"),
+            {"id": class_id}
+        )
+        db.session.commit()
 
-    return jsonify({"status": "deleted"})
+        return jsonify({"status": "deleted"})
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to delete class"}), 500
 
 @app.route("/api/create-class", methods=["POST"])
 def create_class():
     data = request.json
 
+    # Ensure time format is HH:MM:SS
+    def fix_time(t):
+        if t and len(t) == 5:
+            return t + ":00"
+        return t
+
     day_map = {
-        "Monday": "mondays",
-        "Tuesday": "tuesdays",
-        "Wednesday": "wednesdays",
-        "Thursday": "thursdays",
-        "Friday": "fridays"
+        "Monday": "monday",
+        "Tuesday": "tuesday",
+        "Wednesday": "wednesday",
+        "Thursday": "thursday",
+        "Friday": "friday"
     }
 
-    query = """
-        INSERT INTO optimized_schedule (
-            subject, catalog, section, componentcode,
-            classstarttime, classendtime,
-            buildingcode, room,
-            currentenrollment, enrollmentcapacity,
-            currentwaitlisttotal, waitlistcapacity,
-            mondays, tuesdays, wednesdays, thursdays, fridays
-        )
-        VALUES (
-            :subject, :catalog, :section, :component,
-            :startTime, :endTime,
-            :building, :room,
-            :enrollment, :capacity,
-            :waitlist, :waitlistCapacity,
-            :monday, :tuesday, :wednesday, :thursday, :friday
-        )
-    """
+    try:
+        query = """
+            INSERT INTO optimized_schedule (
+                subject, catalog, section, componentcode,
+                classstarttime, classendtime,
+                buildingcode, room,
+                currentenrollment, enrollmentcapacity,
+                currentwaitlisttotal, waitlistcapacity,
+                mondays, tuesdays, wednesdays, thursdays, fridays
+            )
+            VALUES (
+                :subject, :catalog, :section, :component,
+                :startTime, :endTime,
+                :building, :room,
+                :enrollment, :capacity,
+                :waitlist, :waitlistCapacity,
+                :monday, :tuesday, :wednesday, :thursday, :friday
+            )
+        """
 
-    params = {
-        "subject": data["subject"],
-        "catalog": data["catalog"],
-        "section": data["section"],
-        "component": data["component"],
-        "startTime": data["startTime"],
-        "endTime": data["endTime"],
-        "building": data["building"],
-        "room": data["room"],
-        "enrollment": data["enrollment"],
-        "capacity": data["capacity"],
-        "waitlist": data["waitlist"],
-        "waitlistCapacity": data["waitlistCapacity"],
-        "monday": False,
-        "tuesday": False,
-        "wednesday": False,
-        "thursday": False,
-        "friday": False,
-    }
+        params = {
+            "subject": data["subject"],
+            "catalog": data["catalog"],
+            "section": data["section"],
+            "component": data["component"],
+            "startTime": fix_time(data["startTime"]),
+            "endTime": fix_time(data["endTime"]),
+            "building": data["building"],
+            "room": data["room"],
+            "enrollment": data["enrollment"],
+            "capacity": data["capacity"],
+            "waitlist": data["waitlist"],
+            "waitlistCapacity": data["waitlistCapacity"],
+            "monday": False,
+            "tuesday": False,
+            "wednesday": False,
+            "thursday": False,
+            "friday": False,
+        }
 
-    if data["day"] in day_map:
-        params[day_map[data["day"]]] = True
+        if data["day"] in day_map:
+            params[day_map[data["day"]]] = True
 
-    db.session.execute(db.text(query), params)
-    db.session.commit()
+        db.session.execute(db.text(query), params)
+        db.session.commit()
 
-    return jsonify({"status": "created"})
+        return jsonify({"status": "created"}), 201
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to create class"}), 500
 
 @app.get("/api/optimized-date-range")
 def api_optimized_date_range():
