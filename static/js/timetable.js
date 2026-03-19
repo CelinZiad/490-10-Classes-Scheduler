@@ -217,6 +217,7 @@ function setupEventListeners() {
   // When term changes, refresh subject/component/building dropdowns
   termFilter.addEventListener("change", async () => {
     await loadFilters(termFilter.value);
+    navigateToSemester();
     applyFilters();
   });
 
@@ -225,7 +226,10 @@ function setupEventListeners() {
     applyFilters();
   });
 
-  semesterFilter.addEventListener("change", applyFilters);
+  semesterFilter.addEventListener("change", () => {
+    navigateToSemester();
+    applyFilters();
+  });
 
   componentFilter.addEventListener("change", applyFilters);
   
@@ -284,6 +288,81 @@ function setupEventListeners() {
       exportMenu.classList.toggle("open");
     });
     document.addEventListener("click", () => exportMenu.classList.remove("open"));
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/*  Calendar date navigation                                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Parse a term name like "Fall 2025" or "Winter 2026" and return a Date
+ * for the first Monday of that semester.
+ */
+function getTermStartDate(termName) {
+  const match = termName.match(/(Fall|Winter|Summer)\s+(\d{4})/i);
+  if (!match) return null;
+  const season = match[1].toLowerCase();
+  const year = parseInt(match[2]);
+  // First day of the semester month
+  const monthMap = { fall: 8, winter: 0, summer: 4 }; // JS months 0-indexed
+  const d = new Date(year, monthMap[season], 1);
+  // Advance to first Monday
+  while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
+  return d;
+}
+
+/**
+ * Parse a semester label like "Year 1 Fall" plus a plan name like
+ * "25-26 COEN COOP" and return the start date for that semester.
+ */
+function getSemesterStartDate(semesterLabel, planName) {
+  const seasonMatch = semesterLabel.match(/(Fall|Winter|Summer)/i);
+  if (!seasonMatch) return null;
+  const season = seasonMatch[1].toLowerCase();
+
+  const yearNumMatch = semesterLabel.match(/Year\s+(\d+)/i);
+  const yearNum = yearNumMatch ? parseInt(yearNumMatch[1]) : 1;
+
+  // Extract base year from plan name (e.g. "25-26" → 2025)
+  const planYearMatch = planName.match(/(\d{2})-(\d{2})/);
+  if (!planYearMatch) return null;
+  const baseYear = 2000 + parseInt(planYearMatch[1]);
+
+  // Each program year advances the academic year by 1
+  const academicStartYear = baseYear + (yearNum - 1);
+  // Fall = September of academicStartYear
+  // Winter = January of academicStartYear + 1
+  // Summer = May of academicStartYear + 1
+  const monthMap = { fall: 8, winter: 0, summer: 4 };
+  const calendarYear = season === "fall" ? academicStartYear : academicStartYear + 1;
+
+  const d = new Date(calendarYear, monthMap[season], 1);
+  while (d.getDay() !== 1) d.setDate(d.getDate() + 1);
+  return d;
+}
+
+/**
+ * Navigate the calendar to the appropriate date based on current filters.
+ */
+function navigateToSemester() {
+  if (!calendar) return;
+
+  // If a semester is selected, use it (more specific)
+  if (semesterFilter.value && planFilter.value) {
+    const semLabel = semesterFilter.selectedOptions[0]?.text;
+    const planLabel = planFilter.selectedOptions[0]?.text;
+    if (semLabel && planLabel) {
+      const d = getSemesterStartDate(semLabel, planLabel);
+      if (d) { calendar.gotoDate(d); return; }
+    }
+  }
+
+  // Otherwise use the Term dropdown
+  const termLabel = termFilter.selectedOptions[0]?.text;
+  if (termLabel) {
+    const d = getTermStartDate(termLabel);
+    if (d) calendar.gotoDate(d);
   }
 }
 
