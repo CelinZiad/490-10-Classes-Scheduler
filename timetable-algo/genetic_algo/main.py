@@ -33,21 +33,7 @@ from helper.scheduleterm_export import export_to_scheduleterm_format
 from helper.db_room_extractor import extract_and_generate_room_data
 from helper.db_sequence_extractor import extract_and_generate_sequences
 from helper.db_course_extractor import extract_and_generate_course_data
-
-
-def should_include_course(subject: str, catalog: str) -> bool:
-    """Determine if a course should be included in scheduling (COEN, ELEC, ENGR 290)."""
-    subject = subject.upper().strip()
-    catalog = catalog.strip()
-
-    if subject == "COEN":
-        return catalog not in ("390", "490")
-    if subject == "ELEC":
-        return catalog != "490"
-    if subject == "ENGR" and catalog == "290":
-        return True
-
-    return False
+from course_filter import should_include_course
 
 
 def read_courses_from_csv(path: str) -> List[Course]:
