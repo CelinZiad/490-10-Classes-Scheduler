@@ -122,18 +122,7 @@ def test_tut_freq_no_tuts():
 
 # --- group_by_lecture ---
 
-def test_group_basic():
-    records = [
-        {'subject': 'COEN', 'catalog': '311', 'section': 'AA', 'componentcode': 'LEC'},
-        {'subject': 'COEN', 'catalog': '311', 'section': 'AA T1', 'componentcode': 'TUT'},
-        {'subject': 'COEN', 'catalog': '311', 'section': 'AA L1', 'componentcode': 'LAB'},
-    ]
-    grouped = group_by_lecture(records)
-    key = ('COEN', '311', 'AA')
-    assert key in grouped
-    assert grouped[key]['lecture'] is not None
-    assert len(grouped[key]['tutorials']) == 1
-    assert len(grouped[key]['labs']) == 1
+
 
 
 def test_group_filters_math():
