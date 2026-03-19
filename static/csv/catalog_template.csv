@@ -1,0 +1,4 @@
+﻿Subject,Catalog,Title,Career,ClassUnit,Prerequisites
+COEN,99234,TestImport,UGRD,4.5,COEN314
+COEN,99235,TestImport2,UGRD,5,"COEN321,COEN212"
+COEN,99236,TestImport3,GRAD,3,
