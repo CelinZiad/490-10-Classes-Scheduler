@@ -341,3 +341,384 @@
     gap: 0.5rem;
   }
 }
+
+/* ---- List View ---- */
+.day-section {
+  margin-bottom: 30px;
+}
+
+.day-title {
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+
+.day-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.nice-card {
+  border-radius: 10px;
+  overflow: hidden;
+  background: #f9fafb;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+.card-header {
+  color: white;
+  padding: 6px 10px;
+  font-size: 14px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.badge {
+  font-size: 11px;
+  background: rgba(255,255,255,0.2);
+  padding: 2px 6px;
+  border-radius: 6px;
+}
+
+.card-body {
+  padding: 10px;
+  font-size: 13px;
+}
+
+.card-body .title {
+  font-weight: bold;
+  margin-bottom: 6px;
+}
+
+.card-body .row {
+  margin-bottom: 4px;
+}
+
+.card-body .small {
+  font-size: 12px;
+  color: #555;
+}
+
+.card-footer {
+  padding: 8px;
+  text-align: right;
+}
+
+/* Buttons */
+.btn-primary {
+  background: #3B82F6;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.btn-primary:hover {
+  background: #2563EB;
+}
+
+.btn-danger {
+  background: #EF4444;
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.btn-danger:hover {
+  background: #DC2626;
+}
+
+/* Footer layout */
+.card-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px;
+}
+
+.card-footer {
+  padding: 10px;
+}
+
+.btn-group {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-edit, .btn-delete {
+  flex: 1;
+  padding: 8px;
+  border: none;
+  border-radius: 6px;
+  font-size: 10px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-edit {
+  background: #3B82F6;
+  color: white;
+}
+
+.btn-edit:hover {
+  background: #2563EB;
+}
+
+.btn-delete {
+  background: #EF4444;
+  color: white;
+}
+
+.btn-delete:hover {
+  background: #DC2626;
+}
+
+/* Modal layout */
+
+.modal-content.large {
+  width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  border-radius: 14px;
+  padding: 20px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+/* Title */
+.modal-content h2 {
+  margin-bottom: 10px;
+}
+
+/* Form layout */
+#edit-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* fields full width */
+#edit-form .full {
+  grid-column: span 2;
+}
+
+/* Labels */
+#edit-form label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #444;
+}
+
+/* Inputs */
+#edit-form input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+}
+
+/* Footer buttons */
+.edit-actions {
+  grid-column: span 2;
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+/* Create button */
+.list-header-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.btn-create {
+  background: #10B981;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-create:hover {
+  background: #059669;
+}
+
+/* Create Modal */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: none;
+
+}
+
+.modal.open {
+  display: block;
+}
+
+
+.modal-backdrop {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+}
+
+
+.modal-content {
+  position: relative;
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin: 80px auto;
+  width: 500px;
+  z-index: 10;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+}
+
+
+.large-modal {
+  width: 600px;
+}
+
+
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  border: none;
+  background: none;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+
+.modal-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 10px;
+}
+
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-group label {
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: #374151;
+}
+
+.form-group input,
+.form-group select {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  font-size: 14px;
+}
+
+
+.modal-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.btn-primary:hover {
+  background: #2563eb;
+}
+
+.btn-ghost {
+  background: #e5e7eb;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+/* UI-modal */
+.small-modal {
+  max-width: 350px;
+  text-align: center;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.btn-danger {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+}
+
+.btn-primary {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+}
+
+.btn-ghost {
+  background: #e5e7eb;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+}
+
+/* Create/Edit modal */
+#create-modal {
+  z-index: 1100;
+}
+
+#event-modal {
+  z-index: 1100;
+}
+
+/* Validation / Delete modal */
+#ui-modal {
+  z-index: 1200;

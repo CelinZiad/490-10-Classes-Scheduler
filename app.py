@@ -531,6 +531,41 @@ def catalog():
         selected_termid=selected_termid,
     )
 
+@app.route("/delete-course", methods=["POST"])
+def delete_course():
+    data = request.get_json()
+
+    subject = data.get("subject")
+    catalog = data.get("catalog")
+    termid = data.get("termid")
+
+    if not subject or not catalog or not termid:
+        return jsonify({"error": "Missing data"}), 400
+
+    try:
+        result = db.session.execute(
+            db.text("""
+                DELETE FROM sequencecourse
+                WHERE subject = :subject
+                AND catalog = :catalog
+                AND sequencetermid = :termid
+            """),
+            {
+                "subject": subject,
+                "catalog": catalog,
+                "termid": termid
+            }
+        )
+
+        db.session.commit()
+
+        return jsonify({
+            "message": f"Deleted {result.rowcount} course from this term"
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 @app.get("/conflicts")
 def conflicts():
@@ -1254,6 +1289,271 @@ def api_events():
 
     return jsonify(events)
 
+@app.get("/api/list-optimized")
+def api_list_optimized():
+    subject = request.args.get("subject")
+    component = request.args.get("component")
+    building = request.args.get("building")
+
+    query = """
+        SELECT DISTINCT ON (
+            st.subject, st.catalog, st.section,
+            st.componentcode, st.classnumber
+        )
+            st.id,
+            st.subject,
+            st.catalog,
+            st.section,
+            st.componentcode,
+            st.classnumber,
+            st.buildingcode,
+            st.room,
+            st.classstarttime,
+            st.classendtime,
+            st.mondays,
+            st.tuesdays,
+            st.wednesdays,
+            st.thursdays,
+            st.fridays,
+            st.saturdays,
+            st.sundays,
+            st.currentenrollment,
+            st.enrollmentcapacity,
+            st.currentwaitlisttotal,
+            st.waitlistcapacity,
+            c.title AS coursetitle
+        FROM optimized_schedule st
+        LEFT JOIN catalog c
+          ON c.subject = st.subject
+         AND c.catalog = st.catalog
+         AND c.career = 'UGRD'
+       
+    
+    """
+
+    params = {}
+
+    if subject:
+        subjects = [s.strip() for s in subject.split(",") if s.strip()]
+
+        if len(subjects) == 1:
+            query += " AND st.subject = :subject"
+            params["subject"] = subjects[0]
+
+        elif len(subjects) > 1:
+            placeholders = ", ".join(f":subj_{i}" for i in range(len(subjects)))
+            query += f" AND st.subject IN ({placeholders})"
+
+            for i, s in enumerate(subjects):
+                params[f"subj_{i}"] = s
+
+    if component:
+        query += " AND st.componentcode = :component"
+        params["component"] = component
+
+    if building:
+        query += " AND st.buildingcode = :building"
+        params["building"] = building
+
+    query += """
+        ORDER BY st.subject, st.catalog, st.section,
+                 st.componentcode, st.classnumber
+        LIMIT 500
+    """
+
+    rows = db.session.execute(db.text(query), params).mappings().all()
+
+    # GROUP BY DAY
+    grouped = {
+        "Monday": [],
+        "Tuesday": [],
+        "Wednesday": [],
+        "Thursday": [],
+        "Friday": [],
+        "Saturday": [],
+        "Sunday": []
+    }
+
+    def create_entry(row, day_name):
+        return {
+            "id": row["id"],
+            "subject": row["subject"],
+            "catalog": row["catalog"],
+            "section": row["section"],
+            "component": row["componentcode"],
+            "coursetitle": row["coursetitle"] or "",
+            "day": day_name,
+            "startTime": str(row["classstarttime"]),
+            "endTime": str(row["classendtime"]),
+            "building": row["buildingcode"] or "TBA",
+            "room": row["room"] or "TBA",
+            "enrollment": row["currentenrollment"] or 0,
+            "capacity": row["enrollmentcapacity"] or 0,
+            "waitlist": row["currentwaitlisttotal"] or 0,
+            "waitlistCapacity": row["waitlistcapacity"] or 0,
+        }
+
+    for row in rows:
+        if row["mondays"]:
+            grouped["Monday"].append(create_entry(row, "Monday"))
+        if row["tuesdays"]:
+            grouped["Tuesday"].append(create_entry(row, "Tuesday"))
+        if row["wednesdays"]:
+            grouped["Wednesday"].append(create_entry(row, "Wednesday"))
+        if row["thursdays"]:
+            grouped["Thursday"].append(create_entry(row, "Thursday"))
+        if row["fridays"]:
+            grouped["Friday"].append(create_entry(row, "Friday"))
+        if row["saturdays"]:
+            grouped["Saturday"].append(create_entry(row, "Saturday"))
+        if row["sundays"]:
+            grouped["Sunday"].append(create_entry(row, "Sunday"))
+
+    return jsonify(grouped)
+
+@app.route("/api/update-class/<int:class_id>", methods=["PUT"])
+def update_class(class_id):
+    data = request.json
+
+    # Ensure time format is HH:MM:SS
+    def fix_time(t):
+        if t and len(t) == 5:
+            return t + ":00"
+        return t
+
+    query = """
+        UPDATE optimized_schedule
+        SET
+            subject = :subject,
+            catalog = :catalog,
+            section = :section,
+            componentcode = :component,
+            classstarttime = :startTime,
+            classendtime = :endTime,
+            buildingcode = :building,
+            room = :room,
+            currentenrollment = :enrollment,
+            enrollmentcapacity = :capacity,
+            currentwaitlisttotal = :waitlist,
+            waitlistcapacity = :waitlistCapacity,
+            mondays = :monday,
+            tuesdays = :tuesday,
+            wednesdays = :wednesday,
+            thursdays = :thursday,
+            fridays = :friday
+        WHERE id = :id
+    """
+
+    # Reset all days
+    params = {
+        "id": class_id,
+        "subject": data["subject"],
+        "catalog": data["catalog"],
+        "section": data["section"],
+        "component": data["component"],
+        "startTime": fix_time(data["startTime"]),
+        "endTime": fix_time(data["endTime"]),
+        "building": data["building"],
+        "room": data["room"],
+        "enrollment": data["enrollment"],
+        "capacity": data["capacity"],
+        "waitlist": data["waitlist"],
+        "waitlistCapacity": data["waitlistCapacity"],
+        "monday": False,
+        "tuesday": False,
+        "wednesday": False,
+        "thursday": False,
+        "friday": False,
+    }
+
+    # Map selected day
+    if "day" in data:
+        if data["day"] == "Monday":
+            params["monday"] = True
+        elif data["day"] == "Tuesday":
+            params["tuesday"] = True
+        elif data["day"] == "Wednesday":
+            params["wednesday"] = True
+        elif data["day"] == "Thursday":
+            params["thursday"] = True
+        elif data["day"] == "Friday":
+            params["friday"] = True
+
+    result = db.session.execute(db.text(query), params)
+    db.session.commit()
+
+    print("Rows updated:", result.rowcount)  # DEBUG
+
+    return jsonify({"status": "success"})
+
+@app.route("/api/delete-class/<int:class_id>", methods=["DELETE"])
+def delete_class(class_id):
+    db.session.execute(
+        db.text("DELETE FROM optimized_schedule WHERE id = :id"),
+        {"id": class_id}
+    )
+    db.session.commit()
+
+    return jsonify({"status": "deleted"})
+
+@app.route("/api/create-class", methods=["POST"])
+def create_class():
+    data = request.json
+
+    day_map = {
+        "Monday": "mondays",
+        "Tuesday": "tuesdays",
+        "Wednesday": "wednesdays",
+        "Thursday": "thursdays",
+        "Friday": "fridays"
+    }
+
+    query = """
+        INSERT INTO optimized_schedule (
+            subject, catalog, section, componentcode,
+            classstarttime, classendtime,
+            buildingcode, room,
+            currentenrollment, enrollmentcapacity,
+            currentwaitlisttotal, waitlistcapacity,
+            mondays, tuesdays, wednesdays, thursdays, fridays
+        )
+        VALUES (
+            :subject, :catalog, :section, :component,
+            :startTime, :endTime,
+            :building, :room,
+            :enrollment, :capacity,
+            :waitlist, :waitlistCapacity,
+            :monday, :tuesday, :wednesday, :thursday, :friday
+        )
+    """
+
+    params = {
+        "subject": data["subject"],
+        "catalog": data["catalog"],
+        "section": data["section"],
+        "component": data["component"],
+        "startTime": data["startTime"],
+        "endTime": data["endTime"],
+        "building": data["building"],
+        "room": data["room"],
+        "enrollment": data["enrollment"],
+        "capacity": data["capacity"],
+        "waitlist": data["waitlist"],
+        "waitlistCapacity": data["waitlistCapacity"],
+        "monday": False,
+        "tuesday": False,
+        "wednesday": False,
+        "thursday": False,
+        "friday": False,
+    }
+
+    if data["day"] in day_map:
+        params[day_map[data["day"]]] = True
+
+    db.session.execute(db.text(query), params)
+    db.session.commit()
+
+    return jsonify({"status": "created"})
 
 @app.get("/api/optimized-date-range")
 def api_optimized_date_range():

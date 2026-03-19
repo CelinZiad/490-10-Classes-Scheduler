@@ -108,6 +108,231 @@
       <div id="calendar"></div>
     </div>
 
+
+
+     <!-- List Container -->
+    <div id="optimized-list-container" class="card" style="display: none; margin-top: 20px;">
+      <h2>Optimized Schedule - List View</h2>
+       <button class="btn-create" onclick="openCreateModal()">
+            Create Class
+       </button>
+      <div id="optimized-list-content"></div>
+
+    </div>
+
+    <!-- UI-Modal -->
+    <div id="ui-modal" class="modal">
+      <div class="modal-backdrop"></div>
+
+      <div class="modal-content small-modal">
+        <h3 id="ui-modal-title"></h3>
+        <p id="ui-modal-message"></p>
+
+        <div class="modal-actions" id="ui-modal-actions"></div>
+      </div>
+    </div>
+
+
+
+     <!-- Edit Modal -->
+    <div id="edit-modal" class="modal">
+      <div class="modal-backdrop" onclick="closeEditModal()"></div>
+
+      <div class="modal-content large">
+        <button class="modal-close" onclick="closeEditModal()">&times;</button>
+
+        <h2>Edit Class</h2>
+
+        <form id="edit-form">
+
+          <div class="modal-grid">
+
+            <div class="form-group">
+              <label>Subject</label>
+              <input type="text" id="edit-subject">
+            </div>
+
+            <div class="form-group">
+              <label>Catalog</label>
+              <input type="text" id="edit-catalog">
+            </div>
+
+            <div class="form-group">
+              <label>Section</label>
+              <input type="text" id="edit-section">
+            </div>
+
+            <div class="form-group">
+              <label>Component</label>
+              <input type="text" id="edit-component">
+            </div>
+
+            <div class="form-group">
+              <label>Day</label>
+              <select id="edit-day">
+                <option value="">Select Day</option>
+                <option>Monday</option>
+                <option>Tuesday</option>
+                <option>Wednesday</option>
+                <option>Thursday</option>
+                <option>Friday</option>
+              </select>
+            </div>
+
+
+            <div class="form-group">
+              <label>Start Time</label>
+              <input type="time" id="edit-start">
+            </div>
+
+            <div class="form-group">
+              <label>End Time</label>
+              <input type="time" id="edit-end">
+            </div>
+
+            <div class="form-group">
+              <label>Building</label>
+              <input type="text" id="edit-building">
+            </div>
+
+            <div class="form-group">
+              <label>Room</label>
+              <input type="text" id="edit-room">
+            </div>
+
+            <div class="form-group">
+              <label>Enrollment</label>
+              <input type="number" id="edit-enrollment">
+            </div>
+
+            <div class="form-group">
+              <label>Capacity</label>
+              <input type="number" id="edit-capacity">
+            </div>
+
+            <div class="form-group">
+              <label>Waitlist</label>
+              <input type="number" id="edit-waitlist">
+            </div>
+
+            <div class="form-group">
+              <label>Waitlist Capacity</label>
+              <input type="number" id="edit-waitlist-capacity">
+            </div>
+
+          </div>
+
+          <div class="edit-actions">
+          <button type="button" class="btn-primary" onclick="saveEdit(event)">
+            Save Changes
+          </button>
+
+          <button type="button" class="btn-ghost" onclick="closeEditModal()">
+            Cancel
+          </button>
+        </div>
+
+        </form>
+      </div>
+    </div>
+
+     <!-- Create Modal -->
+
+    <div id="create-modal" class="modal">
+      <div class="modal-backdrop"></div>
+
+      <div class="modal-content large-modal">
+        <button class="modal-close" onclick="closeCreateModal()">&times;</button>
+
+        <h2>Create Class</h2>
+
+        <div class="modal-grid">
+
+          <div class="form-group">
+            <label>Subject</label>
+            <input id="create-subject" placeholder="e.g. COEN">
+          </div>
+
+          <div class="form-group">
+            <label>Catalog</label>
+            <input id="create-catalog" placeholder="e.g. 243">
+          </div>
+
+          <div class="form-group">
+            <label>Section</label>
+            <input id="create-section">
+          </div>
+
+          <div class="form-group">
+            <label>Component</label>
+            <select id="create-component">
+              <option value="LEC">Lecture</option>
+              <option value="LAB">Lab</option>
+              <option value="TUT">Tutorial</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Day</label>
+            <select id="create-day">
+              <option>Monday</option>
+              <option>Tuesday</option>
+              <option>Wednesday</option>
+              <option>Thursday</option>
+              <option>Friday</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Start Time</label>
+            <input type="time" id="create-start">
+          </div>
+
+          <div class="form-group">
+            <label>End Time</label>
+            <input type="time" id="create-end">
+          </div>
+
+          <div class="form-group">
+            <label>Building</label>
+            <input id="create-building">
+          </div>
+
+          <div class="form-group">
+            <label>Room</label>
+            <input id="create-room">
+          </div>
+
+          <div class="form-group">
+            <label>Enrollment</label>
+            <input type="number" id="create-enrollment" min="0">
+          </div>
+
+          <div class="form-group">
+            <label>Capacity</label>
+            <input type="number" id="create-capacity" min="0">
+          </div>
+
+          <div class="form-group">
+            <label>Waitlist</label>
+            <input type="number" id="create-waitlist" min="0">
+          </div>
+
+          <div class="form-group">
+            <label>Waitlist Capacity</label>
+            <input type="number" id="create-waitlist-capacity" min="0">
+          </div>
+
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-primary" onclick="createClass()">Create</button>
+          <button class="btn-ghost" onclick="closeCreateModal()">Cancel</button>
+        </div>
+
+      </div>
+    </div>
+
     <!-- Event Detail Modal -->
     <div id="event-modal" class="modal">
       <div class="modal-backdrop"></div>
