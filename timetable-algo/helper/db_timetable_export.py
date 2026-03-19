@@ -126,13 +126,14 @@ def insert_schedule_records(schedule: List[Course], room_assignments,
                 for tut in course.tutorial:
                     if tut is None or not tut.day:
                         continue
+                    tut_section = tut.section or course.lec_section or course.class_nbr
                     all_days = []
                     for de in tut.day:
                         all_days.extend(extract_day_numbers(de))
                     day_cols = combine_day_columns(all_days)
 
                     params = (
-                        course.subject, course.catalog_nbr, course.class_nbr,
+                        course.subject, course.catalog_nbr, tut_section,
                         'TUT', termcode, course.class_nbr,
                         '', '', minutes_to_time(tut.start), minutes_to_time(tut.end),
                         format_date(tut_start), format_date(tut_end),
@@ -146,13 +147,13 @@ def insert_schedule_records(schedule: List[Course], room_assignments,
                     # Duplicate for cross-listed course
                     if source_key in CROSS_LISTED:
                         clone_subj, clone_cat = CROSS_LISTED[source_key]
-                        clone_cn_key = (clone_subj, clone_cat, course.class_nbr, 'TUT')
+                        clone_cn_key = (clone_subj, clone_cat, tut_section, 'TUT')
                         clone_cn_alt = (clone_subj, clone_cat, 'TUT')
                         clone_cn = cross_list_map.get(
                             clone_cn_key, cross_list_map.get(
                                 clone_cn_alt, course.class_nbr))
                         clone_params = (
-                            clone_subj, clone_cat, course.class_nbr,
+                            clone_subj, clone_cat, tut_section,
                             'TUT', termcode, clone_cn,
                             '', '', minutes_to_time(tut.start), minutes_to_time(tut.end),
                             format_date(tut_start), format_date(tut_end),
@@ -168,6 +169,7 @@ def insert_schedule_records(schedule: List[Course], room_assignments,
                 for lab in course.lab:
                     if lab is None or not lab.day:
                         continue
+                    lab_section = lab.section or course.lec_section or course.class_nbr
                     all_days = []
                     for de in lab.day:
                         all_days.extend(extract_day_numbers(de))
@@ -177,7 +179,7 @@ def insert_schedule_records(schedule: List[Course], room_assignments,
 
                     for mpn, (mp_start, mp_end) in enumerate(meeting_dates, start=1):
                         params = (
-                            course.subject, course.catalog_nbr, course.class_nbr,
+                            course.subject, course.catalog_nbr, lab_section,
                             'LAB', termcode, course.class_nbr,
                             building, room,
                             minutes_to_time(lab.start), minutes_to_time(lab.end),
@@ -192,13 +194,13 @@ def insert_schedule_records(schedule: List[Course], room_assignments,
                         # Duplicate for cross-listed course
                         if source_key in CROSS_LISTED:
                             clone_subj, clone_cat = CROSS_LISTED[source_key]
-                            clone_cn_key = (clone_subj, clone_cat, course.class_nbr, 'LAB')
+                            clone_cn_key = (clone_subj, clone_cat, lab_section, 'LAB')
                             clone_cn_alt = (clone_subj, clone_cat, 'LAB')
                             clone_cn = cross_list_map.get(
                                 clone_cn_key, cross_list_map.get(
                                     clone_cn_alt, course.class_nbr))
                             clone_params = (
-                                clone_subj, clone_cat, course.class_nbr,
+                                clone_subj, clone_cat, lab_section,
                                 'LAB', termcode, clone_cn,
                                 building, room,
                                 minutes_to_time(lab.start), minutes_to_time(lab.end),
