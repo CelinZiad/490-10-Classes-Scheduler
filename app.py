@@ -2,7 +2,7 @@ import os
 import csv
 import io
 import json
-from datetime import date
+from datetime import date, timedelta
 from typing import Optional
 from flask import Flask, render_template, jsonify, request, redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
@@ -1036,20 +1036,34 @@ def api_events():
 
     query = f"""
         SELECT DISTINCT ON (st.subject, st.catalog, st.section,
-                            st.componentcode, st.classnumber)
+                            st.componentcode,
+                            st.classstarttime, st.classendtime,
+                            st.mondays, st.tuesdays, st.wednesdays,
+                            st.thursdays, st.fridays, st.saturdays,
+                            st.sundays,
+                            st.classstartdate, st.classenddate)
             st.subject, st.catalog, st.section, st.componentcode,
-            st.classnumber, st.buildingcode, st.room,
+            st.classnumber,
+            COALESCE(NULLIF(st.buildingcode, ''), lr.building) AS buildingcode,
+            COALESCE(NULLIF(st.room, ''), lr.room) AS room,
             st.classstarttime, st.classendtime,
             st.mondays, st.tuesdays, st.wednesdays, st.thursdays,
             st.fridays, st.saturdays, st.sundays,
             st.termcode, st.currentenrollment, st.enrollmentcapacity,
             st.currentwaitlisttotal, st.waitlistcapacity,
+            st.meetingpatternnumber,
+            st.classstartdate, st.classenddate,
             c.title AS coursetitle
         FROM {source_table} st
         LEFT JOIN catalog c
           ON c.subject = st.subject
          AND c.catalog = st.catalog
          AND c.career  = 'UGRD'
+        LEFT JOIN courselabs cl
+          ON cl.subject = st.subject
+         AND cl.catalog = st.catalog
+        LEFT JOIN labrooms lr
+          ON lr.labroomid = cl.labroomid
         WHERE st.classstarttime IS NOT NULL
           AND st.classendtime   IS NOT NULL
           AND st.classstarttime != '00:00:00'
@@ -1079,9 +1093,37 @@ def api_events():
 
         query += ")"
 
-    # DIRECT FILTERS
-    # Skip term filter for optimized schedule (it's already term-specific)
-    if term and source != "optimized":
+    # TERM CODE FILTER
+    # When a semester (termid) is selected, auto-detect the correct termcode
+    # from the season so we only show the latest year's schedule data.
+    # We find the MAX termcode that has data for the courses in the selected
+    # sequence term AND matches the season's month range.
+    if termid and source != "optimized":
+        season = db.session.execute(
+            db.text("SELECT season FROM sequenceterm WHERE sequencetermid = :tid"),
+            {"tid": termid},
+        ).scalar()
+
+        if season in ("fall", "winter", "summer"):
+            month_ranges = {"fall": (9, 12), "winter": (1, 4), "summer": (5, 8)}
+            m1, m2 = month_ranges[season]
+            latest_term = db.session.execute(
+                db.text("""
+                    SELECT MAX(sch.termcode)
+                    FROM scheduleterm sch
+                    JOIN sequencecourse sc
+                      ON sc.subject = sch.subject AND sc.catalog = sch.catalog
+                    WHERE sc.sequencetermid = :tid
+                      AND EXTRACT(MONTH FROM sch.classstartdate) BETWEEN :m1 AND :m2
+                      AND sch.classstartdate > '2000-01-01'
+                """),
+                {"tid": termid, "m1": m1, "m2": m2},
+            ).scalar()
+
+            if latest_term:
+                query += " AND st.termcode = :auto_term"
+                params["auto_term"] = latest_term
+    elif term and source != "optimized":
         query += " AND st.termcode = :term"
         params["term"] = term
 
@@ -1106,8 +1148,13 @@ def api_events():
 
     query += """
         ORDER BY st.subject, st.catalog, st.section,
-                 st.componentcode, st.classnumber
-        LIMIT 500
+                 st.componentcode,
+                 st.classstarttime, st.classendtime,
+                 st.mondays, st.tuesdays, st.wednesdays,
+                 st.thursdays, st.fridays, st.saturdays,
+                 st.sundays,
+                 st.classstartdate, st.classenddate
+        LIMIT 10000
     """
 
     try:
@@ -1139,13 +1186,24 @@ def api_events():
         if not days_of_week:
             continue
 
+        # FullCalendar startRecur/endRecur bound recurring events to a date range.
+        # endRecur is exclusive, so add one day past classenddate.
+        start_recur = None
+        end_recur = None
+        if row["classstartdate"]:
+            start_recur = str(row["classstartdate"])
+        if row["classenddate"]:
+            end_recur = str(row["classenddate"] + timedelta(days=1))
+
         events.append(
             {
-                "id": f"{row['subject']}-{row['catalog']}-{row['section']}-{row['componentcode']}-{row['classnumber']}",
+                "id": f"{row['subject']}-{row['catalog']}-{row['section']}-{row['componentcode']}-{row['classnumber']}-{row['meetingpatternnumber']}",
                 "title": f"{row['subject']} {row['catalog']}",
                 "daysOfWeek": days_of_week,
                 "startTime": str(row["classstarttime"]),
                 "endTime": str(row["classendtime"]),
+                "startRecur": start_recur,
+                "endRecur": end_recur,
                 "allDay": False,
                 "color": COMPONENT_COLORS.get(row["componentcode"], DEFAULT_COLOR),
                 "extendedProps": {
@@ -1166,6 +1224,57 @@ def api_events():
         )
 
     return jsonify(events)
+
+
+@app.get("/api/optimized-date-range")
+def api_optimized_date_range():
+    """Return the actual date range of the optimized schedule.
+
+    Used by the frontend to navigate the calendar to the correct dates,
+    since the optimized schedule's termcode may not align with the plan
+    name's academic year (e.g. plan "25-26" but data in 2026-27).
+
+    Concordia termcode offsets relative to plan name year:
+      2250-2260 → +10,  2260-2270 → 0,
+      2270-2280 → -10,  2280-2290 → -10
+    Rather than relying on these offsets, we query the actual dates.
+    """
+    planid = request.args.get("planid", type=int)
+    termid = request.args.get("termid", type=int)
+
+    query = """
+        SELECT MIN(os.classstartdate) AS min_date,
+               MAX(os.classenddate)   AS max_date
+        FROM optimized_schedule os
+        WHERE os.classstartdate IS NOT NULL
+    """
+    params = {}
+
+    if planid or termid:
+        query += """
+          AND EXISTS (
+              SELECT 1
+              FROM sequencecourse sc
+              JOIN sequenceterm st ON st.sequencetermid = sc.sequencetermid
+              WHERE sc.subject = os.subject
+                AND sc.catalog = os.catalog
+        """
+        if planid:
+            query += " AND st.planid = :planid"
+            params["planid"] = planid
+        if termid:
+            query += " AND sc.sequencetermid = :termid"
+            params["termid"] = termid
+        query += ")"
+
+    row = db.session.execute(db.text(query), params).mappings().first()
+
+    if row and row["min_date"]:
+        return jsonify({
+            "startDate": str(row["min_date"]),
+            "endDate": str(row["max_date"]) if row["max_date"] else None,
+        })
+    return jsonify({"startDate": None, "endDate": None})
 
 
 @app.get("/api/filters")
@@ -1246,9 +1355,34 @@ def api_filters():
         if r["termcode"] is not None
     ]
 
-    # Apply selected term filter to other dropdowns
+    # Apply term filter to other dropdowns.
+    # When a semester is selected, auto-detect the correct termcode from season.
     term_where = ""
-    if term:
+    if termid:
+        season = db.session.execute(
+            db.text("SELECT season FROM sequenceterm WHERE sequencetermid = :tid"),
+            {"tid": termid},
+        ).scalar()
+
+        if season in ("fall", "winter", "summer"):
+            month_ranges = {"fall": (9, 12), "winter": (1, 4), "summer": (5, 8)}
+            m1, m2 = month_ranges[season]
+            latest_term = db.session.execute(
+                db.text("""
+                    SELECT MAX(sch.termcode)
+                    FROM scheduleterm sch
+                    JOIN sequencecourse sc
+                      ON sc.subject = sch.subject AND sc.catalog = sch.catalog
+                    WHERE sc.sequencetermid = :tid
+                      AND EXTRACT(MONTH FROM sch.classstartdate) BETWEEN :m1 AND :m2
+                      AND sch.classstartdate > '2000-01-01'
+                """),
+                {"tid": termid, "m1": m1, "m2": m2},
+            ).scalar()
+            if latest_term:
+                term_where = " AND sch.termcode = :term"
+                params["term"] = latest_term
+    elif term:
         term_where = " AND sch.termcode = :term"
         params["term"] = term
 
