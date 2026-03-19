@@ -1612,139 +1612,150 @@ def update_class(class_id):
             return t + ":00"
         return t
 
-    query = """
-        UPDATE optimized_schedule
-        SET
-            subject = :subject,
-            catalog = :catalog,
-            section = :section,
-            componentcode = :component,
-            classstarttime = :startTime,
-            classendtime = :endTime,
-            buildingcode = :building,
-            room = :room,
-            currentenrollment = :enrollment,
-            enrollmentcapacity = :capacity,
-            currentwaitlisttotal = :waitlist,
-            waitlistcapacity = :waitlistCapacity,
-            mondays = :monday,
-            tuesdays = :tuesday,
-            wednesdays = :wednesday,
-            thursdays = :thursday,
-            fridays = :friday
-        WHERE id = :id
-    """
+    try:
+        query = """
+            UPDATE optimized_schedule
+            SET
+                subject = :subject,
+                catalog = :catalog,
+                section = :section,
+                componentcode = :component,
+                classstarttime = :startTime,
+                classendtime = :endTime,
+                buildingcode = :building,
+                room = :room,
+                currentenrollment = :enrollment,
+                enrollmentcapacity = :capacity,
+                currentwaitlisttotal = :waitlist,
+                waitlistcapacity = :waitlistCapacity,
+                mondays = :monday,
+                tuesdays = :tuesday,
+                wednesdays = :wednesday,
+                thursdays = :thursday,
+                fridays = :friday
+            WHERE id = :id
+        """
 
-    # Reset all days
-    params = {
-        "id": class_id,
-        "subject": data["subject"],
-        "catalog": data["catalog"],
-        "section": data["section"],
-        "component": data["component"],
-        "startTime": fix_time(data["startTime"]),
-        "endTime": fix_time(data["endTime"]),
-        "building": data["building"],
-        "room": data["room"],
-        "enrollment": data["enrollment"],
-        "capacity": data["capacity"],
-        "waitlist": data["waitlist"],
-        "waitlistCapacity": data["waitlistCapacity"],
-        "monday": False,
-        "tuesday": False,
-        "wednesday": False,
-        "thursday": False,
-        "friday": False,
-    }
+        params = {
+            "id": class_id,
+            "subject": data["subject"],
+            "catalog": data["catalog"],
+            "section": data["section"],
+            "component": data["component"],
+            "startTime": fix_time(data["startTime"]),
+            "endTime": fix_time(data["endTime"]),
+            "building": data["building"],
+            "room": data["room"],
+            "enrollment": data["enrollment"],
+            "capacity": data["capacity"],
+            "waitlist": data["waitlist"],
+            "waitlistCapacity": data["waitlistCapacity"],
+            "monday": False,
+            "tuesday": False,
+            "wednesday": False,
+            "thursday": False,
+            "friday": False,
+        }
 
-    # Map selected day
-    if "day" in data:
-        if data["day"] == "Monday":
-            params["monday"] = True
-        elif data["day"] == "Tuesday":
-            params["tuesday"] = True
-        elif data["day"] == "Wednesday":
-            params["wednesday"] = True
-        elif data["day"] == "Thursday":
-            params["thursday"] = True
-        elif data["day"] == "Friday":
-            params["friday"] = True
+        # Map selected day
+        day_map = {
+            "Monday": "monday", "Tuesday": "tuesday",
+            "Wednesday": "wednesday", "Thursday": "thursday",
+            "Friday": "friday"
+        }
+        if data.get("day") in day_map:
+            params[day_map[data["day"]]] = True
 
-    result = db.session.execute(db.text(query), params)
-    db.session.commit()
+        db.session.execute(db.text(query), params)
+        db.session.commit()
 
-    print("Rows updated:", result.rowcount)  # DEBUG
-
-    return jsonify({"status": "success"})
+        return jsonify({"status": "success"})
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to update class"}), 500
 
 @app.route("/api/delete-class/<int:class_id>", methods=["DELETE"])
 def delete_class(class_id):
-    db.session.execute(
-        db.text("DELETE FROM optimized_schedule WHERE id = :id"),
-        {"id": class_id}
-    )
-    db.session.commit()
+    try:
+        db.session.execute(
+            db.text("DELETE FROM optimized_schedule WHERE id = :id"),
+            {"id": class_id}
+        )
+        db.session.commit()
 
-    return jsonify({"status": "deleted"})
+        return jsonify({"status": "deleted"})
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to delete class"}), 500
 
 @app.route("/api/create-class", methods=["POST"])
 def create_class():
     data = request.json
 
+    # Ensure time format is HH:MM:SS
+    def fix_time(t):
+        if t and len(t) == 5:
+            return t + ":00"
+        return t
+
     day_map = {
-        "Monday": "mondays",
-        "Tuesday": "tuesdays",
-        "Wednesday": "wednesdays",
-        "Thursday": "thursdays",
-        "Friday": "fridays"
+        "Monday": "monday",
+        "Tuesday": "tuesday",
+        "Wednesday": "wednesday",
+        "Thursday": "thursday",
+        "Friday": "friday"
     }
 
-    query = """
-        INSERT INTO optimized_schedule (
-            subject, catalog, section, componentcode,
-            classstarttime, classendtime,
-            buildingcode, room,
-            currentenrollment, enrollmentcapacity,
-            currentwaitlisttotal, waitlistcapacity,
-            mondays, tuesdays, wednesdays, thursdays, fridays
-        )
-        VALUES (
-            :subject, :catalog, :section, :component,
-            :startTime, :endTime,
-            :building, :room,
-            :enrollment, :capacity,
-            :waitlist, :waitlistCapacity,
-            :monday, :tuesday, :wednesday, :thursday, :friday
-        )
-    """
+    try:
+        query = """
+            INSERT INTO optimized_schedule (
+                subject, catalog, section, componentcode,
+                classstarttime, classendtime,
+                buildingcode, room,
+                currentenrollment, enrollmentcapacity,
+                currentwaitlisttotal, waitlistcapacity,
+                mondays, tuesdays, wednesdays, thursdays, fridays
+            )
+            VALUES (
+                :subject, :catalog, :section, :component,
+                :startTime, :endTime,
+                :building, :room,
+                :enrollment, :capacity,
+                :waitlist, :waitlistCapacity,
+                :monday, :tuesday, :wednesday, :thursday, :friday
+            )
+        """
 
-    params = {
-        "subject": data["subject"],
-        "catalog": data["catalog"],
-        "section": data["section"],
-        "component": data["component"],
-        "startTime": data["startTime"],
-        "endTime": data["endTime"],
-        "building": data["building"],
-        "room": data["room"],
-        "enrollment": data["enrollment"],
-        "capacity": data["capacity"],
-        "waitlist": data["waitlist"],
-        "waitlistCapacity": data["waitlistCapacity"],
-        "monday": False,
-        "tuesday": False,
-        "wednesday": False,
-        "thursday": False,
-        "friday": False,
-    }
+        params = {
+            "subject": data["subject"],
+            "catalog": data["catalog"],
+            "section": data["section"],
+            "component": data["component"],
+            "startTime": fix_time(data["startTime"]),
+            "endTime": fix_time(data["endTime"]),
+            "building": data["building"],
+            "room": data["room"],
+            "enrollment": data["enrollment"],
+            "capacity": data["capacity"],
+            "waitlist": data["waitlist"],
+            "waitlistCapacity": data["waitlistCapacity"],
+            "monday": False,
+            "tuesday": False,
+            "wednesday": False,
+            "thursday": False,
+            "friday": False,
+        }
 
-    if data["day"] in day_map:
-        params[day_map[data["day"]]] = True
+        if data["day"] in day_map:
+            params[day_map[data["day"]]] = True
 
-    db.session.execute(db.text(query), params)
-    db.session.commit()
+        db.session.execute(db.text(query), params)
+        db.session.commit()
 
-    return jsonify({"status": "created"})
+        return jsonify({"status": "created"}), 201
+    except Exception:
+        db.session.rollback()
+        return jsonify({"error": "Failed to create class"}), 500
 
 @app.get("/api/optimized-date-range")
 def api_optimized_date_range():

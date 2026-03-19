@@ -17,6 +17,8 @@ EXPECTED_GET_ROUTES = {
     "/api/export-csv",
     "/api/import/labrooms",
     "/api/search-catalog",
+    "/api/list-optimized",
+    "/api/optimized-date-range",
 }
 
 EXPECTED_POST_ROUTES = {
@@ -25,6 +27,7 @@ EXPECTED_POST_ROUTES = {
     "/create-course",
     "/update-course",
     "/delete-course",
+    "/api/create-class",
 }
 
 

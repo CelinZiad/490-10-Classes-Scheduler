@@ -91,6 +91,9 @@ class _FakeSession:
         if sql.strip().startswith("update"):
             return _FakeResult(rows=[], rowcount=0)
 
+        if "from optimized_schedule" in sql:
+            return _FakeResult(rows=[])
+
         if "from solution" in sql:
             return _FakeResult(rows=[])
 

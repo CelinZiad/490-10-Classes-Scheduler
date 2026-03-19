@@ -411,24 +411,33 @@ async function saveEdit(event) {
     return;
   }
 
-  console.log("Sending update:", updated);
+  try {
+    const res = await fetch(`/api/update-class/${currentEditId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(updated)
+    });
 
-  await fetch(`/api/update-class/${currentEditId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(updated)
-  });
+    if (!res.ok) throw new Error("Server error");
 
-      closeEditModal();
+    closeEditModal();
 
     // FORCE fresh reload (no cache)
     fetch(`/api/list-optimized?${new URLSearchParams(getFilterParams())}`, {
       cache: "no-store"
     })
       .then(res => res.json())
-      .then(data => {
-        renderOptimizedList(data);
-      });
+      .then(data => renderOptimizedList(data));
+
+    applyFilters();
+  } catch (err) {
+    console.error("Update failed:", err);
+    openUIModal(
+      "Error",
+      "Failed to update class. Please try again.",
+      `<button class="btn-primary" onclick="closeUIModal()">OK</button>`
+    );
+  }
 }
 
 function closeEditModal() {
@@ -458,16 +467,27 @@ function confirmDelete(id) {
   fetch(`/api/delete-class/${id}`, {
     method: "DELETE"
   })
-    .then(res => res.json())
+    .then(res => {
+      if (!res.ok) throw new Error("Server error");
+      return res.json();
+    })
     .then(() => {
-      // reload list SAME WAY
+      // reload list
       fetch(`/api/list-optimized?${new URLSearchParams(getFilterParams())}`, {
         cache: "no-store"
       })
         .then(res => res.json())
         .then(data => renderOptimizedList(data));
+      applyFilters();
     })
-    .catch(err => console.error("Delete failed:", err));
+    .catch(err => {
+      console.error("Delete failed:", err);
+      openUIModal(
+        "Error",
+        "Failed to delete class. Please try again.",
+        `<button class="btn-primary" onclick="closeUIModal()">OK</button>`
+      );
+    });
 }
 
 /* ------------------------------------------------------------------ */
@@ -500,27 +520,45 @@ function createClass() {
     waitlistCapacity: parseInt(document.getElementById("create-waitlist-capacity").value || 0),
   };
 
+  data.subject = data.subject.toUpperCase();
 
-      data.subject = data.subject.toUpperCase();
+  const error = validateClass(data);
 
-      const error = validateClass(data);
+  if (error) {
+    openUIModal(
+      "Invalid Input",
+      error,
+      `<button class="btn-primary" onclick="closeUIModal()">OK</button>`
+    );
+    return;
+  }
 
-      if (error) {
-        openUIModal(
-          "Invalid Input",
-          error,
-          `<button class="btn-primary" onclick="closeUIModal()">OK</button>`
-        );
-        return;
-      }
-
-    fetch("/api/create-class", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    }).then(() => {
+  fetch("/api/create-class", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data)
+  })
+    .then(res => {
+      if (!res.ok) throw new Error("Server error");
+      return res.json();
+    })
+    .then(() => {
       closeCreateModal();
+      // Reload the optimized list
+      fetch(`/api/list-optimized?${new URLSearchParams(getFilterParams())}`, {
+        cache: "no-store"
+      })
+        .then(res => res.json())
+        .then(data => renderOptimizedList(data));
       applyFilters();
+    })
+    .catch(err => {
+      console.error("Create failed:", err);
+      openUIModal(
+        "Error",
+        "Failed to create class. Please try again.",
+        `<button class="btn-primary" onclick="closeUIModal()">OK</button>`
+      );
     });
 }
 
