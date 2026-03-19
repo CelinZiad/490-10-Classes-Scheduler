@@ -1040,7 +1040,8 @@ def api_events():
                             st.classstarttime, st.classendtime,
                             st.mondays, st.tuesdays, st.wednesdays,
                             st.thursdays, st.fridays, st.saturdays,
-                            st.sundays)
+                            st.sundays,
+                            st.classstartdate, st.classenddate)
             st.subject, st.catalog, st.section, st.componentcode,
             st.classnumber,
             COALESCE(NULLIF(st.buildingcode, ''), lr.building) AS buildingcode,
@@ -1151,8 +1152,9 @@ def api_events():
                  st.classstarttime, st.classendtime,
                  st.mondays, st.tuesdays, st.wednesdays,
                  st.thursdays, st.fridays, st.saturdays,
-                 st.sundays
-        LIMIT 2000
+                 st.sundays,
+                 st.classstartdate, st.classenddate
+        LIMIT 10000
     """
 
     try:
