@@ -1,13 +1,15 @@
 from course_element import CourseElement
 from course import Course
 from day import Day
-
+from sequence import Sequence
 from sequence_validation import (
+    check_elements_overlap,
+    validate_all_sequences,
+)
+from overlap_utils import (
     times_overlap,
     get_course_by_code,
-    check_elements_overlap,
     has_valid_sequence_combination,
-    validate_all_sequences,
 )
 
 
@@ -88,7 +90,12 @@ def test_valid_sequence_overlapping_tuts():
     assert has_valid_sequence_combination(schedule, ["COEN212", "COEN231"]) is False
 
 
+# --- Sequence class ---
 
+def test_sequence_data():
+    assert len(Sequence.year) == 2
+    assert "COEN212" in Sequence.year[0]
+    assert "COEN311" in Sequence.year[1]
 
 
 # --- validate_all_sequences ---
