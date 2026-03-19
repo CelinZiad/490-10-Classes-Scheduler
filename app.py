@@ -721,17 +721,25 @@ def update_course():
         if not exists:
             return jsonify({"error": "Original course not found in sequence"}), 404
 
-        # If course identity changed, validate new course exists in catalog
+        # If course identity changed, handle catalog rename or swap
         if course_changed:
-            valid = db.session.execute(
+            new_exists = db.session.execute(
                 db.text(
                     "SELECT 1 FROM catalog "
                     "WHERE subject = :s AND catalog = :c AND career = 'UGRD'"
                 ),
                 {"s": new_subject, "c": new_catalog},
             ).first()
-            if not valid:
-                return jsonify({"error": f"{new_subject} {new_catalog} not found in UGRD catalog"}), 404
+            if not new_exists:
+                # New course doesn't exist — rename the old catalog entry
+                db.session.execute(
+                    db.text(
+                        "UPDATE catalog SET subject = :ns, catalog = :nc "
+                        "WHERE subject = :os AND catalog = :oc AND career = 'UGRD'"
+                    ),
+                    {"ns": new_subject, "nc": new_catalog,
+                     "os": old_subject, "oc": old_catalog},
+                )
 
         cascaded_tables = []
 
@@ -785,21 +793,39 @@ def update_course():
                 detail_params,
             )
 
-        # Delete old sequencecourse row, insert new one (PK change requires delete+insert)
-        db.session.execute(
-            db.text("""
-                DELETE FROM sequencecourse
-                WHERE sequencetermid = :tid AND subject = :s AND catalog = :c
-            """),
-            {"tid": old_termid, "s": old_subject, "c": old_catalog},
-        )
-        db.session.execute(
-            db.text("""
-                INSERT INTO sequencecourse (sequencetermid, subject, catalog, iselective)
-                VALUES (:tid, :s, :c, :ie)
-            """),
-            {"tid": new_termid, "s": new_subject, "c": new_catalog, "ie": iselective},
-        )
+        # Update sequencecourse row
+        if course_changed and not new_exists:
+            # Catalog was renamed — FK CASCADE already updated subject/catalog
+            # in sequencecourse, so just update termid and iselective on the
+            # cascaded row.
+            db.session.execute(
+                db.text("""
+                    UPDATE sequencecourse
+                    SET sequencetermid = :new_tid, iselective = :ie
+                    WHERE sequencetermid = :old_tid
+                      AND subject = :ns AND catalog = :nc
+                """),
+                {"new_tid": new_termid, "ie": iselective,
+                 "old_tid": old_termid, "ns": new_subject, "nc": new_catalog},
+            )
+        else:
+            # Either course identity didn't change (just term/elective update)
+            # or the new course already exists in catalog (swap scenario) —
+            # delete old row and insert new one.
+            db.session.execute(
+                db.text("""
+                    DELETE FROM sequencecourse
+                    WHERE sequencetermid = :tid AND subject = :s AND catalog = :c
+                """),
+                {"tid": old_termid, "s": old_subject, "c": old_catalog},
+            )
+            db.session.execute(
+                db.text("""
+                    INSERT INTO sequencecourse (sequencetermid, subject, catalog, iselective)
+                    VALUES (:tid, :s, :c, :ie)
+                """),
+                {"tid": new_termid, "s": new_subject, "c": new_catalog, "ie": iselective},
+            )
 
         db.session.commit()
         msg = f"Updated {old_subject} {old_catalog} → {new_subject} {new_catalog}"

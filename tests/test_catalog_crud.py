@@ -463,15 +463,27 @@ class TestUpdateCourse:
         data = json.loads(res.get_data(as_text=True))
         assert "not found" in data["error"].lower()
 
-    def test_new_course_not_in_catalog_returns_404(self, client, monkeypatch):
-        """If the new course doesn't exist in the catalog, expect 404."""
+    def test_new_course_not_in_catalog_renames_old_entry(self, client, monkeypatch):
+        """If the new course doesn't exist in catalog, rename the old entry."""
         from app import db
 
-        exe = _fake_execute_factory({
-            "from sequencecourse": _FakeResult(rows=[{"1": 1}]),
-            "from catalog": _FakeResult(rows=[]),
-        })
-        monkeypatch.setattr(db.session, "execute", exe)
+        calls = []
+
+        def _execute(statement, params=None):
+            sql = str(statement).lower()
+            calls.append(sql)
+            if "from sequencecourse" in sql:
+                return _FakeResult(rows=[{"1": 1}])
+            if "from catalog" in sql:
+                return _FakeResult(rows=[])
+            if sql.strip().startswith("update"):
+                return _FakeResult(rows=[], rowcount=1)
+            if sql.strip().startswith("delete"):
+                return _FakeResult(rows=[], rowcount=0)
+            return _FakeResult(rows=[])
+
+        monkeypatch.setattr(db.session, "execute", _execute)
+        monkeypatch.setattr(db.session, "commit", lambda: None)
 
         res = _post_json(client, "/update-course", {
             "old_subject": "COEN",
@@ -480,9 +492,11 @@ class TestUpdateCourse:
             "new_subject": "FAKE",
             "new_catalog": "000",
         })
-        assert res.status_code == 404
+        assert res.status_code == 200
         data = json.loads(res.get_data(as_text=True))
-        assert "not found" in data["error"].lower()
+        # Should have performed the rename (UPDATE catalog SET subject/catalog)
+        rename_calls = [c for c in calls if "update catalog" in c]
+        assert len(rename_calls) >= 1
 
     def test_successful_course_change_returns_200(self, client, monkeypatch):
         """A valid course-change update should return 200 with cascade info."""

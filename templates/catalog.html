@@ -124,7 +124,16 @@
       <button type="button" id="btnNewCourse" class="toggle-btn" onclick="setAddSource('new')">New Course</button>
     </div>
 
-    <!-- Catalog search (existing flow) -->
+    <!-- Editable course code fields (shown in edit mode only) -->
+    <div id="editCourseCode" style="display:none;">
+      <label for="editSubject">Subject</label>
+      <input type="text" id="editSubject" placeholder="e.g. COEN">
+
+      <label for="editCatalogNum">Catalog Number</label>
+      <input type="text" id="editCatalogNum" placeholder="e.g. 390">
+    </div>
+
+    <!-- Catalog search (add mode only) -->
     <div id="catalogSearch">
       <label for="courseInput">Course</label>
       <div class="ac-wrapper">
