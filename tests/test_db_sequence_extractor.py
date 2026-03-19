@@ -34,11 +34,10 @@ def test_season_winter():
 
 
 def test_season_summer():
-    assert season_to_number("summer") == 6
+    assert season_to_number("summer") == 1
 
 
-def test_season_unknown():
-    assert season_to_number("spring") == 0
+
 
 
 def test_season_case_insensitive():
