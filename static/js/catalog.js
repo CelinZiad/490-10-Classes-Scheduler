@@ -86,6 +86,13 @@ function buildAcItem(course) {
         selectedCatalog = course.catalog;
         courseInput.value = course.subject + " " + course.catalog;
         acList.style.display = "none";
+
+        // If in edit mode, populate the detail fields from the selected course
+        if (document.getElementById("modalMode").value === "edit") {
+            document.getElementById("editTitle").value = course.title || "";
+            document.getElementById("editCredits").value = course.classunit || "";
+            document.getElementById("editPrereqs").value = course.prerequisites || "";
+        }
     });
 
     return div;
@@ -148,6 +155,7 @@ function openAddModal() {
     document.getElementById("addEditTitle").textContent = "Add Course to Sequence";
     document.getElementById("cascadeWarn").style.display = "none";
     document.getElementById("sourceToggle").style.display = "";
+    document.getElementById("editDetailFields").style.display = "none";
     setAddSource("catalog");
     courseInput.value = "";
     selectedSubject = "";
@@ -165,13 +173,21 @@ function openAddModal() {
 
 // ── Edit Course Modal ────────────────────────────────────────────────
 
-function openEditModal(subject, catalog, iselective) {
+function openEditModal(btn) {
+    var subject = btn.dataset.subject;
+    var catalog = btn.dataset.catalog;
+    var iselective = btn.dataset.elective === "true";
+    var title = btn.dataset.title;
+    var credits = btn.dataset.credits;
+    var prerequisites = btn.dataset.prereqs;
+
     document.getElementById("modalMode").value = "edit";
     document.getElementById("addEditTitle").textContent = "Edit " + subject + " " + catalog;
     document.getElementById("cascadeWarn").style.display = "block";
     document.getElementById("sourceToggle").style.display = "none";
     document.getElementById("catalogSearch").style.display = "";
     document.getElementById("newCourseFields").style.display = "none";
+    document.getElementById("editDetailFields").style.display = "";
     document.getElementById("addSource").value = "catalog";
 
     courseInput.value = subject + " " + catalog;
@@ -179,6 +195,11 @@ function openEditModal(subject, catalog, iselective) {
     selectedCatalog = catalog;
     document.getElementById("modalElective").checked = iselective;
     document.getElementById("modalTermId").value = CURRENT_TERM_ID;
+
+    // Populate edit detail fields
+    document.getElementById("editTitle").value = title || "";
+    document.getElementById("editCredits").value = credits || "";
+    document.getElementById("editPrereqs").value = prerequisites || "";
 
     document.getElementById("editOldSubject").value = subject;
     document.getElementById("editOldCatalog").value = catalog;
@@ -227,8 +248,8 @@ function saveAddEdit() {
             classunit: credits ? parseFloat(credits) : null,
             prerequisites: prereqs
         };
-    } else {
-        // Catalog search mode (existing flow)
+    } else if (mode === "edit") {
+        // Edit mode — update both sequence and catalog details
         if (!selectedSubject || !selectedCatalog) {
             var parts = courseInput.value.trim().split(/\s+/);
             if (parts.length >= 2) {
@@ -242,26 +263,45 @@ function saveAddEdit() {
             return;
         }
 
-        if (mode === "add") {
-            url = "/create-course";
-            body = {
-                termid: termid,
-                subject: selectedSubject,
-                catalog: selectedCatalog,
-                iselective: elective
-            };
-        } else {
-            url = "/update-course";
-            body = {
-                old_termid: document.getElementById("editOldTermId").value,
-                old_subject: document.getElementById("editOldSubject").value,
-                old_catalog: document.getElementById("editOldCatalog").value,
-                new_termid: termid,
-                new_subject: selectedSubject,
-                new_catalog: selectedCatalog,
-                iselective: elective
-            };
+        var editTitle = (document.getElementById("editTitle").value || "").trim();
+        var editCredits = document.getElementById("editCredits").value;
+        var editPrereqs = (document.getElementById("editPrereqs").value || "").trim();
+
+        url = "/update-course";
+        body = {
+            old_termid: document.getElementById("editOldTermId").value,
+            old_subject: document.getElementById("editOldSubject").value,
+            old_catalog: document.getElementById("editOldCatalog").value,
+            new_termid: termid,
+            new_subject: selectedSubject,
+            new_catalog: selectedCatalog,
+            iselective: elective,
+            title: editTitle,
+            classunit: editCredits !== "" ? parseFloat(editCredits) : null,
+            prerequisites: editPrereqs
+        };
+    } else {
+        // Catalog search mode — add existing course
+        if (!selectedSubject || !selectedCatalog) {
+            var parts = courseInput.value.trim().split(/\s+/);
+            if (parts.length >= 2) {
+                selectedSubject = parts[0].toUpperCase();
+                selectedCatalog = parts.slice(1).join(" ");
+            }
         }
+
+        if (!selectedSubject || !selectedCatalog) {
+            showToast("Please select a valid course", "error");
+            return;
+        }
+
+        url = "/create-course";
+        body = {
+            termid: termid,
+            subject: selectedSubject,
+            catalog: selectedCatalog,
+            iselective: elective
+        };
     }
 
     fetch(url, {

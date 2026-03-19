@@ -145,6 +145,7 @@ class TestSearchCatalog:
                 "catalog": "352",
                 "title": "VLSI Design",
                 "classunit": "3.50",
+                "prerequisites": "COEN 231",
             }
         ]
         exe = _fake_execute_factory({"from catalog": _FakeResult(rows=fake_rows)})
@@ -158,7 +159,7 @@ class TestSearchCatalog:
         assert len(data) == 1
 
     def test_response_objects_have_required_fields(self, client, monkeypatch):
-        """Each result must contain subject, catalog, title, classunit."""
+        """Each result must contain subject, catalog, title, classunit, prerequisites."""
         from app import db
 
         fake_rows = [
@@ -167,12 +168,14 @@ class TestSearchCatalog:
                 "catalog": "248",
                 "title": "Object-Oriented Programming",
                 "classunit": "3.75",
+                "prerequisites": "COMP 232",
             },
             {
                 "subject": "COMP",
                 "catalog": "352",
                 "title": "Database Systems",
                 "classunit": "4.00",
+                "prerequisites": None,
             },
         ]
         exe = _fake_execute_factory({"from catalog": _FakeResult(rows=fake_rows)})
@@ -186,6 +189,7 @@ class TestSearchCatalog:
             assert "catalog" in item
             assert "title" in item
             assert "classunit" in item
+            assert "prerequisites" in item
 
     def test_valid_query_no_results_returns_empty_list(self, client):
         """A valid query that matches nothing returns []."""

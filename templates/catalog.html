@@ -69,7 +69,13 @@
                 <button
                   type="button"
                   class="edit-btn"
-                  onclick="openEditModal('{{ r.subject }}', '{{ r.catalog }}', {{ 'true' if r.iselective else 'false' }})">
+                  data-subject="{{ r.subject }}"
+                  data-catalog="{{ r.catalog }}"
+                  data-elective="{{ 'true' if r.iselective else 'false' }}"
+                  data-title="{{ r.title|default('', true) }}"
+                  data-credits="{{ r.classunit if r.classunit is not none else '' }}"
+                  data-prereqs="{{ r.prerequisites|default('', true) }}"
+                  onclick="openEditModal(this)">
                   Edit
                 </button>
                 <button
@@ -127,7 +133,7 @@
       </div>
     </div>
 
-    <!-- New course fields (hidden by default) -->
+    <!-- New course fields (hidden by default, shown in add-new mode) -->
     <div id="newCourseFields" style="display:none;">
       <label for="newSubject">Subject</label>
       <input type="text" id="newSubject" placeholder="e.g. COEN">
@@ -143,6 +149,18 @@
 
       <label for="newPrereqs">Prerequisites</label>
       <input type="text" id="newPrereqs" placeholder="e.g. COEN 243, COEN 311">
+    </div>
+
+    <!-- Edit course detail fields (shown in edit mode) -->
+    <div id="editDetailFields" style="display:none;">
+      <label for="editTitle">Title</label>
+      <input type="text" id="editTitle" placeholder="Course title">
+
+      <label for="editCredits">Credits</label>
+      <input type="number" id="editCredits" step="0.5" min="0" placeholder="e.g. 3.0">
+
+      <label for="editPrereqs">Prerequisites</label>
+      <input type="text" id="editPrereqs" placeholder="e.g. COEN 243, COEN 311">
     </div>
 
     <label for="modalTermId">Sequence Term</label>
@@ -308,7 +326,8 @@
 .toggle-btn:hover:not(.active) {
   background: #e5e7eb;
 }
-#newCourseFields input[type="number"] {
+#newCourseFields input[type="number"],
+#editDetailFields input[type="number"] {
   width: 100%;
   padding: 6px 10px;
   border: 1px solid #d1d5db;

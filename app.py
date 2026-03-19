@@ -579,7 +579,7 @@ def api_search_catalog():
     rows = (
         db.session.execute(
             db.text("""
-                SELECT subject, catalog, title, classunit
+                SELECT subject, catalog, title, classunit, prerequisites
                 FROM catalog
                 WHERE career = 'UGRD'
                   AND (
@@ -600,6 +600,7 @@ def api_search_catalog():
             "catalog": r["catalog"],
             "title": r["title"],
             "classunit": r["classunit"],
+            "prerequisites": r["prerequisites"],
         }
         for r in rows
     ])
@@ -696,6 +697,11 @@ def update_course():
     new_termid = data.get("new_termid", old_termid)
     iselective = bool(data.get("iselective", False))
 
+    # Catalog detail fields (optional — update catalog table if provided)
+    new_title = data.get("title")
+    new_classunit = data.get("classunit")
+    new_prerequisites = data.get("prerequisites")
+
     if not old_subject or not old_catalog or not old_termid:
         return jsonify({"error": "old_subject, old_catalog, old_termid required"}), 400
     if not new_subject or not new_catalog:
@@ -748,6 +754,36 @@ def update_course():
                 )
                 if result.rowcount > 0:
                     cascaded_tables.append(f"{tbl}({result.rowcount})")
+
+        # Update catalog details (title, credits, prerequisites) if provided
+        target_subj = new_subject
+        target_cat = new_catalog
+        detail_sets = []
+        detail_params = {"s": target_subj, "c": target_cat}
+        if new_title is not None:
+            new_title = str(new_title).strip()
+            if new_title:
+                detail_sets.append("title = :t")
+                detail_params["t"] = new_title
+        if new_classunit is not None:
+            if new_classunit == "" or new_classunit is None:
+                detail_sets.append("classunit = NULL")
+            else:
+                detail_sets.append("classunit = :cu")
+                detail_params["cu"] = float(new_classunit)
+        if new_prerequisites is not None:
+            new_prerequisites = str(new_prerequisites).strip()
+            detail_sets.append("prerequisites = :pr")
+            detail_params["pr"] = new_prerequisites or None
+
+        if detail_sets:
+            db.session.execute(
+                db.text(
+                    f"UPDATE catalog SET {', '.join(detail_sets)} "
+                    f"WHERE subject = :s AND catalog = :c AND career = 'UGRD'"
+                ),
+                detail_params,
+            )
 
         # Delete old sequencecourse row, insert new one (PK change requires delete+insert)
         db.session.execute(
