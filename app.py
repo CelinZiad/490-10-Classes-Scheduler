@@ -490,7 +490,8 @@ def catalog():
         )
 
     selected_termid = request.args.get("termid", type=int)
-    if selected_termid is None and terms:
+    valid_termids = {t["sequencetermid"] for t in terms}
+    if selected_termid not in valid_termids and terms:
         selected_termid = terms[0]["sequencetermid"]
 
     rows = []
