@@ -211,12 +211,26 @@ def dashboard():
         .all()
     )
 
+    # quick counts for stat cards
+    stats = db.session.execute(
+        db.text(
+            """
+            SELECT
+              (SELECT count(*) FROM catalog) AS courses,
+              (SELECT count(*) FROM conflict) AS conflicts,
+              (SELECT count(*) FROM sequenceplan) AS plans,
+              (SELECT count(*) FROM schedulerun) AS runs;
+            """
+        )
+    ).mappings().one()
+
     return render_template(
         ROUTE_TEMPLATES["/"],
         scheduler_status=scheduler_status,
         recentactivity=recentactivity,
         default_target_season=config.TARGET_SEASON,
         default_academic_year=config.ACADEMIC_YEAR,
+        stats=stats,
     )
 
 

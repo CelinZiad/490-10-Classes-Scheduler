@@ -3,162 +3,14 @@
 {% block title %}Import Data{% endblock %}
 
 {% block extra_css %}
-<style>
-  .import-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: 1.5rem;
-  }
-
-  .import-card {
-    background: var(--card-bg);
-    border-radius: 10px;
-    box-shadow: 0 6px 18px rgb(0 0 0 / 6%);
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .import-card h3 {
-    margin: 0 0 0.5rem;
-    font-size: 1.1rem;
-  }
-
-  .import-card p {
-    color: #6b7280;
-    font-size: 0.9rem;
-    margin: 0 0 1rem;
-    flex: 1;
-  }
-
-  .import-card .badge {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    margin-bottom: 0.75rem;
-  }
-
-  .badge-ready { background: #dcfce7; color: #166534; }
-  .badge-soon  { background: #f3f4f6; color: #6b7280; }
-
-  .import-card .tables {
-    font-size: 0.8rem;
-    color: #9ca3af;
-    margin-bottom: 1rem;
-  }
-
-  .format-box {
-    background: #f9fafb;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 0.75rem;
-    margin-bottom: 1rem;
-    font-size: 0.82rem;
-    line-height: 1.5;
-  }
-
-  .format-box code {
-    font-family: 'Courier New', monospace;
-    font-size: 0.8rem;
-  }
-
-  .upload-area {
-    border: 2px dashed var(--border-color);
-    border-radius: 8px;
-    padding: 1.25rem;
-    text-align: center;
-    cursor: pointer;
-    transition: border-color 0.2s, background 0.2s;
-  }
-
-  .upload-area:hover {
-    border-color: var(--sidebar-active);
-    background: #eff6ff;
-  }
-
-  .upload-area.dragover {
-    border-color: var(--sidebar-active);
-    background: #dbeafe;
-  }
-
-  .upload-area input[type="file"] { display: none; }
-
-  .upload-area .upload-icon {
-    font-size: 1.5rem;
-    margin-bottom: 0.25rem;
-  }
-
-  .upload-area .upload-text {
-    font-size: 0.85rem;
-    color: #6b7280;
-  }
-
-  .upload-area .file-name {
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-top: 0.25rem;
-  }
-
-  .import-btn {
-    display: inline-block;
-    width: 100%;
-    padding: 0.6rem;
-    background: var(--sidebar-active);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
-    margin-top: 0.75rem;
-    text-align: center;
-  }
-
-  .import-btn:hover { background: #1d4ed8; }
-  .import-btn:disabled { background: #9ca3af; cursor: not-allowed; }
-
-  .result-box {
-    margin-top: 0.75rem;
-    padding: 0.75rem;
-    border-radius: 6px;
-    font-size: 0.85rem;
-    display: none;
-  }
-
-  .result-box.success { display: block; background: #dcfce7; color: #166534; }
-  .result-box.error   { display: block; background: #fef2f2; color: #991b1b; }
-
-  .result-box ul {
-    margin: 0.5rem 0 0;
-    padding-left: 1.25rem;
-  }
-
-  .spinner {
-    display: inline-block;
-    width: 14px;
-    height: 14px;
-    border: 2px solid white;
-    border-top-color: transparent;
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-    vertical-align: middle;
-    margin-right: 4px;
-  }
-
-  @keyframes spin { to { transform: rotate(360deg); } }
-
-  .page-desc {
-    color: #6b7280;
-    margin: -0.5rem 0 1.5rem;
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/import-data.css') }}">
 {% endblock %}
 
 {% block content %}
-<h1>Import Data</h1>
-<p class="page-desc">Upload CSV files to populate the database. Select an import type below. <a href="/static/pdf/ImportDoc.pdf" target="_blank">Click here to download the documentation.</a></p>
+<header class="page-header">
+  <h1>Import Data</h1>
+  <p class="page-desc">Upload CSV files to populate the database. Select an import type below. <a href="/static/pdf/ImportDoc.pdf" target="_blank">Click here to download the documentation.</a></p>
+</header>
 
 <div class="import-grid">
 
@@ -169,14 +21,14 @@
     <p>Import lab room information and course-to-room assignments. Updates the <strong>labrooms</strong> and <strong>courselabs</strong> tables.</p>
     <div class="tables">Tables: labrooms, courselabs</div>
 
-    <div class="format-box">
+    <details class="format-details"><summary>Show CSV format</summary><div class="format-box">
       <strong>Required CSV columns:</strong><br>
       <code>Course Code, Title, Room, Capacity, Cap_MAX, Responsible, Comments</code><br><br>
       <strong>Example row:</strong><br>
       <code>COEN 316, COMPUTER ARCHITECT., H-859, 14, 16, Ted, "notes"</code><br><br>
       Room format: <code>H-859</code> or <code>AITS</code> for any computer lab.
       Each row = one course-room pair. Multiple rows for multiple rooms.
-    </div>
+    </div></details>
 
     <div class="upload-area" id="upload-labrooms" onclick="document.getElementById('file-labrooms').click()">
       <input type="file" id="file-labrooms" accept=".csv">
@@ -203,12 +55,12 @@
     <p>Import course schedule data (class times, rooms, instructors) from the Concordia API or CSV. Updates the <strong>scheduleterm</strong> table.</p>
     <div class="tables">Tables: scheduleterm, section, sessions</div>
 
-    <div class="format-box">
+    <details class="format-details"><summary>Show CSV format</summary><div class="format-box">
       <strong>Required CSV columns:</strong><br>
       <code>AcYr, FrisYr, Sess, Dept, Sect, Course, Msec, Rel1, Rel2, Cap, MarkCal, Activity, Class Day, Start, Finish, U/G, Disc Date, ClassStartDate, ClassEndDate</code><br><br>
       <strong>Example row:</strong><br>
       <code>2025,2025-2026,Winter,ECE,COEN99236/4-K 2,COEN99236,,K,2,80,1.2 attibute: 0.15,LEC-Lecture,M-W----,8:45,10:00,U,2026-03-23,2026-01-12,2026-05-01</code><br><br>
-    </div>
+    </div></details>
 
     <div class="upload-area" id="upload-schedules" onclick="document.getElementById('file-schedules').click()">
       <input type="file" id="file-schedules" accept=".csv">
@@ -235,12 +87,12 @@
     <p>Import course catalog information (titles, prerequisites, credits). Updates the <strong>catalog</strong> table.</p>
     <div class="tables">Tables: catalog</div>
 
-    <div class="format-box">
+    <details class="format-details"><summary>Show CSV format</summary><div class="format-box">
       <strong>Required CSV columns:</strong><br>
       <code>Subject, Catalog, Title, Career, ClassUnit, Prerequisites</code><br><br>
       <strong>Example row:</strong><br>
       <code>COEN,99234,TestImport,UGRD,4.5,COEN314</code><br><br>
-    </div>
+    </div></details>
 
     <div class="upload-area" id="upload-catalog" onclick="document.getElementById('file-catalog').click()">
       <input type="file" id="file-catalog" accept=".csv">
@@ -267,7 +119,7 @@
     <p>Import degree sequence plans with terms and course mappings. Updates the <strong>sequenceplan</strong>, <strong>sequenceterm</strong>, and <strong>sequencecourse</strong> tables.</p>
     <div class="tables">Tables: sequenceplan, sequenceterm, sequencecourse</div>
 
-    <div class="format-box">
+    <details class="format-details"><summary>Show CSV format</summary><div class="format-box">
       <strong>Required CSV columns (Sequence Parameters):</strong><br>
       <code>Name, Program, EntryTerm, Option, DurationYears</code><br><br>
       <strong>Example row:</strong><br>
@@ -280,7 +132,7 @@
       <code>TermNumber, Subject, Catalog, Label,</code><br><br>
       <strong>Example row:</strong><br>
       <code>1,COEN,243,,</code><br><br>
-    </div>
+    </div></details>
 
     <div class="upload-area" id="upload-sequenceplans" onclick="document.getElementById('file-sequenceplans').click()">
       <input type="file" id="file-sequenceplans" accept=".csv">
@@ -307,7 +159,7 @@
     <p>Import student schedule studies and their enrolled classes. Updates the <strong>studentschedulestudy</strong> and <strong>studentschedule</strong> tables.</p>
     <div class="tables">Tables: studentschedulestudy, studentschedule, studentscheduleclass</div>
     
-    <div class="format-box">
+    <details class="format-details"><summary>Show CSV format</summary><div class="format-box">
       <strong>Required CSV columns (Study Parameters):</strong><br>
       <code>StudyName, Owner,,,</code><br><br>
       <strong>Example row:</strong><br>
@@ -320,7 +172,7 @@
       <code>ScheduleName, Subject, Catalog, Section, TermNumber</code><br><br>
       <strong>Example row:</strong><br>
       <code>40000001,COEN,243,J,2254</code><br><br>
-    </div>
+    </div></details>
 
     <div class="upload-area" id="upload-student" onclick="document.getElementById('file-student').click()">
       <input type="file" id="file-student" accept=".csv">
@@ -347,12 +199,12 @@
     <p>Import campus building data (names, addresses, coordinates). Updates the <strong>building</strong> table.</p>
     <div class="tables">Tables: building</div>
     
-    <div class="format-box">
+    <details class="format-details"><summary>Show CSV format</summary><div class="format-box">
       <strong>Required CSV columns:</strong><br>
       <code>Campus, Building, BuildingName, Address, Latitude, Longitude</code><br><br>
       <strong>Example row:</strong><br>
       <code>SGW, EV, EV Building, 1515 Ste-Catherine W, 45.495376, -73.577997</code><br><br>
-    </div>
+    </div></details>
 
     <div class="upload-area" id="upload-buildings" onclick="document.getElementById('file-buildings').click()">
       <input type="file" id="file-buildings" accept=".csv">

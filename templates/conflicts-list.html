@@ -3,7 +3,10 @@
 {% block title %}Conflicts{% endblock %}
 
 {% block content %}
-<h1>Detected Conflicts</h1>
+<header class="page-header">
+  <h1>Detected Conflicts</h1>
+  <p class="page-desc">Conflicts identified by the scheduling algorithm.</p>
+</header>
 
 {% if conflicts %}
 <div class="card">
@@ -35,7 +38,11 @@
 </div>
 {% else %}
 <div class="card">
-  <p>No conflicts detected. Generate a schedule to check for conflicts.</p>
+  <div class="empty-state">
+    <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+    <h3>No conflicts detected</h3>
+    <p>Generate a schedule to check for conflicts.</p>
+  </div>
 </div>
 {% endif %}
 {% endblock %}
