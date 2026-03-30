@@ -909,6 +909,11 @@ def solutions():
                 from solution s
                 left join conflict c on c.conflictid = s.conflictid
                 where s.conflictid = :cid
+                  and c.createdat >= (
+                    select coalesce(max(generatedat), '1970-01-01')
+                    from schedulerun
+                    where status = 'generated'
+                  )
                 order by s.createdat desc;
             """
                 ),
@@ -926,6 +931,11 @@ def solutions():
                        s.conflictid, c.description as conflict_desc
                 from solution s
                 left join conflict c on c.conflictid = s.conflictid
+                where c.createdat >= (
+                    select coalesce(max(generatedat), '1970-01-01')
+                    from schedulerun
+                    where status = 'generated'
+                  )
                 order by s.createdat desc;
             """
                 )
