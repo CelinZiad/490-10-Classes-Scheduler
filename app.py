@@ -1097,14 +1097,12 @@ def api_waitlist_filters():
             GROUP BY {col_prefix}termcode ORDER BY {col_prefix}termcode DESC
         """)).mappings().all()
 
-        # Deduplicate by semester label and keep only Fall 2025 – Winter 2026
+        # Deduplicate by semester label, sorted most recent first
         seen_labels = set()
         terms = []
         for r in terms_raw:
             label = _label(r['first_date'])
             if label in seen_labels:
-                continue
-            if label not in ('Fall 2025', 'Winter 2026'):
                 continue
             seen_labels.add(label)
             terms.append({'code': r['termcode'], 'name': label})

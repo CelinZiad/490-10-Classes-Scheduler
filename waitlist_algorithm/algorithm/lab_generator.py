@@ -9,9 +9,10 @@ def propose_waitlist_slots(
 ):
     results = {}
 
-    # Week 1: 1..7  (Mon..Sun)
-    # Week 2: 8..14 (Mon..Sun)
-    day_canditates = list(range(1, 8)) + list(range(8, 15))
+    # Week 1: 1..5  (Mon..Fri)
+    # Week 2: 8..12 (Mon..Fri)
+    # Saturdays (6, 13) and Sundays (7, 14) are excluded.
+    day_canditates = list(range(1, 6)) + list(range(8, 13))
 
     for day in day_canditates:
         for start in lab_start_times:

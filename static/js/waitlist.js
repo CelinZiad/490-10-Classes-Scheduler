@@ -14,6 +14,9 @@ async function loadWaitlistFilters(){
     termFilter.innerHTML = '<option value="">All Terms</option>' +
       data.terms.map(t => `<option value="${t.code}">${t.name}</option>`).join('');
     if(prevTerm) termFilter.value = prevTerm;
+    // Auto-select the latest term when switching to optimized source
+    if(!prevTerm && currentSource === 'optimized' && data.terms.length)
+      termFilter.value = data.terms[0].code;
 
     const prevSubject = subjectFilter.value;
     subjectFilter.innerHTML = '<option value="">All Subjects</option>' +
