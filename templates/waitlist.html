@@ -2,6 +2,10 @@
 
 {% block title %}Waitlist Management{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/waitlist.css') }}">
+{% endblock %}
+
 {% block content %}
 <header class="page-header">
   <h1>Waitlist</h1>
@@ -44,42 +48,56 @@
 </div>
 
 <section class="card">
-  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-    <h2 style="margin:0;">Courses at Waitlist Capacity</h2>
-    <span id="wl-row-count" style="font-size:0.875rem; color:#6b7280;"></span>
+  <div class="wl-section-header">
+    <h2>Courses at Waitlist Capacity</h2>
+    <span id="wl-row-count" class="wl-row-count"></span>
   </div>
-  <div id="waitlist-table-container" style="max-height:520px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:6px;">Loading...</div>
+  <div id="waitlist-table-container" class="wl-table-container">Loading...</div>
 </section>
 
-<section class="card" style="margin-top:12px;">
+<section class="card wl-scheduler-card">
   <h2>Run Waitlist Scheduler</h2>
-  <p>Select a course from the list above or enter one manually.</p>
-  <form id="waitlist-form">
-    <label>Subject</label>
-    <input id="wl-subject" name="subject" placeholder="COEN" style="margin-right:8px;" />
-    <label>Catalog</label>
-    <input id="wl-catalog" name="catalog" placeholder="243" style="margin-right:8px;" />
-    <label>Students</label>
-    <select id="wl-students" name="students" multiple style="width:360px; min-height:120px; display:inline-block;">
-      <option disabled>Select a course first to load students</option>
-    </select>
-    <button id="wl-run" class="btn btn-primary" type="button">Run</button>
+  <p class="page-desc">Select a course from the list above or enter one manually.</p>
+
+  <form id="waitlist-form" class="wl-form">
+    <div class="wl-form-row">
+      <div class="wl-form-group">
+        <label for="wl-subject">Subject</label>
+        <input id="wl-subject" name="subject" type="text" placeholder="COEN">
+      </div>
+      <div class="wl-form-group">
+        <label for="wl-catalog">Catalog</label>
+        <input id="wl-catalog" name="catalog" type="text" placeholder="243">
+      </div>
+      <div class="wl-form-group">
+        <label for="wl-section-display">Section</label>
+        <input id="wl-section-display" type="text" readonly placeholder="—" class="wl-section-readonly">
+      </div>
+      <div class="wl-form-group wl-form-group-students">
+        <label for="wl-students">Students</label>
+        <select id="wl-students" name="students" multiple>
+          <option disabled>Select a course first to load students</option>
+        </select>
+      </div>
+      <div class="wl-form-group wl-form-group-action">
+        <button id="wl-run" class="btn btn-primary" type="button">Run</button>
+      </div>
+    </div>
   </form>
 
-  <div id="wl-result" style="margin-top:12px; display:none;"></div>
+  <div id="wl-result" class="wl-result"></div>
 
-  <div id="wl-students-panel" style="margin-top:12px; display:none;">
+  <div id="wl-students-panel" class="wl-students-panel">
     <h3>Candidate Students</h3>
-    <div id="wl-students-list" style="max-height:240px; overflow:auto; border:1px solid #e5e7eb; padding:8px;"></div>
-    <p style="margin-top:8px;"><button id="wl-add-selected" class="btn btn-primary" type="button">Add selected to input</button></p>
+    <div id="wl-students-list" class="wl-students-list"></div>
+    <button id="wl-add-selected" class="btn btn-primary wl-add-btn" type="button">Add selected to input</button>
   </div>
 </section>
 
-<!-- Simple modal for course selection (used by JS) -->
-<div id="wl-modal" class="modal" style="display:none;">
+<div id="wl-modal" class="modal hidden">
   <div class="modal-backdrop"></div>
   <div class="modal-content">
-    <button class="modal-close" onclick="document.getElementById('wl-modal').style.display='none'">&times;</button>
+    <button class="modal-close" onclick="document.getElementById('wl-modal').classList.add('hidden')">&times;</button>
     <div id="wl-modal-body"></div>
   </div>
 </div>

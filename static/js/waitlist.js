@@ -63,7 +63,7 @@ async function loadWaitlistStats(){
     const tbody = document.createElement('tbody');
     data.forEach(r=>{
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.subject}</td><td>${r.catalog}</td><td>${r.section||''}</td><td>${r.component||''}</td><td>${r.waitlist}</td><td>${r.waitlistCapacity}</td><td>${r.currentEnrollment}</td><td>${r.enrollmentCapacity}</td><td><button class="btn btn-ghost" data-subject="${r.subject}" data-catalog="${r.catalog}">Process</button></td>`;
+      tr.innerHTML = `<td>${r.subject}</td><td>${r.catalog}</td><td>${r.section||''}</td><td>${r.component||''}</td><td>${r.waitlist}</td><td>${r.waitlistCapacity}</td><td>${r.currentEnrollment}</td><td>${r.enrollmentCapacity}</td><td><button class="btn btn-ghost" data-subject="${r.subject}" data-catalog="${r.catalog}" data-section="${r.section||''}">Process</button></td>`;
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
@@ -74,8 +74,10 @@ async function loadWaitlistStats(){
       b.addEventListener('click', ()=>{
         const subject = b.dataset.subject;
         const catalog = b.dataset.catalog;
+        const section = b.dataset.section || '';
         document.getElementById('wl-subject').value = subject;
         document.getElementById('wl-catalog').value = catalog;
+        document.getElementById('wl-section-display').value = section || '—';
         loadStudentsDropdown(subject, catalog);
       });
     });
@@ -97,21 +99,21 @@ async function runWaitlist(){
   const students = getSelectedStudents();
   const resultEl = document.getElementById('wl-result');
   resultEl.style.display = 'none';
-  resultEl.innerHTML = '';
+  resultEl.textContent = '';
 
   if(!subject || !catalog){
-    resultEl.style.display = '';
+    resultEl.style.display = 'block';
     resultEl.innerHTML = '<p class="status status-warning">Enter subject and catalog.</p>';
     return;
   }
   if(!students.length){
-    resultEl.style.display = '';
+    resultEl.style.display = 'block';
     resultEl.innerHTML = '<p class="status status-warning">Select at least one student.</p>';
     return;
   }
 
   resultEl.innerHTML = '<p>Running algorithm...</p>';
-  resultEl.style.display = '';
+  resultEl.style.display = 'block';
 
   try{
     const controller = new AbortController();
@@ -138,7 +140,8 @@ async function runWaitlist(){
       return;
     }
 
-    let html = '<h3>Proposed Lab Slots</h3>';
+    const sectionLabel = document.getElementById('wl-section-display').value;
+    let html = `<h3>Proposed Lab Slots${sectionLabel && sectionLabel !== '—' ? ' — Section ' + sectionLabel : ''}</h3>`;
     if(!data.results || data.results.length === 0){
       html += '<p>No available slots found.</p>';
     } else {
