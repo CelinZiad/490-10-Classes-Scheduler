@@ -1105,7 +1105,7 @@ def api_waitlist_filters():
             if label in seen_labels:
                 continue
             seen_labels.add(label)
-            terms.append({'code': r['termcode'], 'name': label})
+            terms.append({'code': str(r['termcode']), 'name': label})
 
         subjects = db.session.execute(db.text(f"""
             SELECT DISTINCT {col_prefix}subject AS subject FROM {from_clause}
@@ -1130,7 +1130,7 @@ def api_waitlist_filters():
 @app.get('/api/waitlist/stats')
 def api_waitlist_stats():
     source = request.args.get('source', 'scheduleterm')
-    term = request.args.get('term', type=int)
+    term = request.args.get('term')
     subject = request.args.get('subject')
     component = request.args.get('component')
 
@@ -1150,7 +1150,7 @@ def api_waitlist_stats():
             """
             if term:
                 query += " AND o.termcode = :term"
-                params['term'] = term
+                params['term'] = str(term)
             if subject:
                 query += " AND o.subject = :subject"
                 params['subject'] = subject
@@ -1189,7 +1189,7 @@ def api_waitlist_stats():
             """
             if term:
                 query += " AND st.termcode = :term"
-                params['term'] = term
+                params['term'] = int(term)
             if subject:
                 query += " AND st.subject = :subject"
                 params['subject'] = subject
