@@ -43,16 +43,9 @@ def test_save_lab_results_to_db_single_insert_values():
         results=results,
     )
 
-    # 1 DELETE + 1 INSERT
-    assert cur.execute.call_count == 2
+    cur.execute.assert_called_once()
 
-    # First call is the DELETE
-    del_sql, del_params = cur.execute.call_args_list[0][0]
-    assert "DELETE FROM lab_slot_result" in del_sql
-    assert del_params == ("COEN", "352")
-
-    # Second call is the INSERT
-    sql, params = cur.execute.call_args_list[1][0]
+    sql, params = cur.execute.call_args[0]
 
     assert "INSERT INTO lab_slot_result" in sql
     assert params[0] == "COEN"
@@ -69,7 +62,6 @@ def test_save_lab_results_to_db_single_insert_values():
     assert params[10] is False
 
     assert params[11] == [1001, 1002]
-    assert params[12] == 1  # week
 
 
 def test_save_lab_results_to_db_multiple_rows_and_isodow_mapping():
@@ -89,11 +81,9 @@ def test_save_lab_results_to_db_multiple_rows_and_isodow_mapping():
         results=results,
     )
 
-    # 1 DELETE + 3 INSERTs
-    assert cur.execute.call_count == 4
+    assert cur.execute.call_count == 3
 
-    # Skip the DELETE (index 0), get INSERT params only
-    calls = [c[0][1] for c in cur.execute.call_args_list[1:]]
+    calls = [c[0][1] for c in cur.execute.call_args_list]
 
     monday = calls[0]
     sunday = calls[1]
@@ -101,14 +91,11 @@ def test_save_lab_results_to_db_multiple_rows_and_isodow_mapping():
 
     assert monday[4] is True
     assert monday[10] is False
-    assert monday[12] == 1  # week 1
 
     assert sunday[10] is True
     assert sunday[4] is False
-    assert sunday[12] == 1  # week 1
 
     assert monday_week2[4] is True
-    assert monday_week2[12] == 2  # week 2
 
 
 def test_save_lab_results_to_db_casts_studyids_to_int():
@@ -126,8 +113,6 @@ def test_save_lab_results_to_db_casts_studyids_to_int():
         results=results,
     )
 
-    # call_args is the last call (INSERT); skip DELETE at index 0
-    _, params = cur.execute.call_args_list[1][0]
+    _, params = cur.execute.call_args[0]
 
     assert params[11] == [10, 20]
-    assert params[12] == 1  # week

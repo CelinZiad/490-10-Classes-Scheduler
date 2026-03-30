@@ -1305,16 +1305,7 @@ def api_waitlist_run():
             lab_start_times=lab_start_time,
         )
 
-        # Filter to only keep best outcomes (most students) before saving.
-        # Only slots with the maximum number of available students are kept.
-        if results:
-            max_fit = max(len(ids) for ids in results.values())
-            results = {
-                k: v for k, v in results.items()
-                if len(v) == max_fit
-            }
-
-        # persist only the filtered best-outcome results
+        # persist results
         save_lab_results_to_db(cur, subject, catalog, 180, results)
         conn.commit()
 
@@ -1357,10 +1348,10 @@ def api_waitlist_download():
         rows = db.session.execute(
             db.text(
                 """
-                SELECT subject, catalog, classstarttime, classendtime, mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays, studyids, week
+                SELECT subject, catalog, classstarttime, classendtime, mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays, studyids
                 FROM lab_slot_result
                 WHERE subject = :subject AND catalog = :catalog
-                ORDER BY week, classstarttime
+                ORDER BY classstarttime
                 """
             ),
             {'subject': subject, 'catalog': catalog},
@@ -1371,7 +1362,7 @@ def api_waitlist_download():
 
         buf = io.StringIO()
         w = csv_mod.writer(buf)
-        w.writerow(['subject','catalog','start','end','mondays','tuesdays','wednesdays','thursdays','fridays','saturdays','sundays','studentids','week'])
+        w.writerow(['subject','catalog','start','end','mondays','tuesdays','wednesdays','thursdays','fridays','saturdays','sundays','studentids'])
         for r in rows:
             raw_ids = r['studyids'] or []
             if isinstance(raw_ids, (list, tuple)):
@@ -1381,7 +1372,7 @@ def api_waitlist_download():
             w.writerow([
                 r['subject'], r['catalog'], str(r['classstarttime']), str(r['classendtime']),
                 r['mondays'], r['tuesdays'], r['wednesdays'], r['thursdays'], r['fridays'], r['saturdays'], r['sundays'],
-                student_str, r['week']
+                student_str
             ])
         resp = app.response_class(buf.getvalue(), mimetype='text/csv')
         resp.headers['Content-Disposition'] = f'attachment; filename={source_label}-waitlist-{subject}-{catalog}.csv'
