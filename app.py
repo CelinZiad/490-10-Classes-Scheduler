@@ -1320,6 +1320,16 @@ def api_waitlist_run():
         def _fmt_time(mins):
             return f"{mins // 60:02d}:{mins % 60:02d}"
 
+        # Filter to only show best outcomes (most students).
+        # If any slot fits ALL selected students, only show those.
+        # Otherwise, show only the slots with the maximum available students.
+        if results:
+            max_fit = max(len(ids) for ids in results.values())
+            results = {
+                k: v for k, v in results.items()
+                if len(v) == max_fit
+            }
+
         out = []
         for (day, start), ids in sorted(results.items()):
             out.append({
