@@ -104,8 +104,14 @@
   text-align: center;
 }
 
-.import-btn:hover { background: #1d4ed8; }
-.import-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+.import-btn:hover {
+  background: #1d4ed8;
+}
+
+.import-btn:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
 
 .result-box {
   margin-top: 0.75rem;
@@ -115,8 +121,17 @@
   display: none;
 }
 
-.result-box.success { display: block; background: #dcfce7; color: #166534; }
-.result-box.error   { display: block; background: #fef2f2; color: #991b1b; }
+.result-box.success {
+  display: block;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.result-box.error {
+  display: block;
+  background: #fef2f2;
+  color: #991b1b;
+}
 
 .result-box ul {
   margin: 0.5rem 0 0;

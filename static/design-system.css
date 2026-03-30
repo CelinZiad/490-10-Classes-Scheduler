@@ -52,6 +52,10 @@ body {
   width: 240px;
   background: var(--sidebar-bg);
   padding: 1rem;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
 }
 
 .sidebar-header {
@@ -94,7 +98,7 @@ body {
   height: 20px;
   flex-shrink: 0;
   opacity: 0.7;
-  stroke: currentColor;
+  stroke: currentcolor;
   fill: none;
   stroke-width: 1.5;
   stroke-linecap: round;
@@ -145,7 +149,7 @@ body {
   border-radius: 10px;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-color);
-  border-left: 4px solid var(--_accent, var(--accent-blue));
+  border-left: 4px solid var(--card-accent, var(--accent-blue));
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -161,7 +165,7 @@ body {
   width: 44px;
   height: 44px;
   border-radius: 10px;
-  background: var(--_accent-light, var(--accent-blue-light));
+  background: var(--card-accent-light, var(--accent-blue-light));
   display: flex;
   align-items: center;
   justify-content: center;
@@ -171,7 +175,7 @@ body {
 .stat-icon svg {
   width: 22px;
   height: 22px;
-  stroke: var(--_accent, var(--accent-blue));
+  stroke: var(--card-accent, var(--accent-blue));
   fill: none;
   stroke-width: 1.5;
   stroke-linecap: round;
@@ -264,14 +268,20 @@ body {
   color: white;
   border: none;
 }
-.btn-primary:hover { background: #1d4ed8; }
+
+.btn-primary:hover {
+  background: #1d4ed8;
+}
 
 .btn-ghost {
   background: transparent;
   border: 1px solid var(--border-color);
   color: var(--sidebar-active);
 }
-.btn-ghost:hover { background: var(--app-bg); }
+
+.btn-ghost:hover {
+  background: var(--app-bg);
+}
 
 /* --- Button variants (shared) --- */
 .btn-success {
@@ -280,7 +290,10 @@ body {
   border: none;
   cursor: pointer;
 }
-.btn-success:hover { background: #219a52; }
+
+.btn-success:hover {
+  background: #219a52;
+}
 
 .btn-danger {
   background: #e74c3c;
@@ -288,7 +301,10 @@ body {
   border: none;
   cursor: pointer;
 }
-.btn-danger:hover { background: #c0392b; }
+
+.btn-danger:hover {
+  background: #c0392b;
+}
 
 .btn-edit {
   background: var(--sidebar-active);
@@ -296,7 +312,10 @@ body {
   border: none;
   cursor: pointer;
 }
-.btn-edit:hover { background: #1d4ed8; }
+
+.btn-edit:hover {
+  background: #1d4ed8;
+}
 
 /* catalog/timetable action buttons (keep class names for JS) */
 .add-btn {
@@ -309,7 +328,11 @@ body {
   font-weight: 500;
   transition: all var(--transition-fast);
 }
-.add-btn:hover { background: #219a52; transform: translateY(-1px); }
+
+.add-btn:hover {
+  background: #219a52;
+  transform: translateY(-1px);
+}
 
 .edit-btn {
   background: var(--sidebar-active);
@@ -320,7 +343,11 @@ body {
   cursor: pointer;
   transition: all var(--transition-fast);
 }
-.edit-btn:hover { background: #1d4ed8; transform: translateY(-1px); }
+
+.edit-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
 
 .delete-btn {
   background: #e74c3c;
@@ -331,7 +358,11 @@ body {
   cursor: pointer;
   transition: all var(--transition-fast);
 }
-.delete-btn:hover { background: #c0392b; transform: translateY(-1px); }
+
+.delete-btn:hover {
+  background: #c0392b;
+  transform: translateY(-1px);
+}
 
 .action-btns {
   display: flex;
@@ -348,12 +379,35 @@ body {
   font-weight: 600;
 }
 
-.badge-ready { background: #dcfce7; color: #166534; }
-.badge-soon  { background: #f3f4f6; color: #6b7280; }
-.badge-proposed { background: #dbeafe; color: #1e40af; }
-.badge-pending  { background: #fef3c7; color: #92400e; }
-.badge-applied  { background: #dcfce7; color: #166534; }
-.badge-rejected { background: #fee2e2; color: #991b1b; }
+.badge-ready {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badge-soon {
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.badge-proposed {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.badge-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge-applied {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badge-rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
 
 /* --- Scheduler status badges --- */
 .status {
@@ -418,7 +472,9 @@ body {
   z-index: 100;
 }
 
-.export-menu.open { display: block; }
+.export-menu.open {
+  display: block;
+}
 
 .export-menu a {
   display: block;
@@ -429,7 +485,9 @@ body {
   transition: background 0.1s;
 }
 
-.export-menu a:hover { background: var(--app-bg); }
+.export-menu a:hover {
+  background: var(--app-bg);
+}
 
 /* --- Scheduler run form --- */
 
@@ -556,15 +614,21 @@ body {
 /* --- Shared modal --- */
 .modal {
   position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(0,0,0,0.5);
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgb(0 0 0 / 50%);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
 }
-.modal.hidden { display: none; }
+
+.modal.hidden {
+  display: none;
+}
+
 .modal-content {
   background: white;
   padding: 20px;
@@ -582,13 +646,27 @@ body {
   color: #fff;
   font-size: 0.875rem;
   z-index: 2000;
-  animation: slideIn 0.3s ease;
+  animation: slide-in 0.3s ease;
 }
-.toast-success { background: #16a34a; }
-.toast-error   { background: #dc2626; }
-@keyframes slideIn {
-  from { transform: translateY(20px); opacity: 0; }
-  to   { transform: translateY(0); opacity: 1; }
+
+.toast-success {
+  background: #16a34a;
+}
+
+.toast-error {
+  background: #dc2626;
+}
+
+@keyframes slide-in {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 /* --- Shared spinner --- */
@@ -603,7 +681,12 @@ body {
   vertical-align: middle;
   margin-right: 4px;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 /* --- Pagination --- */
 .pagination {
@@ -695,7 +778,7 @@ select:focus {
   height: 48px;
   margin-bottom: 1rem;
   opacity: 0.5;
-  stroke: currentColor;
+  stroke: currentcolor;
   fill: none;
   stroke-width: 1.5;
   stroke-linecap: round;

@@ -863,6 +863,11 @@ def conflicts():
             select conflictid, status, description, createdat
             from conflict
             where status = 'active'
+              and createdat >= (
+                select coalesce(max(generatedat), '1970-01-01')
+                from schedulerun
+                where status = 'generated'
+              )
             order by createdat desc;
         """
             )

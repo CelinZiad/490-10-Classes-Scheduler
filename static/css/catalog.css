@@ -47,8 +47,15 @@
   gap: 6px;
   margin: 8px 0;
 }
-.checkbox-row input { width: auto; margin: 0; }
-.checkbox-row label { margin: 0; }
+
+.checkbox-row input {
+  width: auto;
+  margin: 0;
+}
+
+.checkbox-row label {
+  margin: 0;
+}
 
 .cascade-warning {
   background: #fef3c7;
@@ -79,14 +86,17 @@
   font-weight: 500;
   color: #374151;
 }
+
 .toggle-btn.active {
   background: #2563eb;
   color: white;
 }
+
 .toggle-btn:hover:not(.active) {
   background: #e5e7eb;
 }
 
+/* stylelint-disable selector-id-pattern */
 #newCourseFields input[type="number"],
 #editDetailFields input[type="number"] {
   width: 100%;
@@ -96,8 +106,12 @@
   font-size: 0.875rem;
   margin-bottom: 4px;
 }
+/* stylelint-enable selector-id-pattern */
 
-.ac-wrapper { position: relative; }
+.ac-wrapper {
+  position: relative;
+}
+
 .ac-list {
   position: absolute;
   background: #fff;
@@ -107,11 +121,15 @@
   overflow-y: auto;
   z-index: 1001;
   width: 100%;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
 }
+
 .ac-list div {
   padding: 6px 10px;
   cursor: pointer;
   font-size: 0.8125rem;
 }
-.ac-list div:hover { background: #eff6ff; }
+
+.ac-list div:hover {
+  background: #eff6ff;
+}
