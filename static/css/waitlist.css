@@ -59,13 +59,6 @@
   width: 100px;
 }
 
-.wl-section-readonly {
-  background: #f3f4f6;
-  color: #6b7280;
-  cursor: default;
-  width: 80px;
-}
-
 .wl-form-group-students select {
   width: 280px;
   min-height: 100px;
