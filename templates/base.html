@@ -3,10 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Timetable</title>
+  <title>{% block title %}ECE Scheduler{% endblock %}</title>
+  <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css') }}">
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/timetable.css') }}">
   {% block extra_css %}{% endblock %}
 </head>
 
@@ -15,29 +14,50 @@
 
   <aside class="sidebar">
     <div class="sidebar-header">
-      <span class="logo">ECE Scheduler</span>
+      <span class="logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none"><rect x="2" y="4" width="28" height="26" rx="4" fill="#2563eb"/><rect x="2" y="4" width="28" height="8" rx="4" fill="#1d4ed8"/><rect x="8" y="1" width="3" height="6" rx="1.5" fill="#2563eb"/><rect x="21" y="1" width="3" height="6" rx="1.5" fill="#2563eb"/><rect x="7" y="16" width="4" height="3" rx="1" fill="white"/><rect x="14" y="16" width="4" height="3" rx="1" fill="white"/><rect x="21" y="16" width="4" height="3" rx="1" fill="white"/><rect x="7" y="22" width="4" height="3" rx="1" fill="white" opacity="0.6"/><rect x="14" y="22" width="4" height="3" rx="1" fill="white" opacity="0.6"/></svg>
+        ECE Scheduler
+      </span>
     </div>
 
     <nav class="nav-main">
       <a class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}"
-         href="{{ url_for('dashboard') }}">Dashboard</a>
+         href="{{ url_for('dashboard') }}">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Dashboard</a>
       <a class="nav-item {% if request.endpoint == 'timetable' %}active{% endif %}"
-         href="{{ url_for('timetable') }}">Timetable</a>
+         href="{{ url_for('timetable') }}">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Timetable</a>
       <a class="nav-item {% if request.endpoint == 'catalog' %}active{% endif %}"
-         href="{{ url_for('catalog') }}">Course Sequence</a>
+         href="{{ url_for('catalog') }}">
+        <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+        Course Sequence</a>
       <a class="nav-item {% if request.endpoint == 'conflicts' %}active{% endif %}"
-         href="{{ url_for('conflicts') }}">Conflicts</a>
+         href="{{ url_for('conflicts') }}">
+        <svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        Conflicts</a>
       <a class="nav-item {% if request.endpoint == 'solutions' %}active{% endif %}"
-         href="{{ url_for('solutions') }}">Solutions</a>
+         href="{{ url_for('solutions') }}">
+        <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 1 4 12.7V17H8v-2.3A7 7 0 0 1 12 2z"/></svg>
+        Solutions</a>
       <a class="nav-item {% if request.endpoint == 'activity' %}active{% endif %}"
-         href="{{ url_for('activity') }}">Activity</a>
+         href="{{ url_for('activity') }}">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Activity</a>
       <a class="nav-item {% if request.endpoint == 'import_data' %}active{% endif %}"
-         href="{{ url_for('import_data') }}">Import Data</a>
+         href="{{ url_for('import_data') }}">
+        <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Import Data</a>
       <a class="nav-item {% if request.endpoint == 'waitlist' %}active{% endif %}"
-         href="{{ url_for('waitlist') }}">Waitlist</a>
+         href="{{ url_for('waitlist') }}">
+        <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        Waitlist</a>
       {% if debug %}
         <a class="nav-item {% if request.endpoint == 'debug' %}active{% endif %}"
-           href="{{ url_for('debug') }}">Debug</a>
+           href="{{ url_for('debug') }}">
+          <svg viewBox="0 0 24 24"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Debug</a>
        {% endif %}
     </nav>
   </aside>

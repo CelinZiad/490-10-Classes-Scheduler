@@ -211,12 +211,26 @@ def dashboard():
         .all()
     )
 
+    # quick counts for stat cards
+    stats = db.session.execute(
+        db.text(
+            """
+            SELECT
+              (SELECT count(*) FROM catalog) AS courses,
+              (SELECT count(*) FROM conflict) AS conflicts,
+              (SELECT count(*) FROM sequenceplan) AS plans,
+              (SELECT count(*) FROM schedulerun) AS runs;
+            """
+        )
+    ).mappings().one()
+
     return render_template(
         ROUTE_TEMPLATES["/"],
         scheduler_status=scheduler_status,
         recentactivity=recentactivity,
         default_target_season=config.TARGET_SEASON,
         default_academic_year=config.ACADEMIC_YEAR,
+        stats=stats,
     )
 
 
@@ -849,6 +863,11 @@ def conflicts():
             select conflictid, status, description, createdat
             from conflict
             where status = 'active'
+              and createdat >= (
+                select coalesce(max(generatedat), '1970-01-01')
+                from schedulerun
+                where status = 'generated'
+              )
             order by createdat desc;
         """
             )
@@ -890,6 +909,11 @@ def solutions():
                 from solution s
                 left join conflict c on c.conflictid = s.conflictid
                 where s.conflictid = :cid
+                  and c.createdat >= (
+                    select coalesce(max(generatedat), '1970-01-01')
+                    from schedulerun
+                    where status = 'generated'
+                  )
                 order by s.createdat desc;
             """
                 ),
@@ -907,6 +931,11 @@ def solutions():
                        s.conflictid, c.description as conflict_desc
                 from solution s
                 left join conflict c on c.conflictid = s.conflictid
+                where c.createdat >= (
+                    select coalesce(max(generatedat), '1970-01-01')
+                    from schedulerun
+                    where status = 'generated'
+                  )
                 order by s.createdat desc;
             """
                 )
@@ -1068,17 +1097,15 @@ def api_waitlist_filters():
             GROUP BY {col_prefix}termcode ORDER BY {col_prefix}termcode DESC
         """)).mappings().all()
 
-        # Deduplicate by semester label and keep only Fall 2025 – Winter 2026
+        # Deduplicate by semester label, sorted most recent first
         seen_labels = set()
         terms = []
         for r in terms_raw:
             label = _label(r['first_date'])
             if label in seen_labels:
                 continue
-            if label not in ('Fall 2025', 'Winter 2026'):
-                continue
             seen_labels.add(label)
-            terms.append({'code': r['termcode'], 'name': label})
+            terms.append({'code': str(r['termcode']), 'name': label})
 
         subjects = db.session.execute(db.text(f"""
             SELECT DISTINCT {col_prefix}subject AS subject FROM {from_clause}
@@ -1103,7 +1130,7 @@ def api_waitlist_filters():
 @app.get('/api/waitlist/stats')
 def api_waitlist_stats():
     source = request.args.get('source', 'scheduleterm')
-    term = request.args.get('term', type=int)
+    term = request.args.get('term')
     subject = request.args.get('subject')
     component = request.args.get('component')
 
@@ -1123,7 +1150,7 @@ def api_waitlist_stats():
             """
             if term:
                 query += " AND o.termcode = :term"
-                params['term'] = term
+                params['term'] = str(term)
             if subject:
                 query += " AND o.subject = :subject"
                 params['subject'] = subject
@@ -1162,7 +1189,7 @@ def api_waitlist_stats():
             """
             if term:
                 query += " AND st.termcode = :term"
-                params['term'] = term
+                params['term'] = int(term)
             if subject:
                 query += " AND st.subject = :subject"
                 params['subject'] = subject
@@ -1276,11 +1303,18 @@ def api_waitlist_run():
             lab_start_times=lab_start_time,
         )
 
-        # persist results
+        # persist ALL algorithm results to DB (no filtering)
         save_lab_results_to_db(cur, subject, catalog, 180, results)
         conn.commit()
 
-        # Format results for JSON — human-readable
+        # For UI display, only show slots with the maximum number of students
+        if results:
+            max_fit = max(len(ids) for ids in results.values())
+            display = {k: v for k, v in results.items() if len(v) == max_fit}
+        else:
+            display = results
+
+        # Format display results for JSON — human-readable
         DAY_NAMES = {
             1: 'Monday (Week 1)', 2: 'Tuesday (Week 1)', 3: 'Wednesday (Week 1)',
             4: 'Thursday (Week 1)', 5: 'Friday (Week 1)', 6: 'Saturday (Week 1)', 7: 'Sunday (Week 1)',
@@ -1292,7 +1326,7 @@ def api_waitlist_run():
             return f"{mins // 60:02d}:{mins % 60:02d}"
 
         out = []
-        for (day, start), ids in sorted(results.items()):
+        for (day, start), ids in sorted(display.items()):
             out.append({
                 'day': DAY_NAMES.get(day, f'Day {day}'),
                 'time': f"{_fmt_time(start)} – {_fmt_time(start + 180)}",
@@ -1319,10 +1353,12 @@ def api_waitlist_download():
         rows = db.session.execute(
             db.text(
                 """
-                SELECT subject, catalog, classstarttime, classendtime, mondays, tuesdays, wednesdays, thursdays, fridays, saturdays, sundays, studyids
+                SELECT subject, catalog, classstarttime, classendtime,
+                       mondays, tuesdays, wednesdays, thursdays, fridays,
+                       saturdays, sundays, studyids, week
                 FROM lab_slot_result
                 WHERE subject = :subject AND catalog = :catalog
-                ORDER BY classstarttime
+                ORDER BY week, classstarttime
                 """
             ),
             {'subject': subject, 'catalog': catalog},
@@ -1331,10 +1367,19 @@ def api_waitlist_download():
         if not rows:
             return jsonify({'error': 'No results found'}), 404
 
+        # Filter to only include rows with the maximum student count
+        # (matches what the UI displays)
+        def _count_students(r):
+            ids = r['studyids'] or []
+            return len(ids) if isinstance(ids, (list, tuple)) else 0
+
+        max_count = max(_count_students(r) for r in rows)
+        best_rows = [r for r in rows if _count_students(r) == max_count]
+
         buf = io.StringIO()
         w = csv_mod.writer(buf)
-        w.writerow(['subject','catalog','start','end','mondays','tuesdays','wednesdays','thursdays','fridays','saturdays','sundays','studentids'])
-        for r in rows:
+        w.writerow(['subject','catalog','start','end','mondays','tuesdays','wednesdays','thursdays','fridays','saturdays','sundays','studentids','week'])
+        for r in best_rows:
             raw_ids = r['studyids'] or []
             if isinstance(raw_ids, (list, tuple)):
                 student_str = ', '.join(str(sid) for sid in raw_ids)
@@ -1343,7 +1388,7 @@ def api_waitlist_download():
             w.writerow([
                 r['subject'], r['catalog'], str(r['classstarttime']), str(r['classendtime']),
                 r['mondays'], r['tuesdays'], r['wednesdays'], r['thursdays'], r['fridays'], r['saturdays'], r['sundays'],
-                student_str
+                student_str, r['week']
             ])
         resp = app.response_class(buf.getvalue(), mimetype='text/csv')
         resp.headers['Content-Disposition'] = f'attachment; filename={source_label}-waitlist-{subject}-{catalog}.csv'

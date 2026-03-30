@@ -3,12 +3,13 @@
 {% block title %}Proposed Solutions{% endblock %}
 
 {% block content %}
-<header>
+<header class="page-header">
   <h1>Proposed Conflict Resolutions</h1>
+  <p class="page-desc">Algorithm-generated resolutions for scheduling conflicts.</p>
 </header>
 
 {% if filtered_conflict %}
-<div class="card" style="margin-bottom: 1rem;">
+<div class="card">
   <p>Showing solution for conflict #{{ filtered_conflict }}.
     <a class="btn btn-ghost" href="{{ url_for('solutions') }}">View All Solutions</a>
   </p>
@@ -40,7 +41,7 @@
       <tr>
         <td>{{ ctype }}</td>
         <td>{{ body }}</td>
-        <td>{{ s.status }}</td>
+        <td><span class="badge badge-{{ s.status|lower|default('proposed') }}">{{ s.status }}</span></td>
         <td>{{ s.createdat.strftime("%Y-%m-%d %H:%M") }}</td>
       </tr>
       {% endfor %}
@@ -49,7 +50,11 @@
 </section>
 {% else %}
 <section class="card">
-  <p>No solutions {{ 'found for this conflict' if filtered_conflict else 'proposed yet. Generate a schedule to see proposed resolutions' }}.</p>
+  <div class="empty-state">
+    <svg viewBox="0 0 24 24"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 1 4 12.7V17H8v-2.3A7 7 0 0 1 12 2z"/></svg>
+    <h3>No solutions {{ 'found' if filtered_conflict else 'proposed yet' }}</h3>
+    <p>{{ 'No resolutions found for this conflict.' if filtered_conflict else 'Generate a schedule to see proposed resolutions.' }}</p>
+  </div>
 </section>
 {% endif %}
 

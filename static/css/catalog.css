@@ -1,0 +1,135 @@
+/* catalog.html page-specific styles */
+
+.catalog-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.search-box {
+  flex: 1;
+  min-width: 200px;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+/* modal form fields */
+.modal-content label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin: 8px 0 3px;
+}
+
+.modal-content input[type="text"],
+.modal-content select {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  margin-bottom: 4px;
+}
+
+.modal-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.checkbox-row input {
+  width: auto;
+  margin: 0;
+}
+
+.checkbox-row label {
+  margin: 0;
+}
+
+.cascade-warning {
+  background: #fef3c7;
+  border: 1px solid #f59e0b;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 0.8125rem;
+  color: #92400e;
+  margin-bottom: 8px;
+}
+
+.source-toggle-row {
+  display: flex;
+  gap: 0;
+  margin-bottom: 10px;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 6px 10px;
+  border: none;
+  background: #f3f4f6;
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #374151;
+}
+
+.toggle-btn.active {
+  background: #2563eb;
+  color: white;
+}
+
+.toggle-btn:hover:not(.active) {
+  background: #e5e7eb;
+}
+
+/* stylelint-disable selector-id-pattern */
+#newCourseFields input[type="number"],
+#editDetailFields input[type="number"] {
+  width: 100%;
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  margin-bottom: 4px;
+}
+/* stylelint-enable selector-id-pattern */
+
+.ac-wrapper {
+  position: relative;
+}
+
+.ac-list {
+  position: absolute;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 1001;
+  width: 100%;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 10%);
+}
+
+.ac-list div {
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 0.8125rem;
+}
+
+.ac-list div:hover {
+  background: #eff6ff;
+}

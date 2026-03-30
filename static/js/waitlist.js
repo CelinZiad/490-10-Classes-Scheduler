@@ -14,6 +14,9 @@ async function loadWaitlistFilters(){
     termFilter.innerHTML = '<option value="">All Terms</option>' +
       data.terms.map(t => `<option value="${t.code}">${t.name}</option>`).join('');
     if(prevTerm) termFilter.value = prevTerm;
+    // Auto-select the latest term when switching to optimized source
+    if(!prevTerm && currentSource === 'optimized' && data.terms.length)
+      termFilter.value = data.terms[0].code;
 
     const prevSubject = subjectFilter.value;
     subjectFilter.innerHTML = '<option value="">All Subjects</option>' +
@@ -63,7 +66,7 @@ async function loadWaitlistStats(){
     const tbody = document.createElement('tbody');
     data.forEach(r=>{
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.subject}</td><td>${r.catalog}</td><td>${r.section||''}</td><td>${r.component||''}</td><td>${r.waitlist}</td><td>${r.waitlistCapacity}</td><td>${r.currentEnrollment}</td><td>${r.enrollmentCapacity}</td><td><button class="btn btn-ghost" data-subject="${r.subject}" data-catalog="${r.catalog}">Process</button></td>`;
+      tr.innerHTML = `<td>${r.subject}</td><td>${r.catalog}</td><td>${r.section||''}</td><td>${r.component||''}</td><td>${r.waitlist}</td><td>${r.waitlistCapacity}</td><td>${r.currentEnrollment}</td><td>${r.enrollmentCapacity}</td><td><button class="btn btn-ghost" data-subject="${r.subject}" data-catalog="${r.catalog}" data-section="${r.section||''}">Process</button></td>`;
       tbody.appendChild(tr);
     });
     table.appendChild(tbody);
@@ -97,21 +100,21 @@ async function runWaitlist(){
   const students = getSelectedStudents();
   const resultEl = document.getElementById('wl-result');
   resultEl.style.display = 'none';
-  resultEl.innerHTML = '';
+  resultEl.textContent = '';
 
   if(!subject || !catalog){
-    resultEl.style.display = '';
+    resultEl.style.display = 'block';
     resultEl.innerHTML = '<p class="status status-warning">Enter subject and catalog.</p>';
     return;
   }
   if(!students.length){
-    resultEl.style.display = '';
+    resultEl.style.display = 'block';
     resultEl.innerHTML = '<p class="status status-warning">Select at least one student.</p>';
     return;
   }
 
   resultEl.innerHTML = '<p>Running algorithm...</p>';
-  resultEl.style.display = '';
+  resultEl.style.display = 'block';
 
   try{
     const controller = new AbortController();

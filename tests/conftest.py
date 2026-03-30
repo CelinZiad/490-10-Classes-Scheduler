@@ -43,6 +43,9 @@ class _FakeResult:
     def first(self):
         return self._rows[0] if self._rows else None
 
+    def one(self):
+        return self._rows[0] if self._rows else None
+
     def scalar(self):
         return self._scalar_value
 
@@ -78,6 +81,10 @@ class _FakeSession:
 
         if "from sequencecourse" in sql:
             return _FakeResult(rows=[])
+
+        # Dashboard stats query (has subqueries from multiple tables)
+        if "from catalog" in sql and "from conflict" in sql and "from sequenceplan" in sql:
+            return _FakeResult(rows=[{"courses": 0, "conflicts": 0, "plans": 0, "runs": 0}])
 
         # Catalog search queries
         if "from catalog" in sql:

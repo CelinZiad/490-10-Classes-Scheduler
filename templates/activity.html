@@ -3,13 +3,30 @@
 {% block title %}Activity Log{% endblock %}
 
 {% block content %}
-<h1>Activity Log</h1>
+{% set event_labels = {
+  'schedulerrunrequested': 'Run Requested',
+  'schedulerrunblocked': 'Run Blocked',
+  'schedulegenerated': 'Schedule Generated',
+  'schedulefailed': 'Run Failed',
+  'conflictsdetected': 'Conflicts Detected',
+  'solutionsproposed': 'Solutions Proposed',
+  'dataimported': 'Data Imported',
+  'courseadded': 'Course Added',
+  'courseupdated': 'Course Updated',
+  'coursedeleted': 'Course Deleted',
+  'classadded': 'Class Added',
+  'classupdated': 'Class Updated',
+  'classdeleted': 'Class Deleted'
+} %}
+<header class="page-header">
+  <h1>Activity Log</h1>
+  <p class="page-desc">Audit trail of all scheduler events, imports, and changes.</p>
+</header>
 
     <div class="card">
       <h2>Filter by date</h2>
 
-      <form method="GET" action="{{ url_for('activity') }}"
-            style="display:flex; gap:12px; flex-wrap:wrap; align-items:end;">
+      <form method="GET" action="{{ url_for('activity') }}" class="filter-form-row">
         <div>
           <label for="startdate">Start date</label><br>
           <input type="date" id="startdate" name="startdate" value="{{ startdate }}">
@@ -20,8 +37,10 @@
           <input type="date" id="enddate" name="enddate" value="{{ enddate }}">
         </div>
 
-        <button class="btn btn-primary" type="submit">Apply</button>
-        <a class="btn btn-ghost" href="{{ url_for('activity') }}">Clear</a>
+        <div class="filter-form-actions">
+          <button class="btn btn-primary" type="submit">Apply</button>
+          <a class="btn btn-ghost" href="{{ url_for('activity') }}">Clear</a>
+        </div>
       </form>
     </div>
 
@@ -29,7 +48,7 @@
       <h2>Logs</h2>
 
       {% if logs %}
-        <table class="data-table">
+        <table class="data-table" id="activity-table">
           <thead>
             <tr>
               <th>Date</th>
@@ -44,14 +63,69 @@
                 <td>{{ l.createdat.strftime("%Y-%m-%d %I:%M %p") }}</td>
                 <td>{{ l.title }}</td>
                 <td>{{ l.actorname if l.actorname else "-" }}</td>
-                <td>{{ l.eventtype }}</td>
+                <td>
+                  {% set t = l.eventtype|default('') %}
+                  <span class="badge badge-{{ 'rejected' if 'fail' in t or 'blocked' in t else 'applied' if 'generated' in t or 'imported' in t else 'proposed' }}">
+                    {{ event_labels.get(t, t) }}
+                  </span>
+                </td>
               </tr>
             {% endfor %}
           </tbody>
         </table>
+        <div class="pagination" id="activity-pagination"></div>
       {% else %}
         <p>No activity found for this filter.</p>
       {% endif %}
     </div>
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+  var PAGE_SIZE = 20;
+  var table = document.getElementById('activity-table');
+  if (!table) return;
+  var rows = Array.from(table.tBodies[0].rows);
+  if (rows.length <= PAGE_SIZE) return;
+
+  var totalPages = Math.ceil(rows.length / PAGE_SIZE);
+  var currentPage = 1;
+  var pag = document.getElementById('activity-pagination');
+
+  function makeBtn(label, dir, disabled) {
+    var btn = document.createElement('button');
+    btn.className = 'pag-btn';
+    btn.textContent = label;
+    btn.dataset.dir = dir;
+    btn.disabled = disabled;
+    return btn;
+  }
+
+  function render() {
+    var start = (currentPage - 1) * PAGE_SIZE;
+    var end = start + PAGE_SIZE;
+    rows.forEach(function(r, i) {
+      r.style.display = (i >= start && i < end) ? '' : 'none';
+    });
+    while (pag.firstChild) pag.removeChild(pag.firstChild);
+    pag.appendChild(makeBtn('\u00ab Prev', '-1', currentPage <= 1));
+    var info = document.createElement('span');
+    info.className = 'pag-info';
+    info.textContent = 'Page ' + currentPage + ' of ' + totalPages;
+    pag.appendChild(info);
+    pag.appendChild(makeBtn('Next \u00bb', '1', currentPage >= totalPages));
+  }
+
+  pag.addEventListener('click', function(e) {
+    var btn = e.target.closest('[data-dir]');
+    if (!btn || btn.disabled) return;
+    currentPage += parseInt(btn.dataset.dir);
+    render();
+  });
+
+  render();
+})();
+</script>
 {% endblock %}

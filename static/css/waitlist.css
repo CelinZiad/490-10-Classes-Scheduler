@@ -1,0 +1,104 @@
+/* waitlist.html page-specific styles */
+
+.wl-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.wl-section-header h2 {
+  margin: 0;
+}
+
+.wl-row-count {
+  font-size: 0.875rem;
+  color: #6b7280;
+}
+
+.wl-table-container {
+  max-height: 520px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+/* Scheduler form */
+.wl-scheduler-card .page-desc {
+  margin: -0.25rem 0 1rem;
+}
+
+.wl-form-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.wl-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.wl-form-group label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.wl-form-group input[type="text"],
+.wl-form-group select {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.wl-form-group input[type="text"] {
+  width: 100px;
+}
+
+.wl-form-group-students select {
+  width: 280px;
+  min-height: 100px;
+}
+
+.wl-form-group-action {
+  padding-bottom: 1px;
+}
+
+/* Results */
+.wl-result {
+  margin-top: 12px;
+  display: none;
+}
+
+.wl-result:not(:empty) {
+  display: block;
+}
+
+/* Students panel */
+.wl-students-panel {
+  margin-top: 16px;
+  display: none;
+}
+
+.wl-students-list {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.wl-students-list label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 4px;
+}
+
+.wl-add-btn {
+  margin-top: 8px;
+}
