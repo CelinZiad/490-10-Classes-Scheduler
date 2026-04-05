@@ -3,7 +3,7 @@ import io
 import json
 import sys
 import types
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 
@@ -727,4 +727,291 @@ def test_api_filters_termid_and_planid(client, monkeypatch):
     assert data["components"] == ["LAB"]
     assert data["buildings"] == ["H"]
     assert isinstance(data["plans"], list)
+
+
+def test_activity_invalid_date_formats(client):
+    res = client.get("/activity?startdate=2025-13-01")
+    assert res.status_code == 400
+    assert "Invalid startdate format" in res.get_json()["error"]
+
+    res = client.get("/activity?enddate=2025-02-30")
+    assert res.status_code == 400
+    assert "Invalid enddate format" in res.get_json()["error"]
+
+
+def test_catalog_selected_termid_out_of_range(client, monkeypatch):
+    install_fake_db(monkeypatch, responses=[
+        ("from sequenceplan" , FakeResult(rows=[{"planid": 1, "planname": "A", "program": "ENG", "entryterm": "2251", "option": "X", "durationyears": 4}])),
+        ("from sequenceterm" , FakeResult(rows=[{"sequencetermid": 2, "yearnumber": 1, "season": "fall", "workterm": "0", "notes": ""}])),
+        ("from sequencecourse" , FakeResult(rows=[])),
+    ])
+    res = client.get("/catalog?planid=1&termid=999")
+    assert res.status_code == 200
+    assert "text/html" in res.content_type
+
+
+def test_delete_course_missing_data(client):
+    res = client.post("/delete-course", json={})
+    assert res.status_code == 400
+    assert "Missing data" in res.get_json()["error"]
+
+
+def test_delete_course_success(client, monkeypatch):
+    install_fake_db(monkeypatch, responses=[
+        ("delete from sequencecourse", FakeResult(rows=[], rowcount=1)),
+    ])
+    res = client.post("/delete-course", json={"subject": "COEN", "catalog": "101", "termid": 1})
+    assert res.status_code == 200
+    assert "Deleted 1 course" in res.get_json()["message"]
+
+
+def test_conflicts_falls_back_on_invalid_description(client, monkeypatch):
+    install_fake_db(monkeypatch, responses=[
+        ("from conflict", FakeResult(rows=[{"conflictid": 1, "status": "active", "description": "not-json", "createdat": "2025-01-01"}])),
+    ])
+    res = client.get("/conflicts")
+    assert res.status_code == 200
+    assert "text/html" in res.content_type
+
+
+def test_solutions_with_and_without_conflictid(client, monkeypatch):
+    install_fake_db(monkeypatch, responses=[
+        ("from solution s", FakeResult(rows=[{"solutionid": 1, "status": "proposed", "description": "desc", "createdat": datetime(2025, 1, 1, 0, 0), "conflictid": 2, "conflict_desc": "conflict"}])),
+    ])
+
+    res = client.get("/solutions")
+    assert res.status_code == 200
+    assert "text/html" in res.content_type
+
+    res = client.get("/solutions?conflictid=2")
+    assert res.status_code == 200
+    assert "text/html" in res.content_type
+
+
+def test_api_waitlist_filters_scheduleterm_and_optimized(client, monkeypatch):
+    def response_for(sql, params):
+        if "select distinct st.subject" in sql or "select distinct o.subject" in sql:
+            return FakeResult(rows=["COEN"])
+        if "select distinct st.componentcode" in sql or "select distinct o.componentcode" in sql:
+            return FakeResult(rows=["LAB"])
+        if "select distinct st.buildingcode" in sql or "select distinct o.componentcode" in sql:
+            return FakeResult(rows=["H"])
+        return FakeResult(rows=[{"termcode": 2251, "first_date": "2025-09-01"}])
+
+    install_fake_db(monkeypatch, responses=[
+        ("distinct o.subject", response_for),
+        ("distinct o.componentcode", response_for),
+        ("distinct o.buildingcode", response_for),
+        ("distinct st.subject", response_for),
+        ("distinct st.componentcode", response_for),
+        ("distinct st.buildingcode", response_for),
+    ])
+    res = client.get("/api/waitlist/filters?source=scheduleterm")
+    assert res.status_code == 200
+    assert res.get_json()["subjects"] == ["COEN"]
+
+    res = client.get("/api/waitlist/filters?source=optimized")
+    assert res.status_code == 200
+    assert res.get_json()["subjects"] == ["COEN"]
+
+
+def test_api_waitlist_stats_scheduleterm_and_optimized(client, monkeypatch):
+    install_fake_db(monkeypatch, responses=[
+        ("from optimized_schedule o", FakeResult(rows=[{"subject": "COEN", "catalog": "101", "section": "001", "componentcode": "LAB", "currentwaitlisttotal": 3, "waitlistcapacity": 3, "enrollmentcapacity": 40, "currentenrollment": 30}])),
+        ("from scheduleterm st", FakeResult(rows=[{"subject": "COEN", "catalog": "101", "section": "001", "componentcode": "LAB", "currentwaitlisttotal": 4, "waitlistcapacity": 4, "enrollmentcapacity": 40, "currentenrollment": 30}])),
+    ])
+    res = client.get("/api/waitlist/stats?source=optimized")
+    assert res.status_code == 200
+    assert res.get_json()[0]["waitlist"] == 3
+
+    res = client.get("/api/waitlist/stats?source=scheduleterm")
+    assert res.status_code == 200
+    assert res.get_json()[0]["waitlist"] == 4
+
+
+def test_api_waitlist_students_found_rows(client, monkeypatch):
+    install_fake_db(monkeypatch, responses=[
+        ("from studentschedulestudy sss", FakeResult(rows=[{"studyid": 8, "studyname": "Test"}])),
+    ])
+    res = client.get("/api/waitlist/students?subject=COEN&catalog=101")
+    assert res.status_code == 200
+    assert res.get_json()[0]["studyid"] == 8
+
+
+def test_api_waitlist_download_success(client, monkeypatch):
+    install_fake_db(monkeypatch, responses=[
+        ("from lab_slot_result", FakeResult(rows=[{
+            "subject": "COEN",
+            "catalog": "101",
+            "classstarttime": "08:00:00",
+            "classendtime": "09:00:00",
+            "mondays": True,
+            "tuesdays": False,
+            "wednesdays": False,
+            "thursdays": False,
+            "fridays": False,
+            "saturdays": False,
+            "sundays": False,
+            "studyids": [1, 2],
+            "week": 1,
+        }])),
+    ])
+    res = client.get("/api/waitlist/download?subject=COEN&catalog=101")
+    assert res.status_code == 200
+    assert "csv" in res.content_type
+    assert "COEN,101" in res.get_data(as_text=True)
+
+
+def test_import_data_route_renders(client):
+    res = client.get("/import")
+    assert res.status_code == 200
+    assert "text/html" in res.content_type
+
+
+def test_api_import_labrooms_validation_and_success(client, monkeypatch):
+    res = client.post("/api/import/labrooms", data={}, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+    bad_csv = "course_code,title,room,capacity,capacity_max,responsible,comments\nCOEN 101,Intro,H-859,40,45,admin\n"
+    data = {"file": (io.BytesIO(bad_csv.encode("utf-8")), "labrooms.csv")}
+    res = client.post("/api/import/labrooms", data=data, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+    install_fake_db(monkeypatch, responses=[
+        ("insert into building", FakeResult(rows=[])),
+        ("insert into labrooms", FakeResult(rows=[{"labroomid": 1}])),
+        ("insert into catalog", FakeResult(rows=[])),
+        ("insert into courselabs", FakeResult(rows=[])),
+    ])
+    good_csv = "course_code,title,room,capacity,capacity_max,responsible,comments\nCOEN 101,Intro,H-859,40,45,admin,good\n"
+    data = {"file": (io.BytesIO(good_csv.encode("utf-8")), "labrooms.csv")}
+    res = client.post("/api/import/labrooms", data=data, content_type="multipart/form-data")
+    assert res.status_code == 200
+    assert res.get_json()["status"] == "success"
+
+
+def test_import_catalog_validation_and_success(client, monkeypatch):
+    res = client.post("/api/import/catalog", data={}, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+    bad_csv = "subject,catalog,title,career,classunit\nCOEN,101,Intro,UGRD,3\n"
+    data = {"file": (io.BytesIO(bad_csv.encode("utf-8")), "catalog.csv")}
+    res = client.post("/api/import/catalog", data=data, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+    install_fake_db(monkeypatch, responses=[
+        ("select id from catalog", FakeResult(rows=[])),
+        ("insert into catalog", FakeResult(rows=[])),
+    ])
+    good_csv = "subject,catalog,title,career,classunit,prerequisites\nCOEN,101,Intro,UGRD,3,None\n"
+    data = {"file": (io.BytesIO(good_csv.encode("utf-8")), "catalog.csv")}
+    res = client.post("/api/import/catalog", data=data, content_type="multipart/form-data")
+    assert res.status_code == 200
+    assert res.get_json()["courses_added"] == 1
+
+
+def test_import_schedules_validation_and_success(client, monkeypatch):
+    res = client.post("/api/import/schedules", data={}, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+    bad_csv = (
+        "A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S\n"
+        "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18\n"
+    )
+    data = {"file": (io.BytesIO(bad_csv.encode("utf-8")), "schedules.csv")}
+    res = client.post("/api/import/schedules", data=data, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+    install_fake_db(monkeypatch, responses=[
+        ("select classnumber from section", FakeResult(rows=[])),
+        ("insert into section", FakeResult(rows=[{"classnumber": 99}])),
+        ("insert into scheduleterm", FakeResult(rows=[])),
+    ])
+    valid_csv = (
+        "Year,Term,Season,Unused,Unused,SubjectCatalog,Section,AltSection,Unused,Enrollment,Unused,Component,Days,Start,End,Unused,Unused,StartDate,EndDate\n"
+        "2025,2025,Fall,_,_,COEN101,001,_,_,40,_,LEC,MTWTF--,08:00,09:00,_,_,2025-09-01,2025-12-15\n"
+    )
+    data = {"file": (io.BytesIO(valid_csv.encode("utf-8")), "schedules.csv")}
+    res = client.post("/api/import/schedules", data=data, content_type="multipart/form-data")
+    assert res.status_code == 200
+    assert res.get_json()["schedules_upserted"] == 1
+
+
+def test_import_sequence_plans_validation_and_success(client, monkeypatch):
+    res = client.post("/api/import/sequenceplans", data={}, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+    bad_csv = "NotName,Program\n"
+    data = {"file": (io.BytesIO(bad_csv.encode("utf-8")), "plans.csv")}
+    res = client.post("/api/import/sequenceplans", data=data, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+    install_fake_db(monkeypatch, responses=[
+        ("from sequenceplan", FakeResult(rows=[])),
+        ("insert into sequenceplan", FakeResult(rows=[{"planid": 10}])),
+        ("insert into sequenceterm", FakeResult(rows=[{"sequencetermid": 11}])),
+        ("insert into sequencecourse", FakeResult(rows=[])),
+    ])
+    good_csv = (
+        "Name,Program,EntryTerm,Option,DurationYears\n"
+        "MyPlan,ENG,2251,A,4\n"
+        ",YearNumber,Season,WorkTerm,Notes\n"
+        "1,1,fall,0,notes\n"
+        ",Subject,Catalog,Unused,Label\n"
+        "1,COEN,101,,Course A\n"
+    )
+    data = {"file": (io.BytesIO(good_csv.encode("utf-8")), "plans.csv")}
+    res = client.post("/api/import/sequenceplans", data=data, content_type="multipart/form-data")
+    assert res.status_code == 200
+    assert res.get_json()["planid"] == 10
+
+
+def test_import_student_schedules_validation_and_success(client, monkeypatch):
+    res = client.post("/api/import/student", data={}, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+    bad_csv = "StudyName,Owner,Unused,Unused,Unused\nMyStudy,owner,one\n"
+    data = {"file": (io.BytesIO(bad_csv.encode("utf-8")), "student.csv")}
+    res = client.post("/api/import/student", data=data, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+    install_fake_db(monkeypatch, responses=[
+        ("from studentschedulestudy", FakeResult(rows=[])),
+        ("insert into studentschedulestudy", FakeResult(rows=[{"studyid": 5}])),
+        ("insert into studentschedule", FakeResult(rows=[{"studentscheduleid": 6}])),
+        ("select classnumber, cid from scheduleterm", FakeResult(rows=[{"classnumber": 7, "cid": 88}])),
+        ("insert into studentscheduleclass", FakeResult(rows=[])),
+    ])
+    good_csv = (
+        "StudyName,Owner,Unused,Unused,Unused\n"
+        "MyStudy,owner,_,_,_\n"
+        ",Notes,_,_,_\n"
+        "Schedule A,notes,_,_,_\n"
+        ",Subject,Catalog,Section,TermNumber\n"
+        "Schedule A,COEN,101,001,2251\n"
+    )
+    data = {"file": (io.BytesIO(good_csv.encode("utf-8")), "student.csv")}
+    res = client.post("/api/import/student", data=data, content_type="multipart/form-data")
+    assert res.status_code == 200
+    assert res.get_json()["classes_added"] == 1
+
+
+def test_import_buildings_validation_and_success(client, monkeypatch):
+    res = client.post("/api/import/buildings", data={}, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+    bad_csv = "Campus,Building,BuildingName,Address,Latitude,Longitude\nXYZ,EV,Ev,Addr,1,2\n"
+    data = {"file": (io.BytesIO(bad_csv.encode("utf-8")), "buildings.csv")}
+    res = client.post("/api/import/buildings", data=data, content_type="multipart/form-data")
+    assert res.status_code == 400
+
+    install_fake_db(monkeypatch, responses=[
+        ("insert into building", FakeResult(rows=[])),
+        ("insert into building (campus, building, buildingname", FakeResult(rows=[])),
+    ])
+    good_csv = "Campus,Building,BuildingName,Address,Latitude,Longitude\nSGW,EV,Engineering,123 St,45.0,-73.0\n"
+    data = {"file": (io.BytesIO(good_csv.encode("utf-8")), "buildings.csv")}
+    res = client.post("/api/import/buildings", data=data, content_type="multipart/form-data")
+    assert res.status_code == 200
+    assert res.get_json()["buildings_upserted"] == 1
 
